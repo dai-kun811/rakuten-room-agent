@@ -133,6 +133,12 @@ class RakutenApiClient:
             LOGGER.warning(
                 "RAKUTEN_REFERER が未設定です。楽天アプリ設定でReferer制限がある場合は403になります。"
             )
+        else:
+            LOGGER.info(
+                "楽天API Refererヘッダーを設定します header_names=%s masked_headers=%s",
+                ["Referer"],
+                self._masked_headers({"Referer": referer}),
+            )
 
     def fetch_products(
         self,
@@ -232,7 +238,12 @@ class RakutenApiClient:
         return []
 
     def _get_with_retries(self, params: dict[str, object]) -> Any:
-        headers = {"Referer": self.referer} if self.referer else None
+        headers = self._build_headers()
+        LOGGER.info(
+            "楽天API送信予定ヘッダー header_names=%s masked_headers=%s",
+            sorted(headers),
+            self._masked_headers(headers),
+        )
         for attempt in range(1, MAX_RATE_LIMIT_RETRIES + 2):
             response = self.session.get(
                 self.endpoint_url,
@@ -240,6 +251,7 @@ class RakutenApiClient:
                 headers=headers,
                 timeout=30,
             )
+            self._log_sent_headers(response)
             if response.status_code == 403:
                 return response
             if response.status_code != 429:
@@ -254,6 +266,27 @@ class RakutenApiClient:
             )
             time.sleep(self.retry_sleep_seconds)
         return response
+
+    def _build_headers(self) -> dict[str, str]:
+        return {"Referer": self.referer} if self.referer else {}
+
+    def _log_sent_headers(self, response: Any) -> None:
+        request = getattr(response, "request", None)
+        sent_headers = getattr(request, "headers", None)
+        if not sent_headers:
+            LOGGER.info("楽天API実送信ヘッダーはレスポンスから確認できませんでした。")
+            return
+        headers = dict(sent_headers)
+        LOGGER.info(
+            "楽天API実送信ヘッダー header_names=%s masked_headers=%s",
+            sorted(headers),
+            self._masked_headers(headers),
+        )
+
+    def _masked_headers(self, headers: dict[str, object] | None) -> dict[str, str]:
+        if not headers:
+            return {}
+        return {str(name): "***" for name in headers}
 
     def _to_product(self, category: str, item: dict) -> Product:
         image_url = ""

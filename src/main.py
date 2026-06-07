@@ -30,6 +30,11 @@ def main() -> int:
 
         today = datetime.now(JST).date()
         logger.info("楽天ROOM商品選定を開始します date=%s sheet=%s", today, sheet_name)
+        logger.info(
+            "楽天API Secret読込状況 access_key_configured=%s referer_configured=%s",
+            bool(access_key),
+            bool(referer),
+        )
 
         sheets_client = SheetsClient(spreadsheet_id, service_account_json)
         sheets_client.ensure_headers(sheet_name)

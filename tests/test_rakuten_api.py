@@ -14,10 +14,16 @@ class FakeHttpError(Exception):
 
 
 class FakeResponse:
-    def __init__(self, payload: dict, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        payload: dict,
+        status_code: int = 200,
+        request_headers: dict | None = None,
+    ) -> None:
         self.payload = payload
         self.status_code = status_code
         self.text = ""
+        self.request = type("FakeRequest", (), {"headers": request_headers or {}})()
 
     def json(self) -> dict:
         return self.payload
@@ -50,7 +56,7 @@ class FakeSession:
     ) -> FakeResponse:
         self.calls.append((url, params, headers))
         status_code = self.status_codes.pop(0) if self.status_codes else self.status_code
-        return FakeResponse(self.payload, status_code)
+        return FakeResponse(self.payload, status_code, request_headers=headers)
 
 
 class RakutenApiTest(unittest.TestCase):
@@ -116,6 +122,10 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(
             session.calls[0][2],
             {"Referer": "https://github.com/dai-kun811/rakuten-room-agent"},
+        )
+        self.assertEqual(
+            client._masked_headers(session.calls[0][2]),
+            {"Referer": "***"},
         )
         self.assertEqual(
             set(session.calls[0][1]),
@@ -205,6 +215,16 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(len(session.calls), 1)
         self.assertEqual(report.failed_attempts[0].status_code, 403)
         self.assertIn("Referer設定を確認", report.failed_attempts[0].error)
+
+    def test_build_headers_returns_empty_dict_when_referer_missing(self) -> None:
+        client = RakutenApiClient(
+            "secret-app-id",
+            session=FakeSession({"Items": []}),
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        self.assertEqual(client._build_headers(), {})
 
 
 if __name__ == "__main__":
