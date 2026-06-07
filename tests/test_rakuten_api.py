@@ -121,18 +121,20 @@ class RakutenApiTest(unittest.TestCase):
         products = list(client._search("知育玩具", "知育玩具", 1))
 
         self.assertEqual(session.calls[0][0], LATEST_ITEM_SEARCH_URL)
-        self.assertEqual(session.calls[0][1]["accessKey"], "secret-access-key")
         self.assertEqual(
             session.calls[0][2],
-            {"Referer": "https://github.com/dai-kun811/rakuten-room-agent"},
+            {
+                "Referer": "https://github.com/dai-kun811/rakuten-room-agent",
+                "accessKey": "secret-access-key",
+            },
         )
         self.assertEqual(
             client._masked_headers(session.calls[0][2]),
-            {"Referer": "***"},
+            {"Referer": "***", "accessKey": "***"},
         )
         self.assertEqual(
             set(session.calls[0][1]),
-            {"applicationId", "accessKey", "keyword", "hits", "page", "format"},
+            {"applicationId", "keyword", "hits", "page", "format"},
         )
         self.assertEqual(products[0].url, "https://example.com/latest")
 
@@ -253,6 +255,7 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(session.calls[0][0], LATEST_ITEM_SEARCH_URL)
         self.assertEqual(session.calls[1][0], LEGACY_ITEM_SEARCH_URL)
         self.assertNotIn("accessKey", session.calls[1][1])
+        self.assertNotIn("accessKey", session.calls[1][2])
         self.assertEqual(session.calls[1][2], {"Referer": "https://github.com"})
         self.assertEqual(products[0].url, "https://example.com/fallback")
 
@@ -264,7 +267,7 @@ class RakutenApiTest(unittest.TestCase):
             retry_sleep_seconds=0,
         )
 
-        self.assertEqual(client._build_headers(), {})
+        self.assertEqual(client._build_headers("20170706"), {})
 
     def test_referer_is_normalized_before_sending(self) -> None:
         client = RakutenApiClient(
@@ -275,7 +278,26 @@ class RakutenApiTest(unittest.TestCase):
             retry_sleep_seconds=0,
         )
 
-        self.assertEqual(client._build_headers(), {"Referer": "https://github.com"})
+        self.assertEqual(client._build_headers("20170706"), {"Referer": "https://github.com"})
+
+    def test_access_key_is_sent_as_header_for_latest_endpoint_only(self) -> None:
+        client = RakutenApiClient(
+            "secret-app-id",
+            access_key="secret-access-key",
+            referer="github.com",
+            session=FakeSession({"Items": []}),
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        self.assertEqual(
+            client._build_headers("20260401"),
+            {"Referer": "https://github.com", "accessKey": "secret-access-key"},
+        )
+        self.assertEqual(
+            client._build_headers("20170706"),
+            {"Referer": "https://github.com"},
+        )
 
 
 if __name__ == "__main__":

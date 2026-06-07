@@ -220,8 +220,6 @@ class RakutenApiClient:
             "page": page,
             "format": "json",
         }
-        if self.access_key:
-            params["accessKey"] = self.access_key
 
         response = self._get_with_retries(params, self.endpoint_url, self.endpoint_version)
         if response.status_code == 403 and self.access_key:
@@ -257,7 +255,7 @@ class RakutenApiClient:
         endpoint_url: str,
         endpoint_version: str,
     ) -> Any:
-        headers = self._build_headers()
+        headers = self._build_headers(endpoint_version)
         self._last_endpoint_version = endpoint_version
         LOGGER.info(
             "楽天API送信予定ヘッダー endpoint=%s header_names=%s masked_headers=%s",
@@ -288,8 +286,13 @@ class RakutenApiClient:
             time.sleep(self.retry_sleep_seconds)
         return response
 
-    def _build_headers(self) -> dict[str, str]:
-        return {"Referer": self.referer} if self.referer else {}
+    def _build_headers(self, endpoint_version: str | None = None) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if self.referer:
+            headers["Referer"] = self.referer
+        if self.access_key and endpoint_version == "20260401":
+            headers["accessKey"] = self.access_key
+        return headers
 
     def _log_sent_headers(self, response: Any, endpoint_version: str) -> None:
         request = getattr(response, "request", None)
