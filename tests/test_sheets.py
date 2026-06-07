@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from rakuten_api import Product
 from scoring import score_product
-from sheets import SHEET_HEADERS, scored_product_to_row
+from sheets import SHEET_HEADERS, error_row, scored_product_to_row
 
 
 class SheetsTest(unittest.TestCase):
@@ -34,6 +34,14 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(row[0], "2026-06-08")
         self.assertEqual(row[1], "子ども靴")
         self.assertEqual(row[3], "https://example.com/shoes")
+
+    def test_error_row_matches_requested_columns(self) -> None:
+        row = error_row(today=date(2026, 6, 8), reason="楽天API取得0件")
+
+        self.assertEqual(len(row), len(SHEET_HEADERS))
+        self.assertEqual(row[1], "ERROR")
+        self.assertEqual(row[7], "ERROR")
+        self.assertIn("楽天API取得0件", row[9])
 
 
 if __name__ == "__main__":

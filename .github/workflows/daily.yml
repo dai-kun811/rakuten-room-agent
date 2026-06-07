@@ -27,7 +27,19 @@ jobs:
       - name: Select products and append to Google Sheets
         env:
           RAKUTEN_APPLICATION_ID: ${{ secrets.RAKUTEN_APPLICATION_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           SHEET_NAME: ${{ vars.SHEET_NAME || 'Sheet1' }}
+          ENABLE_RELAXED_FALLBACK: ${{ vars.ENABLE_RELAXED_FALLBACK || 'true' }}
+          STRICT_MIN_REVIEW_COUNT: ${{ vars.STRICT_MIN_REVIEW_COUNT || '100' }}
+          STRICT_MIN_REVIEW_AVERAGE: ${{ vars.STRICT_MIN_REVIEW_AVERAGE || '4.3' }}
+          STRICT_PRIORITY_TOTAL_SCORE: ${{ vars.STRICT_PRIORITY_TOTAL_SCORE || '80' }}
+          STRICT_MIN_TOTAL_SCORE: ${{ vars.STRICT_MIN_TOTAL_SCORE || '70' }}
+          RELAXED_MIN_REVIEW_COUNT: ${{ vars.RELAXED_MIN_REVIEW_COUNT || '30' }}
+          RELAXED_MIN_REVIEW_AVERAGE: ${{ vars.RELAXED_MIN_REVIEW_AVERAGE || '4.0' }}
+          RELAXED_MIN_TOTAL_SCORE: ${{ vars.RELAXED_MIN_TOTAL_SCORE || '50' }}
+          DEBUG_MIN_REVIEW_COUNT: ${{ vars.DEBUG_MIN_REVIEW_COUNT || '0' }}
+          DEBUG_MIN_REVIEW_AVERAGE: ${{ vars.DEBUG_MIN_REVIEW_AVERAGE || '0' }}
+          DEBUG_MIN_TOTAL_SCORE: ${{ vars.DEBUG_MIN_TOTAL_SCORE || '0' }}
         run: python src/main.py

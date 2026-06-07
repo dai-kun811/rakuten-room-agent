@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -51,19 +52,20 @@ class ScoringTest(unittest.TestCase):
         self.assertEqual(score_rating(4.7), 20)
 
     def test_low_review_count_and_rating_are_filtered_out(self) -> None:
-        selected = filter_and_score_products(
-            [
-                product(
-                    name="ベビー 時短 グッズ",
-                    url="https://example.com/ok",
-                    review_count=1200,
-                    review_average=4.7,
-                ),
-                product(name="レビュー不足", url="https://example.com/low-review", review_count=99),
-                product(name="評価不足", url="https://example.com/low-rating", review_average=4.29),
-            ],
-            date(2026, 6, 8),
-        )
+        with patch.dict("os.environ", {"ENABLE_RELAXED_FALLBACK": "false"}):
+            selected = filter_and_score_products(
+                [
+                    product(
+                        name="ベビー 時短 グッズ",
+                        url="https://example.com/ok",
+                        review_count=1200,
+                        review_average=4.7,
+                    ),
+                    product(name="レビュー不足", url="https://example.com/low-review", review_count=99),
+                    product(name="評価不足", url="https://example.com/low-rating", review_average=4.29),
+                ],
+                date(2026, 6, 8),
+            )
 
         self.assertEqual([item.product.url for item in selected], ["https://example.com/ok"])
 
@@ -84,6 +86,24 @@ class ScoringTest(unittest.TestCase):
 
         self.assertEqual(len(selected), 5)
         self.assertTrue(all(item.total_score >= 70 for item in selected))
+
+    def test_relaxed_fallback_can_select_at_least_one_debug_product(self) -> None:
+        selected = filter_and_score_products(
+            [
+                product(
+                    name="商品情報が少ないベビー用品",
+                    url="https://example.com/debug",
+                    review_count=0,
+                    review_average=0,
+                    caption="ベビー",
+                    category="ベビー用品",
+                )
+            ],
+            date(2026, 6, 8),
+        )
+
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0].selection_tier, "debug_minimum")
 
     def test_product_rank_rules(self) -> None:
         self.assertEqual(classify_product(product(name="A", url="a", review_count=1000), 0), "Aランク")

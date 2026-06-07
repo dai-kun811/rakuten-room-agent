@@ -91,6 +91,12 @@ GitHubリポジトリで以下を開きます。
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | サービスアカウントJSON全文 |
 | `SPREADSHEET_ID` | スプレッドシートID |
 
+任意で以下も登録できます。
+
+| Secret名 | 入れる値 |
+| --- | --- |
+| `RAKUTEN_ACCESS_KEY` | 楽天APIのAccess Key。登録すると最新版の商品検索APIを使います。未登録の場合は旧版の商品検索APIを使います。 |
+
 ## 自動実行
 
 ワークフローは [.github/workflows/daily.yml](.github/workflows/daily.yml) にあります。
@@ -183,3 +189,34 @@ python src/main.py
 ## エラー確認
 
 GitHub Actionsで失敗した場合は、Actionsの実行ログを開いてください。どの処理で失敗したか分かるようにログへ原因を出します。
+
+商品が0件だった場合でも、処理を黙って終わらせず、スプレッドシートに `ERROR` 行を追加します。`おすすめ理由` 列に、楽天API取得0件、全商品が30日以内に重複、条件に合う商品が0件などの原因を記録します。
+
+## 商品が0件にならないための段階的な条件緩和
+
+通常は品質条件を優先します。
+
+1. `strict_priority`: レビュー100件以上、評価4.3以上、総合スコア80点以上
+2. `strict`: レビュー100件以上、評価4.3以上、総合スコア70点以上
+3. `relaxed`: レビュー30件以上、評価4.0以上、総合スコア50点以上
+4. `debug_minimum`: レビュー0件以上、評価0以上、総合スコア0点以上
+
+上から順に最大5件まで選びます。これにより、厳格条件で0件の日でも、最低1件は出力されやすくなります。
+
+品質条件を戻したい場合は、GitHub Variablesで調整できます。
+
+| Variable名 | 既定値 |
+| --- | --- |
+| `ENABLE_RELAXED_FALLBACK` | `true` |
+| `STRICT_MIN_REVIEW_COUNT` | `100` |
+| `STRICT_MIN_REVIEW_AVERAGE` | `4.3` |
+| `STRICT_PRIORITY_TOTAL_SCORE` | `80` |
+| `STRICT_MIN_TOTAL_SCORE` | `70` |
+| `RELAXED_MIN_REVIEW_COUNT` | `30` |
+| `RELAXED_MIN_REVIEW_AVERAGE` | `4.0` |
+| `RELAXED_MIN_TOTAL_SCORE` | `50` |
+| `DEBUG_MIN_REVIEW_COUNT` | `0` |
+| `DEBUG_MIN_REVIEW_AVERAGE` | `0` |
+| `DEBUG_MIN_TOTAL_SCORE` | `0` |
+
+厳格条件だけに戻したい場合は、`ENABLE_RELAXED_FALLBACK=false` にしてください。

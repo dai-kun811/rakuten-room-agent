@@ -74,6 +74,10 @@ class SheetsClient:
         rows = [scored_product_to_row(item, today=today) for item in scored_products]
         self.append_rows(sheet_name, rows)
 
+    def append_error(self, sheet_name: str, *, today: date, reason: str) -> None:
+        LOGGER.error("ERROR行をスプレッドシートへ追記します reason=%s", reason)
+        self.append_rows(sheet_name, [error_row(today=today, reason=reason)])
+
     def append_rows(self, sheet_name: str, rows: list[list[object]]) -> None:
         (
             self.service.spreadsheets()
@@ -110,9 +114,26 @@ def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
         product.review_average,
         item.product_rank,
         item.total_score,
-        item.recommendation_reason,
+        f"{item.recommendation_reason} 選定条件={item.selection_tier}",
         build_post_text(item),
         build_hashtags(product.category, item.product_rank),
+    ]
+
+
+def error_row(*, today: date, reason: str) -> list[object]:
+    return [
+        today.isoformat(),
+        "ERROR",
+        "商品データなし",
+        "",
+        "",
+        "",
+        "",
+        "ERROR",
+        "",
+        reason[:1000],
+        "GitHub Actionsのログを確認してください。",
+        "",
     ]
 
 

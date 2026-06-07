@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import date
 
@@ -59,6 +60,7 @@ SEASONAL_WORDS_BY_MONTH = {
 @dataclass(frozen=True)
 class ScoredProduct:
     product: Product
+    selection_tier: str
     sales_score: int
     rating_score: int
     target_score: int
@@ -70,25 +72,97 @@ class ScoredProduct:
 
 
 def filter_and_score_products(products: list[Product], today: date) -> list[ScoredProduct]:
-    scored = [
-        score_product(product, today)
-        for product in products
-        if product.url and product.review_count >= 100 and product.review_average >= 4.3
+    return select_products(products, today, build_selection_tiers_from_env())
+
+
+@dataclass(frozen=True)
+class SelectionTier:
+    name: str
+    min_review_count: int
+    min_review_average: float
+    min_total_score: int
+
+
+def build_selection_tiers_from_env() -> list[SelectionTier]:
+    strict = SelectionTier(
+        name="strict",
+        min_review_count=int(os.getenv("STRICT_MIN_REVIEW_COUNT", "100")),
+        min_review_average=float(os.getenv("STRICT_MIN_REVIEW_AVERAGE", "4.3")),
+        min_total_score=int(os.getenv("STRICT_MIN_TOTAL_SCORE", "70")),
+    )
+
+    if os.getenv("ENABLE_RELAXED_FALLBACK", "true").lower() not in {"1", "true", "yes"}:
+        return [strict]
+
+    return [
+        SelectionTier(
+            name="strict_priority",
+            min_review_count=strict.min_review_count,
+            min_review_average=strict.min_review_average,
+            min_total_score=int(os.getenv("STRICT_PRIORITY_TOTAL_SCORE", "80")),
+        ),
+        strict,
+        SelectionTier(
+            name="relaxed",
+            min_review_count=int(os.getenv("RELAXED_MIN_REVIEW_COUNT", "30")),
+            min_review_average=float(os.getenv("RELAXED_MIN_REVIEW_AVERAGE", "4.0")),
+            min_total_score=int(os.getenv("RELAXED_MIN_TOTAL_SCORE", "50")),
+        ),
+        SelectionTier(
+            name="debug_minimum",
+            min_review_count=int(os.getenv("DEBUG_MIN_REVIEW_COUNT", "0")),
+            min_review_average=float(os.getenv("DEBUG_MIN_REVIEW_AVERAGE", "0")),
+            min_total_score=int(os.getenv("DEBUG_MIN_TOTAL_SCORE", "0")),
+        ),
     ]
-    scored.sort(key=lambda item: item.total_score, reverse=True)
 
-    selected = [item for item in scored if item.total_score >= 80][:5]
-    if len(selected) < 5:
-        seen_urls = {item.product.url for item in selected}
-        selected.extend(
-            item
-            for item in scored
-            if item.total_score >= 70 and item.product.url not in seen_urls
+
+def select_products(
+    products: list[Product], today: date, tiers: list[SelectionTier], limit: int = 5
+) -> list[ScoredProduct]:
+    selected: list[ScoredProduct] = []
+    selected_urls: set[str] = set()
+    for tier in tiers:
+        scored = [
+            score_product(product, today, selection_tier=tier.name)
+            for product in products
+            if product.url
+            and product.url not in selected_urls
+            and product.review_count >= tier.min_review_count
+            and product.review_average >= tier.min_review_average
+        ]
+        scored = [item for item in scored if item.total_score >= tier.min_total_score]
+        scored.sort(key=lambda item: item.total_score, reverse=True)
+        for item in scored:
+            selected.append(item)
+            selected_urls.add(item.product.url)
+            if len(selected) >= limit:
+                return selected
+    return selected
+
+
+def count_filter_results(products: list[Product], tiers: list[SelectionTier]) -> dict[str, int]:
+    results: dict[str, int] = {}
+    for tier in tiers:
+        results[tier.name] = sum(
+            1
+            for product in products
+            if product.url
+            and product.review_count >= tier.min_review_count
+            and product.review_average >= tier.min_review_average
         )
-    return selected[:5]
+    return results
 
 
-def score_product(product: Product, today: date) -> ScoredProduct:
+def score_all_products(products: list[Product], today: date) -> list[ScoredProduct]:
+    scored = [score_product(product, today, selection_tier="diagnostic") for product in products if product.url]
+    scored.sort(key=lambda item: item.total_score, reverse=True)
+    return scored
+
+
+def score_product(
+    product: Product, today: date, *, selection_tier: str = "strict"
+) -> ScoredProduct:
     sales_score = score_sales(product.review_count)
     rating_score = score_rating(product.review_average)
     target_score = score_terms(product.text, TARGET_WORDS, points_per_match=4, max_score=20)
@@ -103,6 +177,7 @@ def score_product(product: Product, today: date) -> ScoredProduct:
     product_rank = classify_product(product, seasonal_score)
     return ScoredProduct(
         product=product,
+        selection_tier=selection_tier,
         sales_score=sales_score,
         rating_score=rating_score,
         target_score=target_score,
