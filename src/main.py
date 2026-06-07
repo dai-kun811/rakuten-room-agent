@@ -23,6 +23,7 @@ def main() -> int:
     try:
         application_id = get_required_env("RAKUTEN_APPLICATION_ID")
         access_key = os.getenv("RAKUTEN_ACCESS_KEY")
+        referer = os.getenv("RAKUTEN_REFERER")
         service_account_json = get_required_env("GOOGLE_SERVICE_ACCOUNT_JSON")
         spreadsheet_id = get_required_env("SPREADSHEET_ID")
         sheet_name = os.getenv("SHEET_NAME", "Sheet1")
@@ -33,7 +34,11 @@ def main() -> int:
         sheets_client = SheetsClient(spreadsheet_id, service_account_json)
         sheets_client.ensure_headers(sheet_name)
 
-        rakuten_client = RakutenApiClient(application_id, access_key=access_key)
+        rakuten_client = RakutenApiClient(
+            application_id,
+            access_key=access_key,
+            referer=referer,
+        )
         products, fetch_report = rakuten_client.fetch_products()
         logger.info(
             "楽天API取得完了 unique_products=%s total_api_items=%s attempts=%s failures=%s",

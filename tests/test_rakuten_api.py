@@ -29,14 +29,28 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self, payload: dict, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        payload: dict,
+        status_code: int = 200,
+        status_codes: list[int] | None = None,
+    ) -> None:
         self.payload = payload
         self.status_code = status_code
-        self.calls: list[tuple[str, dict]] = []
+        self.status_codes = status_codes or []
+        self.calls: list[tuple[str, dict, dict | None]] = []
 
-    def get(self, url: str, *, params: dict, timeout: int) -> FakeResponse:
-        self.calls.append((url, params))
-        return FakeResponse(self.payload, self.status_code)
+    def get(
+        self,
+        url: str,
+        *,
+        params: dict,
+        headers: dict | None = None,
+        timeout: int,
+    ) -> FakeResponse:
+        self.calls.append((url, params, headers))
+        status_code = self.status_codes.pop(0) if self.status_codes else self.status_code
+        return FakeResponse(self.payload, status_code)
 
 
 class RakutenApiTest(unittest.TestCase):
@@ -57,7 +71,12 @@ class RakutenApiTest(unittest.TestCase):
             }
         )
 
-        client = RakutenApiClient("secret-app-id", session=session)
+        client = RakutenApiClient(
+            "secret-app-id",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
         products = list(client._search("ベビー用品", "ベビー用品", 1))
 
         self.assertEqual(session.calls[0][0], LEGACY_ITEM_SEARCH_URL)
@@ -82,11 +101,22 @@ class RakutenApiTest(unittest.TestCase):
             }
         )
 
-        client = RakutenApiClient("secret-app-id", access_key="secret-access-key", session=session)
+        client = RakutenApiClient(
+            "secret-app-id",
+            access_key="secret-access-key",
+            referer="https://github.com/dai-kun811/rakuten-room-agent",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
         products = list(client._search("知育玩具", "知育玩具", 1))
 
         self.assertEqual(session.calls[0][0], LATEST_ITEM_SEARCH_URL)
         self.assertEqual(session.calls[0][1]["accessKey"], "secret-access-key")
+        self.assertEqual(
+            session.calls[0][2],
+            {"Referer": "https://github.com/dai-kun811/rakuten-room-agent"},
+        )
         self.assertEqual(
             set(session.calls[0][1]),
             {"applicationId", "accessKey", "keyword", "hits", "page", "format"},
@@ -101,12 +131,80 @@ class RakutenApiTest(unittest.TestCase):
             },
             status_code=400,
         )
-        client = RakutenApiClient("secret-app-id", session=session)
+        client = RakutenApiClient(
+            "secret-app-id",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
 
         _products, report = client.fetch_products(pages_per_keyword=1)
 
         self.assertEqual(report.failed_attempts[0].status_code, 400)
         self.assertIn("wrong_parameter", report.failed_attempts[0].error)
+
+    def test_fetch_products_limits_initial_request_count(self) -> None:
+        session = FakeSession({"Items": []})
+        client = RakutenApiClient(
+            "secret-app-id",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        _products, report = client.fetch_products()
+
+        self.assertEqual(len(session.calls), 5)
+        self.assertEqual(len(report.attempts), 5)
+
+    def test_429_retries_three_times_then_succeeds(self) -> None:
+        session = FakeSession(
+            {
+                "items": [
+                    {
+                        "itemName": "知育玩具",
+                        "itemUrl": "https://example.com/rate-limit",
+                    }
+                ]
+            },
+            status_codes=[429, 429, 429, 200],
+        )
+        client = RakutenApiClient(
+            "secret-app-id",
+            access_key="secret-access-key",
+            referer="https://github.com/dai-kun811/rakuten-room-agent",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        products = list(client._search("知育玩具", "知育玩具", 1))
+
+        self.assertEqual(len(session.calls), 4)
+        self.assertEqual(products[0].url, "https://example.com/rate-limit")
+
+    def test_403_does_not_retry_and_mentions_referer(self) -> None:
+        session = FakeSession(
+            {
+                "error": "REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING",
+                "error_description": "referer is missing",
+            },
+            status_code=403,
+        )
+        client = RakutenApiClient(
+            "secret-app-id",
+            access_key="secret-access-key",
+            referer="https://github.com/dai-kun811/rakuten-room-agent",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        _products, report = client.fetch_products(category_limit=1)
+
+        self.assertEqual(len(session.calls), 1)
+        self.assertEqual(report.failed_attempts[0].status_code, 403)
+        self.assertIn("Referer設定を確認", report.failed_attempts[0].error)
 
 
 if __name__ == "__main__":

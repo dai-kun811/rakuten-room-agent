@@ -14,6 +14,12 @@ LATEST_ITEM_SEARCH_URL = (
     "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401"
 )
 DEFAULT_HITS = 30
+DEFAULT_CATEGORY_LIMIT = 5
+DEFAULT_KEYWORDS_PER_CATEGORY = 1
+DEFAULT_PAGES_PER_KEYWORD = 1
+REQUEST_INTERVAL_SECONDS = 2.0
+RATE_LIMIT_RETRY_SECONDS = 3.0
+MAX_RATE_LIMIT_RETRIES = 3
 
 
 @dataclass(frozen=True)
@@ -101,7 +107,10 @@ class RakutenApiClient:
         application_id: str,
         *,
         access_key: str | None = None,
+        referer: str | None = None,
         session: Any | None = None,
+        request_interval_seconds: float = REQUEST_INTERVAL_SECONDS,
+        retry_sleep_seconds: float = RATE_LIMIT_RETRY_SECONDS,
     ) -> None:
         if session is None:
             import requests
@@ -109,7 +118,10 @@ class RakutenApiClient:
             session = requests.Session()
         self.application_id = application_id
         self.access_key = access_key
+        self.referer = referer
         self.session = session
+        self.request_interval_seconds = request_interval_seconds
+        self.retry_sleep_seconds = retry_sleep_seconds
         self.endpoint_url = LATEST_ITEM_SEARCH_URL if access_key else LEGACY_ITEM_SEARCH_URL
         self.endpoint_version = "20260401" if access_key else "20170706"
         if not access_key:
@@ -117,12 +129,22 @@ class RakutenApiClient:
                 "RAKUTEN_ACCESS_KEY が未設定のため旧版の楽天商品検索APIを使用します。"
                 "最新版APIを使う場合はGitHub Secretsへ RAKUTEN_ACCESS_KEY を追加してください。"
             )
+        if not referer:
+            LOGGER.warning(
+                "RAKUTEN_REFERER が未設定です。楽天アプリ設定でReferer制限がある場合は403になります。"
+            )
 
-    def fetch_products(self, *, pages_per_keyword: int = 2) -> tuple[list[Product], FetchReport]:
+    def fetch_products(
+        self,
+        *,
+        category_limit: int = DEFAULT_CATEGORY_LIMIT,
+        keywords_per_category: int = DEFAULT_KEYWORDS_PER_CATEGORY,
+        pages_per_keyword: int = DEFAULT_PAGES_PER_KEYWORD,
+    ) -> tuple[list[Product], FetchReport]:
         products_by_url: dict[str, Product] = {}
         report = FetchReport()
-        for category, keywords in CATEGORY_KEYWORDS.items():
-            for keyword in keywords:
+        for category, keywords in list(CATEGORY_KEYWORDS.items())[:category_limit]:
+            for keyword in keywords[:keywords_per_category]:
                 for page in range(1, pages_per_keyword + 1):
                     try:
                         products = list(self._search(category, keyword, page))
@@ -176,7 +198,9 @@ class RakutenApiClient:
                             status_code if status_code is not None else "unknown",
                             error,
                         )
-                    time.sleep(0.2)
+                        if status_code == 403:
+                            return list(products_by_url.values()), report
+                    time.sleep(self.request_interval_seconds)
         return list(products_by_url.values()), report
 
     def _search(self, category: str, keyword: str, page: int) -> Iterable[Product]:
@@ -192,7 +216,7 @@ class RakutenApiClient:
         if self.access_key:
             params["accessKey"] = self.access_key
 
-        response = self.session.get(self.endpoint_url, params=params, timeout=30)
+        response = self._get_with_retries(params)
         if response.status_code == 404:
             LOGGER.info("楽天APIに該当商品がありません category=%s keyword=%s page=%s", category, keyword, page)
             return []
@@ -206,6 +230,30 @@ class RakutenApiClient:
         if "Items" in payload:
             return [item["Item"] if "Item" in item else item for item in payload.get("Items", [])]
         return []
+
+    def _get_with_retries(self, params: dict[str, object]) -> Any:
+        headers = {"Referer": self.referer} if self.referer else None
+        for attempt in range(1, MAX_RATE_LIMIT_RETRIES + 2):
+            response = self.session.get(
+                self.endpoint_url,
+                params=params,
+                headers=headers,
+                timeout=30,
+            )
+            if response.status_code == 403:
+                return response
+            if response.status_code != 429:
+                return response
+            if attempt > MAX_RATE_LIMIT_RETRIES:
+                return response
+            LOGGER.warning(
+                "楽天APIのレート制限を検知しました。%s秒待って再試行します attempt=%s/%s",
+                int(self.retry_sleep_seconds),
+                attempt,
+                MAX_RATE_LIMIT_RETRIES,
+            )
+            time.sleep(self.retry_sleep_seconds)
+        return response
 
     def _to_product(self, category: str, item: dict) -> Product:
         image_url = ""
@@ -235,6 +283,8 @@ class RakutenApiClient:
                 error = payload.get("error", "")
                 description = payload.get("error_description", "")
                 detail = " ".join(part for part in [error, description] if part)
+                if response.status_code == 403:
+                    detail = f"{detail} Referer設定を確認してください。"
                 return (detail or str(payload))[:300]
             error = payload
             return str(error)[:300]
