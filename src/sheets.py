@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from post_generator import build_hashtags, build_post_text
 from scoring import ScoredProduct
@@ -44,22 +44,21 @@ class SheetsClient:
             return
         self.append_rows(sheet_name, [SHEET_HEADERS])
 
-    def read_recent_urls(self, sheet_name: str, *, today: date, days: int = 30) -> set[str]:
+    def read_existing_urls(self, sheet_name: str) -> set[str]:
         values = self.read_values(f"{sheet_name}!A:L")
         if not values:
             return set()
 
         rows = values[1:] if values[0] == SHEET_HEADERS else values
-        threshold = today - timedelta(days=days)
-        recent_urls: set[str] = set()
+        existing_urls: set[str] = set()
 
         for row in rows:
             if len(row) < 4:
                 continue
-            row_date = parse_date(row[0])
-            if row_date and row_date >= threshold and row[3]:
-                recent_urls.add(row[3])
-        return recent_urls
+            product_url = row[3].strip() if isinstance(row[3], str) else str(row[3])
+            if product_url.startswith("http"):
+                existing_urls.add(normalize_product_url(product_url))
+        return existing_urls
 
     def append_products(
         self,
@@ -142,3 +141,7 @@ def parse_date(value: str) -> date | None:
         return datetime.fromisoformat(value[:10]).date()
     except ValueError:
         return None
+
+
+def normalize_product_url(url: str) -> str:
+    return url.strip().split("?")[0].rstrip("/")

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from rakuten_api import RakutenApiClient
 from scoring import build_selection_tiers_from_env, count_filter_results, score_all_products, select_products
-from sheets import SheetsClient
+from sheets import SheetsClient, normalize_product_url
 
 JST = ZoneInfo("Asia/Tokyo")
 
@@ -59,14 +59,18 @@ def main() -> int:
             sheets_client.append_error(sheet_name, today=today, reason=reason)
             return 0
 
-        recent_urls = sheets_client.read_recent_urls(sheet_name, today=today, days=30)
-        logger.info("過去30日以内の出力済みURLを読み込みました count=%s", len(recent_urls))
+        existing_urls = sheets_client.read_existing_urls(sheet_name)
+        logger.info("作成済みの商品URLを全履歴から読み込みました count=%s", len(existing_urls))
 
-        deduped_products = [product for product in products if product.url not in recent_urls]
+        deduped_products = [
+            product
+            for product in products
+            if normalize_product_url(product.url) not in existing_urls
+        ]
         logger.info("重複除外後の商品数 count=%s", len(deduped_products))
 
         if not deduped_products:
-            reason = "楽天APIから商品は取得できましたが、過去30日以内に出力済みの商品URLとすべて重複しました。"
+            reason = "楽天APIから商品は取得できましたが、作成済みの商品URLとすべて重複しました。"
             logger.error(reason)
             sheets_client.append_error(sheet_name, today=today, reason=reason)
             return 0
