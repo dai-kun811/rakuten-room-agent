@@ -116,7 +116,7 @@ def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
         item.total_score,
         f"{item.recommendation_reason} 選定条件={item.selection_tier}",
         build_post_text(item),
-        build_hashtags(product.category, item.product_rank),
+        build_hashtags(item),
     ]
 
 

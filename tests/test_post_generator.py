@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from post_generator import (
     BANNED_EXPRESSIONS,
-    REQUIRED_HASHTAGS,
+    BRAND_HASHTAG,
     build_hashtags,
     build_post_text,
     shorten_product_name,
@@ -45,11 +45,31 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertLessEqual(len(post_text), 350)
 
     def test_hashtags_include_required_tags(self) -> None:
-        hashtags = build_hashtags("絵本", "Aランク")
+        scored = score_product(
+            Product(
+                category="絵本",
+                name="3歳から楽しめる 知育 絵本",
+                url="https://example.com/book",
+                price=1200,
+                review_count=400,
+                review_average=4.6,
+                caption="読み聞かせ おうち遊び 3歳",
+                catchcopy="プレゼントにもおすすめ",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
 
-        for tag in REQUIRED_HASHTAGS:
-            self.assertIn(tag, hashtags)
-        self.assertEqual(len(hashtags.split()), 5)
+        hashtags = build_hashtags(scored)
+        tags = hashtags.split()
+
+        self.assertEqual(len(tags), 5)
+        self.assertEqual(tags[-1], BRAND_HASHTAG)
+        self.assertIn("#プレゼントにおすすめ", tags)
+        self.assertIn("#絵本", tags)
+        self.assertIn("#おうち遊び", tags)
+        self.assertIn("#3歳育児", tags)
 
     def test_long_product_name_is_shortened(self) -> None:
         name = "【送料無料】知育 おもちゃ セット 木製 パズル 積み木 プレゼント 子ども 幼児"
@@ -88,6 +108,52 @@ class PostGeneratorTest(unittest.TestCase):
             "まずは商品ページで",
         ]
         self.assertTrue(all(phrase not in post_text for phrase in forbidden))
+
+    def test_hashtags_avoid_broad_low_intent_tags(self) -> None:
+        scored = score_product(
+            Product(
+                category="育児時短グッズ",
+                name="共働き家庭向け 時短 ベビーグッズ",
+                url="https://example.com/time",
+                price=2500,
+                review_count=300,
+                review_average=4.5,
+                caption="育児 時短 ベビー 共働き",
+                catchcopy="おすすめ",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
+
+        tags = build_hashtags(scored).split()
+
+        self.assertEqual(tags, ["#おすすめ品", "#ベビーグッズ", "#育児時短", "#共働き育児", "#とらパパ厳選"])
+        self.assertNotIn("#子育て", tags)
+        self.assertNotIn("#育児", tags)
+        self.assertNotIn("#ママ", tags)
+        self.assertNotIn("#パパ", tags)
+
+    def test_post_text_uses_some_emoji(self) -> None:
+        scored = score_product(
+            Product(
+                category="おうち遊び",
+                name="室内遊び 知育おもちゃ",
+                url="https://example.com/home",
+                price=1800,
+                review_count=250,
+                review_average=4.4,
+                caption="おうち遊び 知育",
+                catchcopy="人気",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertTrue(any(emoji in post_text for emoji in ["✨", "🧸", "📝", "😊", "🎁"]))
 
 
 if __name__ == "__main__":
