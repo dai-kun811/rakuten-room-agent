@@ -13,7 +13,7 @@ LEGACY_ITEM_SEARCH_URL = (
 LATEST_ITEM_SEARCH_URL = (
     "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260401"
 )
-DEFAULT_GENRE_ID = "100533"
+DEFAULT_HITS = 30
 
 
 @dataclass(frozen=True)
@@ -101,7 +101,6 @@ class RakutenApiClient:
         application_id: str,
         *,
         access_key: str | None = None,
-        genre_id: str = DEFAULT_GENRE_ID,
         session: Any | None = None,
     ) -> None:
         if session is None:
@@ -110,7 +109,6 @@ class RakutenApiClient:
             session = requests.Session()
         self.application_id = application_id
         self.access_key = access_key
-        self.genre_id = genre_id
         self.session = session
         self.endpoint_url = LATEST_ITEM_SEARCH_URL if access_key else LEGACY_ITEM_SEARCH_URL
         self.endpoint_version = "20260401" if access_key else "20170706"
@@ -121,8 +119,6 @@ class RakutenApiClient:
             )
 
     def fetch_products(self, *, pages_per_keyword: int = 2) -> tuple[list[Product], FetchReport]:
-        import requests
-
         products_by_url: dict[str, Product] = {}
         report = FetchReport()
         for category, keywords in CATEGORY_KEYWORDS.items():
@@ -150,9 +146,16 @@ class RakutenApiClient:
                         )
                         for product in products:
                             products_by_url.setdefault(product.url, product)
-                    except requests.HTTPError as exc:
-                        status_code = exc.response.status_code if exc.response else None
-                        error = self._safe_error_text(exc.response)
+                    except Exception as exc:
+                        response = getattr(exc, "response", None)
+                        status_code = (
+                            response.status_code if response is not None else None
+                        )
+                        error = (
+                            self._safe_error_text(response)
+                            if response is not None
+                            else str(exc)
+                        )
                         report.attempts.append(
                             QueryAttempt(
                                 category=category,
@@ -173,47 +176,21 @@ class RakutenApiClient:
                             status_code if status_code is not None else "unknown",
                             error,
                         )
-                    except requests.RequestException as exc:
-                        report.attempts.append(
-                            QueryAttempt(
-                                category=category,
-                                keyword=keyword,
-                                page=page,
-                                endpoint_version=self.endpoint_version,
-                                status_code=None,
-                                item_count=0,
-                                error=str(exc),
-                            )
-                        )
-                        LOGGER.warning(
-                            "楽天API接続失敗 category=%s keyword=%s page=%s endpoint=%s error=%s",
-                            category,
-                            keyword,
-                            page,
-                            self.endpoint_version,
-                            exc,
-                        )
                     time.sleep(0.2)
         return list(products_by_url.values()), report
 
     def _search(self, category: str, keyword: str, page: int) -> Iterable[Product]:
+        # Keep the request intentionally minimal. Product quality filters are
+        # applied after API retrieval to avoid wrong_parameter failures.
         params = {
             "applicationId": self.application_id,
-            "format": "json",
             "keyword": keyword,
-            "genreId": self.genre_id,
-            "hits": 30,
+            "hits": DEFAULT_HITS,
             "page": page,
-            "sort": "-reviewCount",
-            "availability": 1,
-            "imageFlag": 1,
-            "hasReviewFlag": 1,
-            "orFlag": 1,
-            "field": 0,
+            "format": "json",
         }
         if self.access_key:
             params["accessKey"] = self.access_key
-            params["formatVersion"] = 2
 
         response = self.session.get(self.endpoint_url, params=params, timeout=30)
         if response.status_code == 404:
@@ -254,7 +231,12 @@ class RakutenApiClient:
             return ""
         try:
             payload = response.json()
-            error = payload.get("error") or payload.get("error_description") or payload
+            if isinstance(payload, dict):
+                error = payload.get("error", "")
+                description = payload.get("error_description", "")
+                detail = " ".join(part for part in [error, description] if part)
+                return (detail or str(payload))[:300]
+            error = payload
             return str(error)[:300]
         except ValueError:
             return response.text[:300]
