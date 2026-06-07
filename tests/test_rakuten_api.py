@@ -40,10 +40,12 @@ class FakeSession:
         payload: dict,
         status_code: int = 200,
         status_codes: list[int] | None = None,
+        payloads: list[dict] | None = None,
     ) -> None:
         self.payload = payload
         self.status_code = status_code
         self.status_codes = status_codes or []
+        self.payloads = payloads or []
         self.calls: list[tuple[str, dict, dict | None]] = []
 
     def get(
@@ -56,7 +58,8 @@ class FakeSession:
     ) -> FakeResponse:
         self.calls.append((url, params, headers))
         status_code = self.status_codes.pop(0) if self.status_codes else self.status_code
-        return FakeResponse(self.payload, status_code, request_headers=headers)
+        payload = self.payloads.pop(0) if self.payloads else self.payload
+        return FakeResponse(payload, status_code, request_headers=headers)
 
 
 class RakutenApiTest(unittest.TestCase):
@@ -193,7 +196,7 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(len(session.calls), 4)
         self.assertEqual(products[0].url, "https://example.com/rate-limit")
 
-    def test_403_does_not_retry_and_mentions_referer(self) -> None:
+    def test_403_falls_back_once_and_mentions_referer_if_legacy_also_fails(self) -> None:
         session = FakeSession(
             {
                 "error": "REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING",
@@ -212,9 +215,46 @@ class RakutenApiTest(unittest.TestCase):
 
         _products, report = client.fetch_products(category_limit=1)
 
-        self.assertEqual(len(session.calls), 1)
+        self.assertEqual(len(session.calls), 2)
+        self.assertEqual(session.calls[0][0], LATEST_ITEM_SEARCH_URL)
+        self.assertEqual(session.calls[1][0], LEGACY_ITEM_SEARCH_URL)
         self.assertEqual(report.failed_attempts[0].status_code, 403)
         self.assertIn("Referer設定を確認", report.failed_attempts[0].error)
+
+    def test_latest_referer_403_falls_back_to_legacy_endpoint(self) -> None:
+        session = FakeSession(
+            {},
+            status_codes=[403, 200],
+            payloads=[
+                {"error": "REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING"},
+                {
+                    "Items": [
+                        {
+                            "Item": {
+                                "itemName": "ベビー用品",
+                                "itemUrl": "https://example.com/fallback",
+                            }
+                        }
+                    ]
+                },
+            ],
+        )
+        client = RakutenApiClient(
+            "secret-app-id",
+            access_key="secret-access-key",
+            referer="github.com",
+            session=session,
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        products = list(client._search("ベビー用品", "ベビー用品", 1))
+
+        self.assertEqual(session.calls[0][0], LATEST_ITEM_SEARCH_URL)
+        self.assertEqual(session.calls[1][0], LEGACY_ITEM_SEARCH_URL)
+        self.assertNotIn("accessKey", session.calls[1][1])
+        self.assertEqual(session.calls[1][2], {"Referer": "https://github.com"})
+        self.assertEqual(products[0].url, "https://example.com/fallback")
 
     def test_build_headers_returns_empty_dict_when_referer_missing(self) -> None:
         client = RakutenApiClient(
@@ -225,6 +265,17 @@ class RakutenApiTest(unittest.TestCase):
         )
 
         self.assertEqual(client._build_headers(), {})
+
+    def test_referer_is_normalized_before_sending(self) -> None:
+        client = RakutenApiClient(
+            "secret-app-id",
+            referer=" github.com ",
+            session=FakeSession({"Items": []}),
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        self.assertEqual(client._build_headers(), {"Referer": "https://github.com"})
 
 
 if __name__ == "__main__":

@@ -118,18 +118,19 @@ class RakutenApiClient:
             session = requests.Session()
         self.application_id = application_id
         self.access_key = access_key
-        self.referer = referer
+        self.referer = self._normalize_referer(referer)
         self.session = session
         self.request_interval_seconds = request_interval_seconds
         self.retry_sleep_seconds = retry_sleep_seconds
         self.endpoint_url = LATEST_ITEM_SEARCH_URL if access_key else LEGACY_ITEM_SEARCH_URL
         self.endpoint_version = "20260401" if access_key else "20170706"
+        self._last_endpoint_version = self.endpoint_version
         if not access_key:
             LOGGER.warning(
                 "RAKUTEN_ACCESS_KEY が未設定のため旧版の楽天商品検索APIを使用します。"
                 "最新版APIを使う場合はGitHub Secretsへ RAKUTEN_ACCESS_KEY を追加してください。"
             )
-        if not referer:
+        if not self.referer:
             LOGGER.warning(
                 "RAKUTEN_REFERER が未設定です。楽天アプリ設定でReferer制限がある場合は403になります。"
             )
@@ -137,7 +138,7 @@ class RakutenApiClient:
             LOGGER.info(
                 "楽天API Refererヘッダーを設定します header_names=%s masked_headers=%s",
                 ["Referer"],
-                self._masked_headers({"Referer": referer}),
+                self._masked_headers({"Referer": self.referer}),
             )
 
     def fetch_products(
@@ -159,7 +160,7 @@ class RakutenApiClient:
                                 category=category,
                                 keyword=keyword,
                                 page=page,
-                                endpoint_version=self.endpoint_version,
+                                endpoint_version=self._last_endpoint_version,
                                 status_code=200,
                                 item_count=len(products),
                             )
@@ -189,7 +190,7 @@ class RakutenApiClient:
                                 category=category,
                                 keyword=keyword,
                                 page=page,
-                                endpoint_version=self.endpoint_version,
+                                endpoint_version=self._last_endpoint_version,
                                 status_code=status_code,
                                 item_count=0,
                                 error=error,
@@ -200,7 +201,7 @@ class RakutenApiClient:
                             category,
                             keyword,
                             page,
-                            self.endpoint_version,
+                            self._last_endpoint_version,
                             status_code if status_code is not None else "unknown",
                             error,
                         )
@@ -222,7 +223,20 @@ class RakutenApiClient:
         if self.access_key:
             params["accessKey"] = self.access_key
 
-        response = self._get_with_retries(params)
+        response = self._get_with_retries(params, self.endpoint_url, self.endpoint_version)
+        if response.status_code == 403 and self.access_key:
+            error = self._safe_error_text(response)
+            if "REFERRER" in error.upper() or "REFERER" in error.upper():
+                LOGGER.warning(
+                    "最新版楽天APIでRefererエラーが発生したため旧APIへフォールバックします。"
+                )
+                legacy_params = dict(params)
+                legacy_params.pop("accessKey", None)
+                response = self._get_with_retries(
+                    legacy_params,
+                    LEGACY_ITEM_SEARCH_URL,
+                    "20170706",
+                )
         if response.status_code == 404:
             LOGGER.info("楽天APIに該当商品がありません category=%s keyword=%s page=%s", category, keyword, page)
             return []
@@ -237,21 +251,28 @@ class RakutenApiClient:
             return [item["Item"] if "Item" in item else item for item in payload.get("Items", [])]
         return []
 
-    def _get_with_retries(self, params: dict[str, object]) -> Any:
+    def _get_with_retries(
+        self,
+        params: dict[str, object],
+        endpoint_url: str,
+        endpoint_version: str,
+    ) -> Any:
         headers = self._build_headers()
+        self._last_endpoint_version = endpoint_version
         LOGGER.info(
-            "楽天API送信予定ヘッダー header_names=%s masked_headers=%s",
+            "楽天API送信予定ヘッダー endpoint=%s header_names=%s masked_headers=%s",
+            endpoint_version,
             sorted(headers),
             self._masked_headers(headers),
         )
         for attempt in range(1, MAX_RATE_LIMIT_RETRIES + 2):
             response = self.session.get(
-                self.endpoint_url,
+                endpoint_url,
                 params=params,
                 headers=headers,
                 timeout=30,
             )
-            self._log_sent_headers(response)
+            self._log_sent_headers(response, endpoint_version)
             if response.status_code == 403:
                 return response
             if response.status_code != 429:
@@ -270,15 +291,16 @@ class RakutenApiClient:
     def _build_headers(self) -> dict[str, str]:
         return {"Referer": self.referer} if self.referer else {}
 
-    def _log_sent_headers(self, response: Any) -> None:
+    def _log_sent_headers(self, response: Any, endpoint_version: str) -> None:
         request = getattr(response, "request", None)
         sent_headers = getattr(request, "headers", None)
         if not sent_headers:
-            LOGGER.info("楽天API実送信ヘッダーはレスポンスから確認できませんでした。")
+            LOGGER.info("楽天API実送信ヘッダーはレスポンスから確認できませんでした endpoint=%s", endpoint_version)
             return
         headers = dict(sent_headers)
         LOGGER.info(
-            "楽天API実送信ヘッダー header_names=%s masked_headers=%s",
+            "楽天API実送信ヘッダー endpoint=%s header_names=%s masked_headers=%s",
+            endpoint_version,
             sorted(headers),
             self._masked_headers(headers),
         )
@@ -287,6 +309,16 @@ class RakutenApiClient:
         if not headers:
             return {}
         return {str(name): "***" for name in headers}
+
+    def _normalize_referer(self, referer: str | None) -> str | None:
+        if not referer:
+            return None
+        normalized = referer.strip()
+        if not normalized:
+            return None
+        if not normalized.startswith(("http://", "https://")):
+            normalized = f"https://{normalized}"
+        return normalized
 
     def _to_product(self, category: str, item: dict) -> Product:
         image_url = ""

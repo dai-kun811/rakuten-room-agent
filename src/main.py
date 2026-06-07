@@ -33,7 +33,7 @@ def main() -> int:
         logger.info(
             "楽天API Secret読込状況 access_key_configured=%s referer_configured=%s",
             bool(access_key),
-            bool(referer),
+            bool(referer and referer.strip()),
         )
 
         sheets_client = SheetsClient(spreadsheet_id, service_account_json)
