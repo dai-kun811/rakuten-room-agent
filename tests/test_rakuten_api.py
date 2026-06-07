@@ -124,13 +124,14 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(
             session.calls[0][2],
             {
+                "Origin": "https://github.com",
                 "Referer": "https://github.com/dai-kun811/rakuten-room-agent",
                 "accessKey": "secret-access-key",
             },
         )
         self.assertEqual(
             client._masked_headers(session.calls[0][2]),
-            {"Referer": "***", "accessKey": "***"},
+            {"Origin": "***", "Referer": "***", "accessKey": "***"},
         )
         self.assertEqual(
             set(session.calls[0][1]),
@@ -256,7 +257,10 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(session.calls[1][0], LEGACY_ITEM_SEARCH_URL)
         self.assertNotIn("accessKey", session.calls[1][1])
         self.assertNotIn("accessKey", session.calls[1][2])
-        self.assertEqual(session.calls[1][2], {"Referer": "https://github.com"})
+        self.assertEqual(
+            session.calls[1][2],
+            {"Origin": "https://github.com", "Referer": "https://github.com"},
+        )
         self.assertEqual(products[0].url, "https://example.com/fallback")
 
     def test_build_headers_returns_empty_dict_when_referer_missing(self) -> None:
@@ -278,7 +282,10 @@ class RakutenApiTest(unittest.TestCase):
             retry_sleep_seconds=0,
         )
 
-        self.assertEqual(client._build_headers("20170706"), {"Referer": "https://github.com"})
+        self.assertEqual(
+            client._build_headers("20170706"),
+            {"Origin": "https://github.com", "Referer": "https://github.com"},
+        )
 
     def test_access_key_is_sent_as_header_for_latest_endpoint_only(self) -> None:
         client = RakutenApiClient(
@@ -292,12 +299,27 @@ class RakutenApiTest(unittest.TestCase):
 
         self.assertEqual(
             client._build_headers("20260401"),
-            {"Referer": "https://github.com", "accessKey": "secret-access-key"},
+            {
+                "Origin": "https://github.com",
+                "Referer": "https://github.com",
+                "accessKey": "secret-access-key",
+            },
         )
         self.assertEqual(
             client._build_headers("20170706"),
-            {"Referer": "https://github.com"},
+            {"Origin": "https://github.com", "Referer": "https://github.com"},
         )
+
+    def test_origin_is_derived_from_referer_path(self) -> None:
+        client = RakutenApiClient(
+            "secret-app-id",
+            referer="https://github.com/dai-kun811/rakuten-room-agent",
+            session=FakeSession({"Items": []}),
+            request_interval_seconds=0,
+            retry_sleep_seconds=0,
+        )
+
+        self.assertEqual(client._origin_from_referer(), "https://github.com")
 
 
 if __name__ == "__main__":

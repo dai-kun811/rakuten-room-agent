@@ -221,6 +221,7 @@ GitHub Actionsのログには、値を出さずに以下を表示します。
 
 ヘッダーの値は `***` でマスクされます。
 最新版APIでは `accessKey` もHTTPヘッダーで送信します。ログにはヘッダー名だけ表示し、値は表示しません。
+楽天側のReferer判定に対応するため、`RAKUTEN_REFERER` から `Origin` も自動生成して送信します。たとえば `RAKUTEN_REFERER=https://github.com/dai-kun811/rakuten-room-agent` の場合、`Origin=https://github.com` を送ります。
 
 ## 楽天API取得の方針
 

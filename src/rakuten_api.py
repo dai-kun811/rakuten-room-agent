@@ -4,6 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 LOGGER = logging.getLogger(__name__)
 
@@ -290,6 +291,9 @@ class RakutenApiClient:
         headers: dict[str, str] = {}
         if self.referer:
             headers["Referer"] = self.referer
+        origin = self._origin_from_referer()
+        if origin:
+            headers["Origin"] = origin
         if self.access_key and endpoint_version == "20260401":
             headers["accessKey"] = self.access_key
         return headers
@@ -322,6 +326,14 @@ class RakutenApiClient:
         if not normalized.startswith(("http://", "https://")):
             normalized = f"https://{normalized}"
         return normalized
+
+    def _origin_from_referer(self) -> str | None:
+        if not self.referer:
+            return None
+        parsed = urlparse(self.referer)
+        if not parsed.scheme or not parsed.netloc:
+            return None
+        return f"{parsed.scheme}://{parsed.netloc}"
 
     def _to_product(self, category: str, item: dict) -> Product:
         image_url = ""
