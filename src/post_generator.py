@@ -22,6 +22,9 @@ BANNED_EXPRESSIONS = [
     "まずは商品ページで",
     "訴求語",
     "総合スコア",
+    "レビュー件数が多いので人気です",
+    "評価が高いのでおすすめです",
+    "レビューで好評です",
 ]
 
 BROAD_LOW_INTENT_TAGS = {"#子育て", "#育児", "#ママ", "#パパ"}
@@ -48,7 +51,7 @@ def build_post_text(scored: ScoredProduct) -> str:
     appeal = determine_appeal_category(product)
     benefit = build_benefit(product, appeal)
     child_reason = child_fit_sentence(product, appeal)
-    choice_reason = choice_reason_sentence(product, appeal)
+    differentiation_reason = review_differentiation_sentence(product, appeal)
     child_benefit = child_benefit_sentence(product, appeal, benefit)
     parent_value = parent_benefit_sentence(product, appeal)
     check_sentence = purchase_check_sentence(product, appeal)
@@ -56,8 +59,9 @@ def build_post_text(scored: ScoredProduct) -> str:
         f"【{benefit}◎ {short_name}】\n\n"
         "【投稿文】\n"
         f"{empathy_sentence(appeal)}\n\n"
-        f"{short_name}を選びやすい理由は、{choice_reason}\n\n"
-        f"{child_reason}{child_benefit}\n\n"
+        f"{child_reason}\n\n"
+        f"{differentiation_reason}\n\n"
+        f"{child_benefit}\n\n"
         f"親目線では、{parent_value}のが助かるところ✨\n\n"
         f"{check_sentence}"
         f"{recommendation_sentence(appeal, product.text)}"
@@ -304,6 +308,39 @@ def choice_reason_sentence(product: Product, appeal: str) -> str:
     if appeal == "お風呂嫌い対策":
         return "苦手になりがちな時間を楽しい方向に変えやすいところ。"
     return "育児の悩みに対して使う場面が分かりやすいところ。"
+
+
+def review_differentiation_sentence(product: Product, appeal: str) -> str:
+    text = product.text
+    if any(word in text for word in ["ring10", "ring 10", "リング10"]) or (
+        "リング" in text and appeal == "知育玩具"
+    ):
+        return "遊び方が1つではなく、成長に合わせて長く遊べるところが選ばれている理由のひとつ✨"
+    if any(word in text for word in ["マグビルド", "マグネット"]) and any(
+        word in text for word in ["スロープ", "ボール", "コース"]
+    ):
+        return "マグネットブロックはたくさんありますが、スロープ遊びまで楽しめるので長く遊びやすいのが魅力😊"
+    if "音いっぱい" in text or ("音" in text and any(word in text for word in ["積み木", "つみき"])):
+        return "積むだけでなく音の違いも楽しめるので、はじめての積み木として選ばれているようです🎵"
+    if any(word in text for word in ["キッズカメラ", "子どもカメラ", "トイカメラ"]):
+        return "ゲーム機能よりも「写真を撮る楽しさ」を重視したい家庭に人気のアイテム📸"
+    if appeal == "プレゼント":
+        return "贈る相手の生活に取り入れやすく、失敗しにくいギフト候補として選ばれやすい印象です🎁"
+    if appeal == "育児時短":
+        return "似た便利グッズの中でも、準備や片づけの手間を減らす目的が分かりやすいところが魅力です✨"
+    if appeal == "通園準備":
+        return "通園まわりで毎日使う場面を想像しやすく、買い足し候補にしやすいところが選ばれる理由です😊"
+    if appeal == "食事サポート":
+        return "食事の見守りや片づけまで考えやすく、親の負担を減らしやすいところが選ばれやすいポイントです✨"
+    if appeal == "お風呂嫌い対策":
+        return "お風呂を嫌がる時間を、遊びやすい時間に変えられるところが選ばれている理由のひとつです🛁"
+    if appeal == "外遊び":
+        return "外で体を動かすきっかけを作りやすく、休日や公園遊びに使いやすいところが魅力です😊"
+    if appeal == "睡眠サポート":
+        return "寝る前の流れを整えたい家庭にとって、毎日の習慣にしやすいところが選ばれる理由です🌙"
+    if appeal in {"知育玩具", "おうち遊び"}:
+        return "似たおもちゃの中でも、遊び方を変えながら長く使いやすいところが選ばれている理由のひとつ✨"
+    return "育児の悩みに対して使う場面が分かりやすく、親子の生活に取り入れやすいところが魅力です✨"
 
 
 def child_benefit_sentence(product: Product, appeal: str, benefit: str) -> str:

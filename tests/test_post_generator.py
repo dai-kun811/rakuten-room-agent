@@ -40,14 +40,18 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertTrue(all(expression not in post_text for expression in BANNED_EXPRESSIONS))
         self.assertIn("【遊びながら考える力を育てやすい◎", post_text)
         self.assertIn("【投稿文】", post_text)
-        self.assertIn("選びやすい理由", post_text)
+        self.assertIn("選ばれている理由", post_text)
         self.assertIn("歳頃", post_text)
         self.assertIn("親目線", post_text)
         self.assertIn("おすすめ", post_text)
         self.assertNotIn("レビュー1,200件", post_text)
         self.assertNotIn("評価4.70", post_text)
         self.assertGreaterEqual(len(post_text), 200)
-        self.assertLessEqual(len(post_text), 380)
+        self.assertLessEqual(len(post_text), 430)
+        self.assertLess(
+            post_text.index("歳頃"),
+            post_text.index("選ばれている理由"),
+        )
 
     def test_hashtags_include_required_tags(self) -> None:
         scored = score_product(
@@ -159,6 +163,53 @@ class PostGeneratorTest(unittest.TestCase):
         post_text = build_post_text(scored)
 
         self.assertTrue(any(emoji in post_text for emoji in ["✨", "🧸", "📝", "😊", "🎁"]))
+
+    def test_post_text_adds_review_based_differentiation_reason(self) -> None:
+        scored = score_product(
+            Product(
+                category="知育玩具",
+                name="RING10 リング 知育 おもちゃ",
+                url="https://example.com/ring10",
+                price=5280,
+                review_count=900,
+                review_average=4.7,
+                caption="1歳 2歳 3歳 成長に合わせて遊べる 木製 リング",
+                catchcopy="プレゼントにもおすすめ",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertIn("成長に合わせて長く遊べる", post_text)
+        self.assertIn("選ばれている理由のひとつ", post_text)
+        self.assertNotIn("レビュー件数が多いので人気です", post_text)
+        self.assertNotIn("評価が高いのでおすすめです", post_text)
+        self.assertNotIn("レビューで好評です", post_text)
+
+    def test_post_text_mentions_product_specific_comparison_point(self) -> None:
+        scored = score_product(
+            Product(
+                category="知育玩具",
+                name="マグビルド マグネットブロック スロープ セット",
+                url="https://example.com/magbuild",
+                price=7980,
+                review_count=1200,
+                review_average=4.8,
+                caption="3歳 マグネット ブロック ボール コース スロープ",
+                catchcopy="人気 ギフト",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertIn("マグネットブロックはたくさんありますが", post_text)
+        self.assertIn("スロープ遊びまで楽しめる", post_text)
 
     def test_purchase_checkpoints_are_available_as_column_value(self) -> None:
         scored = score_product(
