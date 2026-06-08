@@ -10,6 +10,7 @@ from rakuten_api import Product
 from scoring import (
     classify_product,
     filter_and_score_products,
+    score_price,
     score_rating,
     score_sales,
     score_terms,
@@ -43,13 +44,20 @@ class ScoringTest(unittest.TestCase):
     def test_sales_score_buckets(self) -> None:
         self.assertEqual(score_sales(100), 10)
         self.assertEqual(score_sales(301), 20)
-        self.assertEqual(score_sales(1001), 30)
-        self.assertEqual(score_sales(5001), 40)
+        self.assertEqual(score_sales(1001), 25)
+        self.assertEqual(score_sales(5001), 30)
 
     def test_rating_score_buckets(self) -> None:
         self.assertEqual(score_rating(4.3), 10)
         self.assertEqual(score_rating(4.5), 15)
         self.assertEqual(score_rating(4.7), 20)
+
+    def test_price_score_prioritizes_room_friendly_prices(self) -> None:
+        self.assertEqual(score_price(3000), 15)
+        self.assertEqual(score_price(8000), 15)
+        self.assertEqual(score_price(1500), 10)
+        self.assertEqual(score_price(12000), 10)
+        self.assertEqual(score_price(900), 3)
 
     def test_low_review_count_and_rating_are_filtered_out(self) -> None:
         with patch.dict("os.environ", {"ENABLE_RELAXED_FALLBACK": "false"}):
@@ -107,7 +115,7 @@ class ScoringTest(unittest.TestCase):
 
     def test_product_rank_rules(self) -> None:
         self.assertEqual(classify_product(product(name="A", url="a", review_count=1000), 0), "Aランク")
-        self.assertEqual(classify_product(product(name="C", url="c", review_count=200), 8), "Cランク")
+        self.assertEqual(classify_product(product(name="C", url="c", review_count=200), 5), "Cランク")
         self.assertEqual(classify_product(product(name="B", url="b", review_count=200), 0), "Bランク")
 
     def test_score_terms_caps_score(self) -> None:

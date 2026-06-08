@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from scoring import ScoredProduct
+from rakuten_api import Product
 
 BANNED_EXPRESSIONS = [
     "我が家で使っています",
@@ -44,27 +45,34 @@ CATEGORY_TAGS = {
 def build_post_text(scored: ScoredProduct) -> str:
     product = scored.product
     short_name = shorten_product_name(product.name)
-    benefit = category_benefit(product.category)
+    appeal = determine_appeal_category(product)
+    benefit = build_benefit(product, appeal)
+    child_reason = child_fit_sentence(product, appeal)
+    choice_reason = choice_reason_sentence(product, appeal)
+    child_benefit = child_benefit_sentence(product, appeal, benefit)
+    parent_value = parent_benefit_sentence(product, appeal)
+    check_sentence = purchase_check_sentence(product, appeal)
     text = (
-        f"【タイトル】\n{short_name}で{benefit} ✨\n\n"
+        f"【{benefit}◎ {short_name}】\n\n"
         "【投稿文】\n"
-        f"{empathy_sentence(product.category)} "
-        f"{short_name}は、{appeal_sentence(product.category)}。"
-        "商品ページで確認できる範囲では、毎日の遊びや準備に取り入れやすい候補です🧸 "
-        f"親目線では、{parent_benefit(product.category)}のが助かるところ。"
-        "購入前は対象年齢、サイズ、素材、配送条件を確認しておきたいですね📝 "
-        f"{recommendation_sentence(product.category, product.text)}"
+        f"{empathy_sentence(appeal)}\n\n"
+        f"{short_name}を選びやすい理由は、{choice_reason}\n\n"
+        f"{child_reason}{child_benefit}\n\n"
+        f"親目線では、{parent_value}のが助かるところ✨\n\n"
+        f"{check_sentence}"
+        f"{recommendation_sentence(appeal, product.text)}"
     )
     return sanitize_post_text(text)
 
 
 def build_hashtags(scored: ScoredProduct) -> str:
     product = scored.product
+    appeal = determine_appeal_category(product)
     tags = [
-        purchase_intent_tag(product.category, product.text),
-        category_tag(product.category, product.text),
-        problem_solving_tag(product.category, product.text),
-        target_tag(product.category, product.text),
+        purchase_intent_tag(appeal, product.text),
+        category_tag(product.category, product.text, appeal),
+        problem_solving_tag(appeal, product.text),
+        target_or_gift_tag(appeal, product.text),
         BRAND_HASHTAG,
     ]
     return " ".join(tags)
@@ -109,70 +117,51 @@ def category_benefit(category: str) -> str:
     return benefits.get(category, "育児の悩みを減らしやすく")
 
 
-def empathy_sentence(category: str) -> str:
+def empathy_sentence(appeal: str) -> str:
     sentences = {
-        "知育玩具": "遊びながら学べるものを選びたいけど、種類が多くて迷いますよね。",
-        "おうち遊び": "雨の日や夕方、家の中でどう遊ばせるか悩むことありますよね。",
+        "おうち遊び": "雨の日や夕方、家の中でどう遊ばせるか悩むことありますよね🧸",
+        "お風呂嫌い対策": "お風呂の時間、毎回スムーズにいかないと親もぐったりしますよね。",
+        "イヤイヤ期対策": "イヤイヤ期の声かけ、何を選ぶかで少しでもラクにしたいですよね。",
+        "知育玩具": "遊びながら学べるものを選びたいけど、すぐ飽きないか心配ですよね🧸",
+        "プレゼント": "子ども向けのプレゼント、喜ばれそうで長く使えるものを選びたいですよね🎁",
+        "育児時短": "育児と家事が重なる時間帯は、少しでも手間を減らしたいですよね。",
+        "通園準備": "通園や朝の支度、できるだけバタバタを減らしたいですよね。",
+        "食事サポート": "食事まわりは、こぼす・飽きる・片づけるで毎日大変ですよね。",
         "外遊び": "外で思いきり遊ばせたいけど、準備や安全面も気になりますよね。",
-        "子ども靴": "子どもの靴選びは、歩きやすさと脱ぎ履きのしやすさで迷いますよね。",
-        "絵本": "寝る前や休日に、親子で落ち着ける時間を作りたいですよね。",
-        "育児家電": "育児と家事が重なる時間帯は、少しでも手間を減らしたいですよね。",
+        "睡眠サポート": "寝かしつけや夜の環境づくり、少しでも落ち着く形にしたいですよね。",
     }
-    return sentences.get(category, "毎日の育児、ちょっとした準備や片づけが積み重なって大変ですよね。")
+    return sentences.get(appeal, "毎日の育児、ちょっとした準備や片づけが積み重なって大変ですよね。")
 
 
-def appeal_sentence(category: str) -> str:
-    appeals = {
-        "知育玩具": "子どもが手を動かしながら遊べる知育系アイテム",
-        "おうち遊び": "室内でも子どもが集中して過ごしやすいアイテム",
-        "外遊び": "公園やお出かけ時間を楽しみやすくするアイテム",
-        "育児時短グッズ": "忙しい時間の小さな手間を減らしやすいアイテム",
-        "子ども靴": "通園や外遊びで使いやすそうなキッズアイテム",
-        "絵本": "親子で会話しながら楽しみやすい一冊",
-        "育児家電": "家事と育児が重なる時間の負担を減らしやすいアイテム",
-        "プレゼント向け商品": "贈り物にも選びやすい育児アイテム",
-    }
-    return appeals.get(category, "日常の育児シーンで使いやすそうなアイテム")
-
-
-def parent_benefit(category: str) -> str:
-    benefits = {
-        "知育玩具": "遊びのきっかけを作りやすい",
-        "おうち遊び": "家で過ごす時間の選択肢が増える",
-        "外遊び": "出かける前の準備を考えやすい",
-        "育児時短グッズ": "手間をひとつ減らしやすい",
-        "子ども靴": "朝の支度や外遊びに使いやすい",
-        "絵本": "親子で落ち着く時間を作りやすい",
-        "育児家電": "家事と育児の負担を分けやすい",
-    }
-    return benefits.get(category, "毎日の育児に取り入れる場面を想像しやすい")
-
-
-def recommendation_sentence(category: str, product_text: str) -> str:
-    if "ギフト" in product_text or "プレゼント" in product_text or category == "プレゼント向け商品":
-        return "プレゼント候補を探している家庭にもおすすめです🎁"
-    if category in {"知育玩具", "絵本", "おうち遊び"}:
+def recommendation_sentence(appeal: str, product_text: str) -> str:
+    if appeal == "プレゼント" or "ギフト" in product_text or "プレゼント" in product_text:
+        return "「プレゼントで失敗したくない」家庭にもおすすめです🎁"
+    if appeal in {"知育玩具", "おうち遊び"}:
         return "おうち時間を親子で楽しみたい家庭におすすめです😊"
-    if category in {"子ども靴", "外遊び"}:
+    if appeal in {"通園準備", "外遊び"}:
         return "通園や外遊びが増えてきた家庭におすすめです😊"
-    return "忙しい育児の中で、使いやすさを重視したい家庭におすすめです😊"
+    if appeal == "育児時短":
+        return "忙しい育児の中で、手間を減らしたい家庭におすすめです😊"
+    return "子どもの成長や毎日の使いやすさを大事にしたい家庭におすすめです😊"
 
 
-def purchase_intent_tag(category: str, product_text: str) -> str:
-    if "ギフト" in product_text or "プレゼント" in product_text or category == "プレゼント向け商品":
+def purchase_intent_tag(appeal: str, product_text: str) -> str:
+    if "ギフト" in product_text or "プレゼント" in product_text or appeal == "プレゼント":
         return "#プレゼントにおすすめ"
-    if "入園" in product_text or "通園" in product_text or category == "子ども靴":
+    if appeal == "通園準備":
         return "#入園準備におすすめ"
-    if category in {"知育玩具", "絵本", "おうち遊び"}:
+    if appeal in {"知育玩具", "おうち遊び"}:
         return "#買ってよかった"
-    if category in {"育児時短グッズ", "育児家電"}:
+    if appeal == "育児時短":
         return "#おすすめ品"
     return "#買ってよかった"
 
 
-def category_tag(category: str, product_text: str) -> str:
+def category_tag(category: str, product_text: str, appeal: str) -> str:
     if "お風呂" in product_text or "バス" in product_text:
         return "#お風呂グッズ"
+    if appeal == "食事サポート":
+        return "#食事サポート"
     if "靴" in product_text or "シューズ" in product_text:
         return "#キッズシューズ"
     if "絵本" in product_text:
@@ -184,23 +173,38 @@ def category_tag(category: str, product_text: str) -> str:
     return CATEGORY_TAGS.get(category, "#育児便利グッズ")
 
 
-def problem_solving_tag(category: str, product_text: str) -> str:
-    if "お風呂" in product_text or "バス" in product_text:
+def problem_solving_tag(appeal: str, product_text: str) -> str:
+    if appeal == "プレゼント":
+        if any(word in product_text for word in ["知育", "絵本", "おうち遊び", "おもちゃ"]):
+            return "#おうち遊び"
+        if any(word in product_text for word in ["通園", "入園", "保育園"]):
+            return "#通園準備"
+        if any(word in product_text for word in ["食事", "離乳食", "食器"]):
+            return "#食事の悩み対策"
+    if appeal == "お風呂嫌い対策":
         return "#お風呂嫌い対策"
-    if "イヤイヤ" in product_text:
+    if appeal == "イヤイヤ期対策":
         return "#イヤイヤ期対策"
-    if "時短" in product_text or category in {"育児時短グッズ", "育児家電"}:
+    if appeal == "育児時短":
         return "#育児時短"
-    if "入園" in product_text or "通園" in product_text:
+    if appeal == "通園準備":
         return "#通園準備"
-    if category in {"知育玩具", "おうち遊び", "絵本"}:
+    if appeal in {"知育玩具", "おうち遊び"}:
         return "#おうち遊び"
-    if category in {"外遊び", "子ども靴"}:
+    if appeal == "食事サポート":
+        return "#食事の悩み対策"
+    if appeal == "睡眠サポート":
+        return "#寝かしつけ対策"
+    if appeal == "外遊び":
         return "#外遊び準備"
     return "#育児時短"
 
 
-def target_tag(category: str, product_text: str) -> str:
+def target_or_gift_tag(appeal: str, product_text: str) -> str:
+    if appeal == "プレゼント":
+        if "出産" in product_text or "ベビー" in product_text or "赤ちゃん" in product_text:
+            return "#出産祝い"
+        return "#1歳誕生日プレゼント"
     if "2歳" in product_text or "2才" in product_text:
         return "#2歳育児"
     if "3歳" in product_text or "3才" in product_text:
@@ -211,6 +215,189 @@ def target_tag(category: str, product_text: str) -> str:
         return "#5歳育児"
     if "保育園" in product_text or "通園" in product_text or "入園" in product_text:
         return "#保育園準備"
-    if category in {"育児時短グッズ", "育児家電"}:
+    if appeal == "育児時短":
         return "#共働き育児"
     return "#3歳育児"
+
+
+def determine_appeal_category(product: Product) -> str:
+    text = product.text
+    rules = [
+        ("プレゼント", ["ギフト", "プレゼント", "誕生日", "出産祝い"]),
+        ("お風呂嫌い対策", ["お風呂", "バス", "湯船", "シャンプー"]),
+        ("イヤイヤ期対策", ["イヤイヤ", "トイトレ", "しつけ"]),
+        ("食事サポート", ["離乳食", "食事", "ごはん", "スプーン", "フォーク", "食器", "エプロン"]),
+        ("睡眠サポート", ["寝かしつけ", "睡眠", "おやすみ", "ベッド", "布団", "枕"]),
+        ("通園準備", ["保育園", "通園", "入園", "名前", "シューズ", "靴"]),
+        ("育児時短", ["時短", "家電", "自動", "簡単", "片づけ", "収納"]),
+        ("知育玩具", ["知育", "積み木", "パズル", "ブロック", "リング", "型はめ"]),
+        ("外遊び", ["外遊び", "公園", "水遊び", "三輪車", "ボール", "砂場"]),
+        ("おうち遊び", ["おうち遊び", "室内", "絵本", "おもちゃ", "ぬりえ"]),
+    ]
+    for appeal, keywords in rules:
+        if product.category == appeal or any(keyword.lower() in text for keyword in keywords):
+            return appeal
+    category_map = {
+        "知育玩具": "知育玩具",
+        "おうち遊び": "おうち遊び",
+        "外遊び": "外遊び",
+        "育児時短グッズ": "育児時短",
+        "子ども靴": "通園準備",
+        "絵本": "おうち遊び",
+        "育児家電": "育児時短",
+        "プレゼント向け商品": "プレゼント",
+    }
+    return category_map.get(product.category, "育児時短")
+
+
+def build_benefit(product: Product, appeal: str) -> str:
+    text = product.text
+    if appeal == "知育玩具":
+        if "リング" in text or "紐" in text or "ひも" in text:
+            return "遊びながら指先を使える"
+        if "ブロック" in text or "積み木" in text:
+            return "自分で作りたい欲を満たせる"
+        return "遊びながら考える力を育てやすい"
+    if appeal == "お風呂嫌い対策":
+        return "お風呂時間を楽しい時間に変えやすい"
+    if appeal == "プレゼント":
+        return "贈る相手の育児に役立ちやすい"
+    if appeal == "育児時短":
+        return "親の準備や片づけの負担を減らしやすい"
+    if appeal == "通園準備":
+        return "朝の支度や通園準備をスムーズにしやすい"
+    if appeal == "食事サポート":
+        return "食事まわりの負担を減らしやすい"
+    if appeal == "外遊び":
+        return "外で体を動かすきっかけを作りやすい"
+    if appeal == "睡眠サポート":
+        return "寝る前の環境を整えやすい"
+    if appeal == "イヤイヤ期対策":
+        return "子どものやりたい気持ちに寄り添いやすい"
+    return "親子で過ごす時間を楽しくしやすい"
+
+
+def child_fit_sentence(product: Product, appeal: str) -> str:
+    age = age_phrase(product.text)
+    if appeal == "知育玩具":
+        return f"{age}は、つまむ・並べる・考える遊びが増えてくる時期。"
+    if appeal == "おうち遊び":
+        return f"{age}は、家の中でも集中して遊べるものがあると助かる時期。"
+    if appeal == "通園準備":
+        return f"{age}は、自分でやりたい気持ちが少しずつ出てくる時期。"
+    if appeal == "食事サポート":
+        return f"{age}は、食べる練習や食事のリズムを作りたい時期。"
+    if appeal == "睡眠サポート":
+        return f"{age}は、寝る前の流れを整えたい時期。"
+    return f"{age}の育児に取り入れやすい候補です。"
+
+
+def choice_reason_sentence(product: Product, appeal: str) -> str:
+    if appeal == "知育玩具":
+        return "遊び方が1つで終わらず、成長に合わせて使い方を変えやすいところ。"
+    if appeal == "プレゼント":
+        return "育児中の家庭で使う場面を想像しやすく、贈り物として選びやすいところ。"
+    if appeal == "育児時短":
+        return "毎日の小さな手間を減らす目的がはっきりしているところ。"
+    if appeal == "通園準備":
+        return "朝の支度や通園まわりで使う場面が分かりやすいところ。"
+    if appeal == "お風呂嫌い対策":
+        return "苦手になりがちな時間を楽しい方向に変えやすいところ。"
+    return "育児の悩みに対して使う場面が分かりやすいところ。"
+
+
+def child_benefit_sentence(product: Product, appeal: str, benefit: str) -> str:
+    if appeal in {"知育玩具", "おうち遊び"}:
+        return f"ただ遊ぶだけでなく、{benefit}のが魅力です。"
+    if appeal == "外遊び":
+        return f"{benefit}ので、体を動かす時間を増やしたい時にも選びやすいです。"
+    return f"子どもにとっては、{benefit}のがうれしいポイントです。"
+
+
+def parent_benefit_sentence(product: Product, appeal: str) -> str:
+    if appeal == "育児時短":
+        return "準備や片づけの負担を減らしやすい"
+    if appeal == "通園準備":
+        return "朝のバタバタを少し整えやすい"
+    if appeal == "プレゼント":
+        return "相手の家庭で使う場面を想像しやすい"
+    if appeal == "食事サポート":
+        return "食後の片づけや見守りを考えやすい"
+    return "遊びや生活に取り入れる場面を想像しやすい"
+
+
+def purchase_checkpoints(product: Product, appeal: str) -> str:
+    checks: list[str] = []
+    text = product.text
+    if appeal in {"通園準備", "外遊び"} or any(word in text for word in ["靴", "シューズ", "服", "帽子"]):
+        checks.append("サイズ")
+    if appeal in {"知育玩具", "プレゼント", "おうち遊び"}:
+        checks.append("対象年齢")
+    if any(word in text for word in ["小さな部品", "ビーズ", "リング", "ブロック", "パーツ"]):
+        checks.append("誤飲リスク")
+    if any(word in text for word in ["大型", "マット", "収納", "ベッド", "家具", "滑り台"]):
+        checks.append("設置・収納スペース")
+    if any(word in text for word in ["大型", "メーカー直送", "予約", "冷蔵", "冷凍"]):
+        checks.append("配送条件")
+    if not checks:
+        checks.append("対象年齢や素材")
+    return "、".join(dict.fromkeys(checks))
+
+
+def purchase_check_sentence(product: Product, appeal: str) -> str:
+    checkpoints = purchase_checkpoints(product, appeal)
+    if should_include_purchase_checkpoints(product, appeal):
+        return f"購入前は{checkpoints}だけ確認しておくと安心です📝\n\n"
+    return ""
+
+
+def should_include_purchase_checkpoints(product: Product, appeal: str) -> bool:
+    text = product.text
+    important_words = [
+        "靴",
+        "シューズ",
+        "服",
+        "帽子",
+        "小さな部品",
+        "ビーズ",
+        "リング",
+        "ブロック",
+        "パーツ",
+        "大型",
+        "マット",
+        "収納",
+        "ベッド",
+        "家具",
+        "滑り台",
+        "メーカー直送",
+        "予約",
+        "冷蔵",
+        "冷凍",
+    ]
+    age_words = [
+        "0歳",
+        "1歳",
+        "2歳",
+        "3歳",
+        "4歳",
+        "5歳",
+        "0才",
+        "1才",
+        "2才",
+        "3才",
+        "4才",
+        "5才",
+        "対象年齢",
+        "ヶ月",
+    ]
+    return any(word in text for word in important_words + age_words)
+
+
+def age_phrase(product_text: str) -> str:
+    for age in ["1歳", "2歳", "3歳", "4歳", "5歳"]:
+        if age in product_text:
+            return f"{age}頃"
+    for age in ["1才", "2才", "3才", "4才", "5才"]:
+        if age in product_text:
+            return f"{age.replace('才', '歳')}頃"
+    return "2〜5歳頃"

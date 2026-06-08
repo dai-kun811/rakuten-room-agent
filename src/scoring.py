@@ -64,6 +64,7 @@ class ScoredProduct:
     sales_score: int
     rating_score: int
     target_score: int
+    price_score: int
     seasonal_score: int
     room_score: int
     total_score: int
@@ -97,7 +98,7 @@ def build_selection_tiers_from_env() -> list[SelectionTier]:
     return [
         SelectionTier(
             name="strict_priority",
-            min_review_count=strict.min_review_count,
+            min_review_count=int(os.getenv("STRICT_PRIORITY_MIN_REVIEW_COUNT", "300")),
             min_review_average=strict.min_review_average,
             min_total_score=int(os.getenv("STRICT_PRIORITY_TOTAL_SCORE", "80")),
         ),
@@ -166,14 +167,22 @@ def score_product(
     sales_score = score_sales(product.review_count)
     rating_score = score_rating(product.review_average)
     target_score = score_terms(product.text, TARGET_WORDS, points_per_match=4, max_score=20)
+    price_score = score_price(product.price)
     seasonal_score = score_terms(
         product.text,
         SEASONAL_WORDS_BY_MONTH[today.month],
-        points_per_match=3,
-        max_score=10,
+        points_per_match=2,
+        max_score=5,
     )
     room_score = score_terms(product.text, ROOM_WORDS, points_per_match=2, max_score=10)
-    total_score = sales_score + rating_score + target_score + seasonal_score + room_score
+    total_score = (
+        sales_score
+        + rating_score
+        + target_score
+        + price_score
+        + room_score
+        + seasonal_score
+    )
     product_rank = classify_product(product, seasonal_score)
     return ScoredProduct(
         product=product,
@@ -181,6 +190,7 @@ def score_product(
         sales_score=sales_score,
         rating_score=rating_score,
         target_score=target_score,
+        price_score=price_score,
         seasonal_score=seasonal_score,
         room_score=room_score,
         total_score=total_score,
@@ -193,9 +203,9 @@ def score_product(
 
 def score_sales(review_count: int) -> int:
     if review_count >= 5001:
-        return 40
-    if review_count >= 1001:
         return 30
+    if review_count >= 1001:
+        return 25
     if review_count >= 301:
         return 20
     if review_count >= 100:
@@ -213,6 +223,14 @@ def score_rating(review_average: float) -> int:
     return 0
 
 
+def score_price(price: int) -> int:
+    if 3000 <= price <= 8000:
+        return 15
+    if 1500 <= price <= 12000:
+        return 10
+    return 3
+
+
 def score_terms(text: str, terms: list[str], *, points_per_match: int, max_score: int) -> int:
     normalized = text.lower()
     matches = sum(1 for term in terms if term.lower() in normalized)
@@ -222,7 +240,7 @@ def score_terms(text: str, terms: list[str], *, points_per_match: int, max_score
 def classify_product(product: Product, seasonal_score: int) -> str:
     if product.review_count >= 1000 and product.review_average >= 4.5:
         return "Aランク"
-    if seasonal_score >= 8:
+    if seasonal_score >= 5:
         return "Cランク"
     return "Bランク"
 
@@ -234,7 +252,7 @@ def build_recommendation_reason(
         f"レビュー{product.review_count:,}件、評価{product.review_average:.2f}で比較材料が多い商品です。",
         f"総合スコアは{total_score}点です。",
     ]
-    if seasonal_score >= 8:
+    if seasonal_score >= 5:
         reasons.append("今月の季節需要ワードにも合っています。")
     if room_score >= 6:
         reasons.append("楽天ROOMで反応されやすい訴求語も含まれています。")

@@ -34,6 +34,12 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(row[0], "2026-06-08")
         self.assertEqual(row[1], "子ども靴")
         self.assertEqual(row[3], "https://example.com/shoes")
+        self.assertEqual(row[8], "通園準備")
+        self.assertIn("通園準備", row[9])
+        self.assertIn("サイズ", row[10])
+        self.assertIsInstance(row[11], int)
+        self.assertEqual(len(row[14].split()), 5)
+        self.assertIn("#とらパパ厳選", row[14])
 
     def test_error_row_matches_requested_columns(self) -> None:
         row = error_row(today=date(2026, 6, 8), reason="楽天API取得0件")
@@ -41,7 +47,7 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(len(row), len(SHEET_HEADERS))
         self.assertEqual(row[1], "ERROR")
         self.assertEqual(row[7], "ERROR")
-        self.assertIn("楽天API取得0件", row[9])
+        self.assertIn("楽天API取得0件", row[12])
 
     def test_normalize_product_url_ignores_query_and_trailing_slash(self) -> None:
         self.assertEqual(

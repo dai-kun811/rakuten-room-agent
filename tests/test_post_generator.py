@@ -10,6 +10,7 @@ from post_generator import (
     BRAND_HASHTAG,
     build_hashtags,
     build_post_text,
+    purchase_checkpoints,
     shorten_product_name,
 )
 from rakuten_api import Product
@@ -26,8 +27,8 @@ class PostGeneratorTest(unittest.TestCase):
                 price=3980,
                 review_count=1200,
                 review_average=4.7,
-                caption="ベビー キッズ 子ども プレゼント",
-                catchcopy="送料無料 人気 ギフト",
+                caption="ベビー キッズ 子ども 知育",
+                catchcopy="送料無料 人気",
                 shop_name="楽天ショップ",
                 image_url="https://example.com/image.jpg",
             ),
@@ -37,12 +38,16 @@ class PostGeneratorTest(unittest.TestCase):
         post_text = build_post_text(scored)
 
         self.assertTrue(all(expression not in post_text for expression in BANNED_EXPRESSIONS))
-        self.assertIn("【タイトル】", post_text)
+        self.assertIn("【遊びながら考える力を育てやすい◎", post_text)
         self.assertIn("【投稿文】", post_text)
+        self.assertIn("選びやすい理由", post_text)
+        self.assertIn("歳頃", post_text)
+        self.assertIn("親目線", post_text)
+        self.assertIn("おすすめ", post_text)
         self.assertNotIn("レビュー1,200件", post_text)
         self.assertNotIn("評価4.70", post_text)
         self.assertGreaterEqual(len(post_text), 200)
-        self.assertLessEqual(len(post_text), 350)
+        self.assertLessEqual(len(post_text), 380)
 
     def test_hashtags_include_required_tags(self) -> None:
         scored = score_product(
@@ -69,7 +74,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("#プレゼントにおすすめ", tags)
         self.assertIn("#絵本", tags)
         self.assertIn("#おうち遊び", tags)
-        self.assertIn("#3歳育児", tags)
+        self.assertIn("#1歳誕生日プレゼント", tags)
 
     def test_long_product_name_is_shortened(self) -> None:
         name = "【送料無料】知育 おもちゃ セット 木製 パズル 積み木 プレゼント 子ども 幼児"
@@ -154,6 +159,29 @@ class PostGeneratorTest(unittest.TestCase):
         post_text = build_post_text(scored)
 
         self.assertTrue(any(emoji in post_text for emoji in ["✨", "🧸", "📝", "😊", "🎁"]))
+
+    def test_purchase_checkpoints_are_available_as_column_value(self) -> None:
+        scored = score_product(
+            Product(
+                category="知育玩具",
+                name="リング 知育 おもちゃ",
+                url="https://example.com/ring",
+                price=3980,
+                review_count=500,
+                review_average=4.6,
+                caption="1歳 リング 小さな部品",
+                catchcopy="人気",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 8),
+        )
+
+        checkpoints = purchase_checkpoints(scored.product, "知育玩具")
+        post_text = build_post_text(scored)
+
+        self.assertEqual(checkpoints, "対象年齢、誤飲リスク")
+        self.assertIn("購入前は対象年齢、誤飲リスクだけ確認", post_text)
 
 
 if __name__ == "__main__":
