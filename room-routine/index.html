@@ -1,0 +1,2501 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>楽天ROOM 手動ルーティン</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --text: #20231f;
+      --muted: #667064;
+      --line: #dfe5dc;
+      --green: #2f7d5c;
+      --green-soft: #e4f2eb;
+      --blue: #2c6f9f;
+      --blue-soft: #e3f0f8;
+      --red: #b94b43;
+      --red-soft: #fae8e5;
+      --amber: #9a6a1c;
+      --amber-soft: #f7ecd5;
+      --ink-soft: #eef1ec;
+      --shadow: 0 16px 42px rgba(41, 49, 38, 0.09);
+      font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .shell {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .user-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 8px 12px;
+      color: var(--green);
+      background: var(--green-soft);
+      border: 1px solid #c8e3d4;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      min-height: 96px;
+      padding: 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      margin-top: 8px;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .stat-foot {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .side,
+    .main {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .side {
+      padding: 14px;
+      position: sticky;
+      top: 14px;
+    }
+
+    .main {
+      overflow: hidden;
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .control-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tabs,
+    .quick-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tab,
+    .ghost,
+    .primary,
+    .danger,
+    .soft {
+      min-height: 38px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tab.active,
+    .primary {
+      color: #fff;
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .soft {
+      background: var(--ink-soft);
+    }
+
+    .danger {
+      color: var(--red);
+      background: var(--red-soft);
+      border-color: #efc9c4;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .rule {
+      height: 1px;
+      background: var(--line);
+      margin: 12px 0;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto auto;
+      gap: 10px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    .active-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: #f4f8f5;
+    }
+
+    .active-info {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .active-info strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 16px;
+    }
+
+    .active-info span {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .active-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .active-actions a,
+    .active-actions button {
+      min-height: 38px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .active-actions .open {
+      color: #fff;
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fbfcfa;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    tr.done {
+      background: #f4f8f5;
+    }
+
+    tr.skipped {
+      background: #fff8ed;
+    }
+
+    .candidate-name {
+      display: grid;
+      gap: 5px;
+      min-width: 220px;
+    }
+
+    .candidate-name strong {
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .url {
+      max-width: 310px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      min-width: 150px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.todo {
+      background: var(--ink-soft);
+      color: var(--muted);
+    }
+
+    .badge.ok {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .badge.skip {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .row-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(94px, 1fr));
+      gap: 6px;
+      min-width: 204px;
+    }
+
+    .row-actions button,
+    .row-actions a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .row-actions .open {
+      color: #fff;
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .row-actions button.done-button {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: #c8e3d4;
+    }
+
+    .row-actions button.skip-button {
+      color: var(--amber);
+      background: var(--amber-soft);
+      border-color: #ecd7a7;
+    }
+
+    .note-input {
+      min-width: 190px;
+      min-height: 34px;
+      font-size: 13px;
+    }
+
+    .empty {
+      padding: 44px 18px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .search-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .search-link {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .search-link strong {
+      font-size: 13px;
+    }
+
+    .search-link span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: none;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 12px 14px;
+      color: #fff;
+      background: #1f2a22;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.5;
+      z-index: 5;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    @media (max-width: 980px) {
+      .topbar,
+      .layout,
+      .toolbar,
+      .active-card {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        position: static;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .toolbar-actions {
+        justify-content: stretch;
+      }
+
+      .toolbar-actions button {
+        flex: 1 1 150px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        padding: 10px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      .sub {
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .user-link {
+        width: 100%;
+      }
+
+      .stat {
+        min-height: 78px;
+        padding: 10px;
+      }
+
+      .stat-value {
+        font-size: 24px;
+      }
+
+      .layout {
+        gap: 10px;
+      }
+
+      .side,
+      .main {
+        border-radius: 8px;
+        box-shadow: none;
+      }
+
+      .side {
+        padding: 10px;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .tab,
+      .ghost,
+      .primary,
+      .danger,
+      .soft {
+        min-height: 38px;
+        padding: 7px 8px;
+        font-size: 12px;
+      }
+
+      .toolbar {
+        padding: 10px;
+        gap: 8px;
+      }
+
+      .toolbar-actions {
+        gap: 6px;
+      }
+
+      .active-card {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: 10px;
+        gap: 10px;
+      }
+
+      .active-info strong {
+        white-space: normal;
+        font-size: 15px;
+      }
+
+      .active-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 6px;
+      }
+
+      .active-actions a,
+      .active-actions button {
+        min-height: 40px;
+        padding: 7px 8px;
+        font-size: 12px;
+      }
+
+      .table-wrap {
+        overflow: visible;
+      }
+
+      table {
+        display: block;
+        min-width: 0;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        display: grid;
+        gap: 8px;
+        padding: 8px;
+      }
+
+      tr {
+        display: grid;
+        gap: 9px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      tr.done {
+        background: #f4f8f5;
+      }
+
+      tr.skipped {
+        background: #fff8ed;
+      }
+
+      th,
+      td {
+        display: block;
+        padding: 0;
+        border-bottom: 0;
+      }
+
+      td::before {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      td:nth-child(1)::before {
+        content: "候補";
+      }
+
+      td:nth-child(2)::before {
+        content: "タグ";
+      }
+
+      td:nth-child(3)::before {
+        content: "状態";
+      }
+
+      td:nth-child(4)::before {
+        content: "操作";
+      }
+
+      td:nth-child(5)::before {
+        content: "メモ";
+      }
+
+      .candidate-name {
+        min-width: 0;
+      }
+
+      .candidate-name strong {
+        font-size: 15px;
+      }
+
+      .url {
+        max-width: none;
+      }
+
+      .row-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        min-width: 0;
+      }
+
+      .row-actions button,
+      .row-actions a {
+        min-height: 40px;
+        padding: 7px 6px;
+        font-size: 12px;
+      }
+
+      .note-input {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .toast {
+        right: 10px;
+        bottom: 10px;
+        max-width: calc(100vw - 20px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <h1>楽天ROOM 手動ルーティン</h1>
+        <p class="sub">育児・ベビー・キッズ・知育に特化した候補を、毎朝5:00更新の「今日の50件」で処理します。楽天ROOM上のフォローといいねは手動で行い、この画面では進捗だけを保存します。</p>
+      </div>
+      <a class="user-link" href="https://room.rakuten.co.jp/tora_papa/items" target="_blank" rel="noopener">自分のROOMを開く</a>
+    </header>
+
+    <section class="stats" aria-label="今日の進捗">
+      <div class="stat">
+        <div class="stat-label">今日のフォロー</div>
+        <div class="stat-value"><span id="followDone">0</span>/50</div>
+        <div class="stat-foot" id="followFoot">未処理 50</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">今日のいいね</div>
+        <div class="stat-value"><span id="likeDone">0</span>/50</div>
+        <div class="stat-foot" id="likeFoot">未処理 50</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">今日の候補</div>
+        <div class="stat-value" id="todayCount">0</div>
+        <div class="stat-foot" id="routineDate">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">全候補</div>
+        <div class="stat-value" id="totalCount">0</div>
+        <div class="stat-foot" id="poolFoot">未完了 0</div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <aside class="side">
+        <div class="control-stack">
+          <div>
+            <h2 class="section-title">表示</h2>
+            <div class="tabs" id="viewTabs">
+              <button class="tab active" data-view="today">今日の50件</button>
+              <button class="tab" data-view="all">全候補</button>
+              <button class="tab" data-view="todo">未完了</button>
+              <button class="tab" data-view="done">完了</button>
+              <button class="tab" data-view="skipped">スキップ</button>
+              <button class="tab" data-view="tools">追加/出力</button>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>キーワード絞り込み</span>
+            <input id="searchInput" type="search" placeholder="例: 知育玩具、離乳食、絵本">
+          </label>
+
+          <div>
+            <h2 class="section-title">作業ショートカット</h2>
+            <div class="control-stack">
+              <button class="primary" id="openNext">次の未完了ROOMを開く</button>
+              <button class="soft" id="rebuildToday">今日の50件を組み直す</button>
+            </div>
+          </div>
+
+          <p class="hint">ボタンを押しても楽天ROOM側のフォロー・いいねは実行されません。ROOMを開いて手動操作したあと、この画面で「済み」を押してください。</p>
+
+          <div class="rule"></div>
+
+          <div>
+            <h2 class="section-title">候補探しリンク</h2>
+            <div class="search-list" id="searchLinks"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="panel active" id="listPanel">
+          <div class="toolbar">
+            <label class="field">
+              <span>並び順</span>
+              <select id="sortSelect">
+                <option value="routine">今日の順番優先</option>
+                <option value="name">名前順</option>
+                <option value="opened">最近開いた順</option>
+                <option value="added">追加順</option>
+              </select>
+            </label>
+            <div class="toolbar-actions">
+              <button class="ghost" id="markVisibleDone">表示中を両方済みにする</button>
+              <button class="danger" id="clearFilters">絞り込み解除</button>
+            </div>
+          </div>
+          <div class="active-card" id="activeCard">
+            <div class="active-info">
+              <span>作業中の候補</span>
+              <strong id="activeName">未選択</strong>
+              <span id="activeUrl">次の未完了候補を選ぶと、ここに固定されます。</span>
+            </div>
+            <div class="active-actions">
+              <a class="open" id="activeOpen" href="#" target="_blank" rel="noopener noreferrer">ROOMを開く</a>
+              <button id="activeCopy">URLコピー</button>
+              <button id="activeComplete">フォロー・いいね済み</button>
+              <button id="activeSkip">スキップ</button>
+              <button id="activeNext">次へ</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>候補</th>
+                  <th>タグ</th>
+                  <th>状態</th>
+                  <th>操作</th>
+                  <th>メモ</th>
+                </tr>
+              </thead>
+              <tbody id="candidateRows"></tbody>
+            </table>
+            <div class="empty" id="emptyState" hidden>表示できる候補がありません。候補追加か検索リンクからリストを増やしてください。</div>
+          </div>
+        </section>
+
+        <section class="panel" id="toolsPanel">
+          <div class="toolbar">
+            <div>
+              <h2 class="section-title">候補追加・バックアップ</h2>
+              <p class="hint">URLだけでも追加できます。名前はあとから編集しやすいよう、URL末尾のIDから仮名を入れます。</p>
+            </div>
+          </div>
+          <div class="table-wrap" style="padding: 14px; overflow: visible;">
+            <div class="control-stack">
+              <div class="tabs">
+                <label class="field">
+                  <span>候補名</span>
+                  <input id="addName" placeholder="例: 〇〇｜育児便利グッズ">
+                </label>
+                <label class="field">
+                  <span>ROOM URL</span>
+                  <input id="addUrl" placeholder="https://room.rakuten.co.jp/.../items">
+                </label>
+              </div>
+              <label class="field">
+                <span>タグ</span>
+                <input id="addTags" placeholder="育児便利グッズ, ベビー用品, 知育玩具">
+              </label>
+              <label class="field">
+                <span>メモ</span>
+                <input id="addNote" placeholder="例: プロフィールが完全一致、あとで確認">
+              </label>
+              <button class="primary" id="addCandidate">候補を追加</button>
+
+              <div class="rule"></div>
+
+              <label class="field">
+                <span>CSV/URL一括追加</span>
+                <textarea id="bulkInput" placeholder="1行1件で入力&#10;名前,URL,タグ,メモ&#10;または URLのみ"></textarea>
+              </label>
+              <button class="primary" id="bulkAdd">一括追加</button>
+
+              <div class="rule"></div>
+
+              <div class="quick-tabs">
+                <button class="soft" id="exportJson">JSONを書き出す</button>
+                <button class="soft" id="downloadJson">JSONをダウンロード</button>
+              </div>
+              <label class="field">
+                <span>JSONバックアップ/復元</span>
+                <textarea id="jsonBox" placeholder="書き出し結果、または復元したいJSONをここに貼ります"></textarea>
+              </label>
+              <button class="primary" id="importJson">JSONから復元</button>
+
+              <div class="rule"></div>
+
+              <button class="danger" id="resetProgress">進捗だけリセット</button>
+              <button class="danger" id="resetAll">候補と進捗を初期状態に戻す</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const SETTINGS = {
+      resetHour: 5,
+      dailyGoal: 50,
+      storageKey: "rakutenRoomRoutine.v1",
+      roomUrl: "https://room.rakuten.co.jp/tora_papa/items"
+    };
+
+    const DEFAULT_CANDIDATES = [
+          {
+                "id": "room_7ded5609c8",
+                "name": "りんだ|育児時短便利グッズ",
+                "url": "https://room.rakuten.co.jp/room_7ded5609c8/items",
+                "tags": [
+                      "育児便利グッズ",
+                      "ベビー用品",
+                      "離乳食",
+                      "時短育児"
+                ],
+                "note": "公開検索で育児時短便利グッズ特化として確認"
+          },
+          {
+                "id": "room_dangosuki",
+                "name": "なお団子|育児・暮らしの便利グッズ",
+                "url": "https://room.rakuten.co.jp/room_dangosuki/items",
+                "tags": [
+                      "育児便利グッズ",
+                      "ベビー用品",
+                      "子育て"
+                ],
+                "note": "育児便利グッズの投稿が多い候補"
+          },
+          {
+                "id": "room_3abeb32b58",
+                "name": "ちびままこ|子供4人/日常を豊かに",
+                "url": "https://room.rakuten.co.jp/room_3abeb32b58/items",
+                "tags": [
+                      "育児便利グッズ",
+                      "ベビー用品",
+                      "子育てママ"
+                ],
+                "note": "オムツ、ベビーカー、授乳用品などの育児系投稿を確認"
+          },
+          {
+                "id": "room_tomocafe",
+                "name": "うさこ|3児ワーママ",
+                "url": "https://room.rakuten.co.jp/room_tomocafe/items",
+                "tags": [
+                      "知育玩具",
+                      "絵本",
+                      "育児グッズ"
+                ],
+                "note": "知育おもちゃ・育児グッズ投稿から抽出"
+          },
+          {
+                "id": "room_615acd21a2",
+                "name": "まあの楽天ROOM|暮らしと子育て",
+                "url": "https://room.rakuten.co.jp/room_615acd21a2/items",
+                "tags": [
+                      "知育玩具",
+                      "子育て",
+                      "おもちゃ"
+                ],
+                "note": "知育玩具投稿から抽出。初回作業時にプロフィール確認推奨"
+          },
+          {
+                "id": "room_1ba1ccc315",
+                "name": "あかりんROOM候補",
+                "url": "https://room.rakuten.co.jp/room_1ba1ccc315/items",
+                "tags": [
+                      "ベビー用品",
+                      "育児便利グッズ",
+                      "キッズ用品"
+                ],
+                "note": "ベビー用品・離乳食・キッズ服投稿から抽出。名前は要確認"
+          },
+          {
+                "id": "room_8d78ae2119",
+                "name": "家族とくらしのセレクト集",
+                "url": "https://room.rakuten.co.jp/room_8d78ae2119/items",
+                "tags": [
+                      "ベビー用品",
+                      "育児便利グッズ"
+                ],
+                "note": "おしりふきウォーマーなど育児便利グッズ投稿から抽出"
+          },
+          {
+                "id": "room_yu_kiki13",
+                "name": "yu_kiki13候補",
+                "url": "https://room.rakuten.co.jp/room_yu_kiki13/items",
+                "tags": [
+                      "ベビー用品",
+                      "育児グッズ",
+                      "出産準備"
+                ],
+                "note": "バウンサー等の育児投稿から抽出。名前は要確認"
+          },
+          {
+                "id": "room_52050f1dc4",
+                "name": "moon ゆるっと日和",
+                "url": "https://room.rakuten.co.jp/room_52050f1dc4/items",
+                "tags": [
+                      "キッズ用品",
+                      "ベビー服",
+                      "育児便利グッズ"
+                ],
+                "note": "キッズ帽子・ベビー服投稿から抽出。完全特化か初回確認推奨"
+          },
+          {
+                "id": "room_a71154d664",
+                "name": "ベビー・キッズ候補",
+                "url": "https://room.rakuten.co.jp/room_a71154d664/items",
+                "tags": [
+                      "キッズ用品",
+                      "ベビー用品",
+                      "育児グッズ"
+                ],
+                "note": "子供服・ベビーカーグッズ投稿から抽出。名前は要確認"
+          },
+          {
+                "id": "room_0fbf7f34d4",
+                "name": "絵本・知育候補",
+                "url": "https://room.rakuten.co.jp/room_0fbf7f34d4/items",
+                "tags": [
+                      "知育",
+                      "絵本",
+                      "育児グッズ"
+                ],
+                "note": "絵本・読み聞かせ・知育投稿から抽出。名前は要確認"
+          },
+          {
+                "id": "room_d5acf823cd",
+                "name": "ｷｬﾗﾒﾙ🧡ママのかわいい×ラク育児✼",
+                "url": "https://room.rakuten.co.jp/room_d5acf823cd/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_3aea7931da",
+                "name": "さあや🌼6日7日有難うございます",
+                "url": "https://room.rakuten.co.jp/room_3aea7931da/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e70659c164",
+                "name": "こん🦊🎀姉妹ママの推しアイテム",
+                "url": "https://room.rakuten.co.jp/room_e70659c164/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_0991b98282",
+                "name": "みののん🌠(୨୧•͈ᴗ•͈)感謝♡",
+                "url": "https://room.rakuten.co.jp/room_0991b98282/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_92e3cac608",
+                "name": "おくみー🍫女の子ママ⁎₊✧朝コレ✧",
+                "url": "https://room.rakuten.co.jp/room_92e3cac608/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_cf4ea477ed",
+                "name": "ベビー・マタニティ｜うさ子",
+                "url": "https://room.rakuten.co.jp/room_cf4ea477ed/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_0b027b3268",
+                "name": "まるねこ@暮らしと子育て🐈️🌸",
+                "url": "https://room.rakuten.co.jp/room_0b027b3268/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_moving321",
+                "name": "みる🌱2人男子ママ👦👦",
+                "url": "https://room.rakuten.co.jp/room_moving321/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_943a49cf41",
+                "name": "ちいか🐰ご購入ありがとうございます‪✿",
+                "url": "https://room.rakuten.co.jp/room_943a49cf41/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_caadcdd3f5",
+                "name": "みーこ🐰",
+                "url": "https://room.rakuten.co.jp/room_caadcdd3f5/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_5d4aa8da1d",
+                "name": "ひなママ🥨⌇ROOMインフルエンサー",
+                "url": "https://room.rakuten.co.jp/room_5d4aa8da1d/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_cc6fe1ebbc",
+                "name": "すずめ🐣キッズコーデ⁑ママ向けグッズ",
+                "url": "https://room.rakuten.co.jp/room_cc6fe1ebbc/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_9222d5916c",
+                "name": "ゆいころ｜7才👒4才🧢1才🍼育児",
+                "url": "https://room.rakuten.co.jp/room_9222d5916c/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_9c1a32bbc0",
+                "name": "ゆみねむ ‣‣@ymkghn",
+                "url": "https://room.rakuten.co.jp/room_9c1a32bbc0/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e1c5bdb974",
+                "name": "Chika＊5歳男の子ママ(育児グッズ)",
+                "url": "https://room.rakuten.co.jp/room_e1c5bdb974/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_4f715f0265",
+                "name": "アメ🍬年子3人育児",
+                "url": "https://room.rakuten.co.jp/room_4f715f0265/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_meruyura",
+                "name": "きみぃ ご購入ありがとうございます♪",
+                "url": "https://room.rakuten.co.jp/room_meruyura/items",
+                "tags": [
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_06f56b23ca",
+                "name": "けんいち＠娘が喜んだマタニティ用品",
+                "url": "https://room.rakuten.co.jp/room_06f56b23ca/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_359b660433",
+                "name": "ソメ",
+                "url": "https://room.rakuten.co.jp/room_359b660433/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_tama555han",
+                "name": "たまごのから🥚ラクに暮らす┊︎育児",
+                "url": "https://room.rakuten.co.jp/room_tama555han/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "mairoom126",
+                "name": "みいこ",
+                "url": "https://room.rakuten.co.jp/mairoom126/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "moimi.room",
+                "name": "もいみ@便利グッズ・子育てグッズ",
+                "url": "https://room.rakuten.co.jp/moimi.room/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "azuazu1014_room",
+                "name": "ig（@azuazu1014）",
+                "url": "https://room.rakuten.co.jp/azuazu1014_room/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_memechan329",
+                "name": "mochinosu 男の子ふたり育児",
+                "url": "https://room.rakuten.co.jp/room_memechan329/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_usacogayu0516",
+                "name": "うさこ🐰インテリア・おうち時間",
+                "url": "https://room.rakuten.co.jp/room_usacogayu0516/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e836e39a72",
+                "name": "eririﾏﾏ✴︎おしゃれ雑貨×子供×服",
+                "url": "https://room.rakuten.co.jp/room_e836e39a72/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_4fe6e2b991",
+                "name": "おにく✨購入感謝",
+                "url": "https://room.rakuten.co.jp/room_4fe6e2b991/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "kinako_710",
+                "name": "きなこ（育児と暮らしを楽しむアイテム）",
+                "url": "https://room.rakuten.co.jp/kinako_710/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_38090664e0",
+                "name": "gpgp",
+                "url": "https://room.rakuten.co.jp/room_38090664e0/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_26f58ae307",
+                "name": "ig🐰__hina.1230",
+                "url": "https://room.rakuten.co.jp/room_26f58ae307/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e49e918508",
+                "name": "myym_home🐰３姉妹双子ママみぃ",
+                "url": "https://room.rakuten.co.jp/room_e49e918508/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e50dbe8ff2",
+                "name": "にこ@nico_workmama",
+                "url": "https://room.rakuten.co.jp/room_e50dbe8ff2/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_cf859e3624",
+                "name": "mayu*ig:miouor_home",
+                "url": "https://room.rakuten.co.jp/room_cf859e3624/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_ee4d60c61a",
+                "name": "myubabygram",
+                "url": "https://room.rakuten.co.jp/room_ee4d60c61a/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_tenko0517",
+                "name": "てん子| IG @tenko0517",
+                "url": "https://room.rakuten.co.jp/room_tenko0517/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "anna.102.314",
+                "name": "anna ig→@ao__anna",
+                "url": "https://room.rakuten.co.jp/anna.102.314/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_8cc8487de1",
+                "name": "ろーず🌹ボタニカルママシール屋さん",
+                "url": "https://room.rakuten.co.jp/room_8cc8487de1/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_pitpichan",
+                "name": "さとみん┊暮らしを整え育児も楽しむ𓆸﻿",
+                "url": "https://room.rakuten.co.jp/room_pitpichan/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "momochan_kakei",
+                "name": "もも🍑暮らし/美容/育児/グルメ",
+                "url": "https://room.rakuten.co.jp/momochan_kakei/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_0e68b6a6da",
+                "name": "choco",
+                "url": "https://room.rakuten.co.jp/room_0e68b6a6da/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_aab0e153b3",
+                "name": "kozue",
+                "url": "https://room.rakuten.co.jp/room_aab0e153b3/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_aono",
+                "name": "あおやん🐳簡単おいしいが大好きワーママ",
+                "url": "https://room.rakuten.co.jp/room_aono/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_zubora-tsuma",
+                "name": "あず🌸インスタzubora_tsuma",
+                "url": "https://room.rakuten.co.jp/room_zubora-tsuma/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_43845e03c5",
+                "name": "こばりず＊ゆるい知育×読書×絵本",
+                "url": "https://room.rakuten.co.jp/room_43845e03c5/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_ee050144x",
+                "name": "ﾐﾆﾏﾘｽﾄあやじま｜3才児と身軽に🐣",
+                "url": "https://room.rakuten.co.jp/room_ee050144x/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品",
+                      "知育玩具"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_f09aa56519",
+                "name": "せいか⁑4歳2歳おとこのこママ",
+                "url": "https://room.rakuten.co.jp/room_f09aa56519/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_2520a806ac",
+                "name": "なー子@7歳6歳姉妹ママ",
+                "url": "https://room.rakuten.co.jp/room_2520a806ac/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_452b452b8f",
+                "name": "はち⌇3兄弟とシンプルな暮らし",
+                "url": "https://room.rakuten.co.jp/room_452b452b8f/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_2b38205acb",
+                "name": "みきP🧸よろしくお願いします🪄ˎˊ˗",
+                "url": "https://room.rakuten.co.jp/room_2b38205acb/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_213d1f33d5",
+                "name": "りた 🦥 3歳育児",
+                "url": "https://room.rakuten.co.jp/room_213d1f33d5/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "sn.yuzu",
+                "name": "𝚜𝚗.𝚢𝚞𝚣𝚞 𓇢 𓆸",
+                "url": "https://room.rakuten.co.jp/sn.yuzu/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_7c35d4a24f",
+                "name": "fen",
+                "url": "https://room.rakuten.co.jp/room_7c35d4a24f/items",
+                "tags": [
+                      "育児"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "kao411",
+                "name": "kaori🌷𓂃𓈒𓏸",
+                "url": "https://room.rakuten.co.jp/kao411/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_e6f7b4b038",
+                "name": "k o t o 𓈒𓂂𓏸",
+                "url": "https://room.rakuten.co.jp/room_e6f7b4b038/items",
+                "tags": [
+                      "育児"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_9c51afe8c0",
+                "name": "miki｜3児母ちゃんの神アイテム",
+                "url": "https://room.rakuten.co.jp/room_9c51afe8c0/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_2cfdef0e1a",
+                "name": "taka0taka0taka0 北欧🌿",
+                "url": "https://room.rakuten.co.jp/room_2cfdef0e1a/items",
+                "tags": [
+                      "育児",
+                      "キッズ用品"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_b0c743eca6",
+                "name": "あお|ズボラな完璧主義ママのライフハック",
+                "url": "https://room.rakuten.co.jp/room_b0c743eca6/items",
+                "tags": [
+                      "育児"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "ameno",
+                "name": "あめの🐤ig▶amenonoouchi",
+                "url": "https://room.rakuten.co.jp/ameno/items",
+                "tags": [
+                      "育児"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_303510088a",
+                "name": "りさママ❤プチプラ×淡色",
+                "url": "https://room.rakuten.co.jp/room_303510088a/items",
+                "tags": [
+                      "育児"
+                ],
+                "note": "公開ユーザー検索「育児」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          },
+          {
+                "id": "room_8968419cfd",
+                "name": "りよ",
+                "url": "https://room.rakuten.co.jp/room_8968419cfd/items",
+                "tags": [
+                      "育児",
+                      "ベビー用品"
+                ],
+                "note": "公開ユーザー検索「ベビー用品」から追加。初回作業時にジャンル完全一致を確認",
+                "source": "rakuten-public-user-search"
+          }
+    ];
+
+    const SEARCH_LINKS = [
+      {
+        label: "離乳食",
+        url: "https://room.rakuten.co.jp/search/user?follower=&items=&keyword=%E9%9B%A2%E4%B9%B3%E9%A3%9F&rank=6%2C5%2C4%2C3",
+        hint: "育児グッズ、離乳食、ワンオペ育児の候補を探す"
+      },
+      {
+        label: "子どもと暮らす",
+        url: "https://room.rakuten.co.jp/search/user?follower=&items=&keyword=%E5%AD%90%E3%81%A9%E3%82%82%E3%81%A8%E6%9A%AE%E3%82%89%E3%81%99&rank=6%2C5%2C4%2C3",
+        hint: "子育て・キッズ用品・絵本寄りの候補を探す"
+      },
+      {
+        label: "知育玩具",
+        url: "https://room.rakuten.co.jp/search/user?keyword=%E7%9F%A5%E8%82%B2%E7%8E%A9%E5%85%B7&rank=6%2C5%2C4%2C3",
+        hint: "知育、おもちゃ、絵本に寄せて探す"
+      },
+      {
+        label: "育児便利グッズ",
+        url: "https://room.rakuten.co.jp/search/user?keyword=%E8%82%B2%E5%85%90%E4%BE%BF%E5%88%A9%E3%82%B0%E3%83%83%E3%82%BA&rank=6%2C5%2C4%2C3",
+        hint: "育児時短、出産準備、ベビー用品候補を探す"
+      },
+      {
+        label: "入園入学準備",
+        url: "https://room.rakuten.co.jp/search/user?keyword=%E5%85%A5%E5%9C%92%E5%85%A5%E5%AD%A6%E6%BA%96%E5%82%99&rank=6%2C5%2C4%2C3",
+        hint: "キッズ用品、通園通学、学習用品候補を探す"
+      }
+    ];
+
+    const state = loadState();
+    let currentView = "today";
+    let visibleIds = [];
+
+    const els = {
+      followDone: document.getElementById("followDone"),
+      followFoot: document.getElementById("followFoot"),
+      likeDone: document.getElementById("likeDone"),
+      likeFoot: document.getElementById("likeFoot"),
+      todayCount: document.getElementById("todayCount"),
+      routineDate: document.getElementById("routineDate"),
+      totalCount: document.getElementById("totalCount"),
+      poolFoot: document.getElementById("poolFoot"),
+      rows: document.getElementById("candidateRows"),
+      empty: document.getElementById("emptyState"),
+      search: document.getElementById("searchInput"),
+      sort: document.getElementById("sortSelect"),
+      listPanel: document.getElementById("listPanel"),
+      toolsPanel: document.getElementById("toolsPanel"),
+      toast: document.getElementById("toast"),
+      searchLinks: document.getElementById("searchLinks"),
+      activeName: document.getElementById("activeName"),
+      activeUrl: document.getElementById("activeUrl"),
+      activeOpen: document.getElementById("activeOpen"),
+      activeCopy: document.getElementById("activeCopy"),
+      activeComplete: document.getElementById("activeComplete"),
+      activeSkip: document.getElementById("activeSkip"),
+      activeNext: document.getElementById("activeNext")
+    };
+
+    hydrateDefaults();
+    renderSearchLinks();
+    ensureTodaySelection();
+    bindEvents();
+    render();
+
+    function loadState() {
+      const raw = localStorage.getItem(SETTINGS.storageKey);
+      if (!raw) {
+        return {
+          candidates: [],
+          progress: {},
+          daily: {},
+          activeId: "",
+          createdAt: new Date().toISOString()
+        };
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          candidates: Array.isArray(parsed.candidates) ? parsed.candidates : [],
+          progress: parsed.progress && typeof parsed.progress === "object" ? parsed.progress : {},
+          daily: parsed.daily && typeof parsed.daily === "object" ? parsed.daily : {},
+          activeId: parsed.activeId || "",
+          createdAt: parsed.createdAt || new Date().toISOString()
+        };
+      } catch {
+        return {
+          candidates: [],
+          progress: {},
+          daily: {},
+          activeId: "",
+          createdAt: new Date().toISOString()
+        };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(SETTINGS.storageKey, JSON.stringify(state));
+    }
+
+    function hydrateDefaults() {
+      const existing = new Set(state.candidates.map(candidate => candidate.id));
+      let added = 0;
+      for (const candidate of DEFAULT_CANDIDATES) {
+        if (existing.has(candidate.id)) continue;
+        state.candidates.push({
+          ...candidate,
+          createdAt: new Date().toISOString(),
+          source: "initial-public-search"
+        });
+        added += 1;
+      }
+      if (added) saveState();
+      if (added) delete state.daily[routineDate()];
+    }
+
+    function routineDate(date = new Date()) {
+      const shifted = new Date(date);
+      if (shifted.getHours() < SETTINGS.resetHour) {
+        shifted.setDate(shifted.getDate() - 1);
+      }
+      return [
+        shifted.getFullYear(),
+        String(shifted.getMonth() + 1).padStart(2, "0"),
+        String(shifted.getDate()).padStart(2, "0")
+      ].join("-");
+    }
+
+    function ensureTodaySelection(force = false) {
+      const key = routineDate();
+      if (!force && Array.isArray(state.daily[key])) return state.daily[key];
+      const candidates = state.candidates
+        .filter(candidate => !isSkipped(candidate.id))
+        .filter(candidate => !isComplete(candidate.id))
+        .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      state.daily[key] = candidates.slice(0, SETTINGS.dailyGoal).map(candidate => candidate.id);
+      saveState();
+      return state.daily[key];
+    }
+
+    function progressFor(id) {
+      if (!state.progress[id]) state.progress[id] = {};
+      return state.progress[id];
+    }
+
+    function isFollowed(id) {
+      return Boolean(state.progress[id]?.followedAt);
+    }
+
+    function isLiked(id) {
+      return Boolean(state.progress[id]?.likedAt);
+    }
+
+    function isSkipped(id) {
+      return Boolean(state.progress[id]?.skippedAt);
+    }
+
+    function isComplete(id) {
+      return isFollowed(id) && isLiked(id);
+    }
+
+    function todayCandidates() {
+      const ids = ensureTodaySelection();
+      const byId = new Map(state.candidates.map(candidate => [candidate.id, candidate]));
+      return ids.map(id => byId.get(id)).filter(Boolean);
+    }
+
+    function filteredCandidates() {
+      let candidates;
+      if (currentView === "today") {
+        candidates = todayCandidates();
+      } else if (currentView === "todo") {
+        candidates = state.candidates.filter(candidate => !isComplete(candidate.id) && !isSkipped(candidate.id));
+      } else if (currentView === "done") {
+        candidates = state.candidates.filter(candidate => isComplete(candidate.id));
+      } else if (currentView === "skipped") {
+        candidates = state.candidates.filter(candidate => isSkipped(candidate.id));
+      } else {
+        candidates = [...state.candidates];
+      }
+
+      const query = els.search.value.trim().toLowerCase();
+      if (query) {
+        candidates = candidates.filter(candidate => {
+          const text = [
+            candidate.name,
+            candidate.url,
+            candidate.note,
+            ...(candidate.tags || []),
+            state.progress[candidate.id]?.note || ""
+          ].join(" ").toLowerCase();
+          return text.includes(query);
+        });
+      }
+
+      const dailyOrder = new Map(ensureTodaySelection().map((id, index) => [id, index]));
+      const sortValue = els.sort.value;
+      candidates.sort((a, b) => {
+        if (sortValue === "routine") {
+          const ai = dailyOrder.has(a.id) ? dailyOrder.get(a.id) : 9999;
+          const bi = dailyOrder.has(b.id) ? dailyOrder.get(b.id) : 9999;
+          if (ai !== bi) return ai - bi;
+        }
+        if (sortValue === "name") return a.name.localeCompare(b.name, "ja");
+        if (sortValue === "opened") {
+          return new Date(state.progress[b.id]?.lastOpenedAt || 0) - new Date(state.progress[a.id]?.lastOpenedAt || 0);
+        }
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      });
+
+      return candidates;
+    }
+
+    function render() {
+      const key = routineDate();
+      const todays = todayCandidates();
+      const followDone = todays.filter(candidate => isFollowed(candidate.id)).length;
+      const likeDone = todays.filter(candidate => isLiked(candidate.id)).length;
+      const poolTodo = state.candidates.filter(candidate => !isComplete(candidate.id) && !isSkipped(candidate.id)).length;
+
+      els.followDone.textContent = followDone;
+      els.likeDone.textContent = likeDone;
+      els.followFoot.textContent = `未処理 ${Math.max(0, SETTINGS.dailyGoal - followDone)}`;
+      els.likeFoot.textContent = `未処理 ${Math.max(0, SETTINGS.dailyGoal - likeDone)}`;
+      els.todayCount.textContent = todays.length;
+      els.routineDate.textContent = `${key} / 5:00更新`;
+      els.totalCount.textContent = state.candidates.length;
+      els.poolFoot.textContent = `未完了 ${poolTodo}`;
+      renderActiveCandidate();
+
+      if (currentView === "tools") {
+        els.listPanel.classList.remove("active");
+        els.toolsPanel.classList.add("active");
+        return;
+      }
+
+      els.listPanel.classList.add("active");
+      els.toolsPanel.classList.remove("active");
+
+      const candidates = filteredCandidates();
+      visibleIds = candidates.map(candidate => candidate.id);
+      els.rows.innerHTML = "";
+      els.empty.hidden = candidates.length > 0;
+
+      const fragment = document.createDocumentFragment();
+      for (const candidate of candidates) {
+        fragment.appendChild(candidateRow(candidate));
+      }
+      els.rows.appendChild(fragment);
+    }
+
+    function candidateRow(candidate) {
+      const progress = progressFor(candidate.id);
+      const tr = document.createElement("tr");
+      if (isComplete(candidate.id)) tr.classList.add("done");
+      if (isSkipped(candidate.id)) tr.classList.add("skipped");
+
+      const nameTd = document.createElement("td");
+      nameTd.innerHTML = `
+        <div class="candidate-name">
+          <strong>${escapeHtml(candidate.name)}</strong>
+          <span class="url">${escapeHtml(candidate.url)}</span>
+          <span class="hint">${escapeHtml(candidate.note || "")}</span>
+        </div>
+      `;
+
+      const tagTd = document.createElement("td");
+      const tags = document.createElement("div");
+      tags.className = "tags";
+      for (const tag of candidate.tags || []) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = tag;
+        tags.appendChild(span);
+      }
+      tagTd.appendChild(tags);
+
+      const statusTd = document.createElement("td");
+      statusTd.innerHTML = `
+        <div class="tags">
+          <span class="badge ${isFollowed(candidate.id) ? "ok" : "todo"}">${isFollowed(candidate.id) ? "フォロー済み" : "フォロー未"}</span>
+          <span class="badge ${isLiked(candidate.id) ? "ok" : "todo"}">${isLiked(candidate.id) ? "いいね済み" : "いいね未"}</span>
+          ${isSkipped(candidate.id) ? '<span class="badge skip">スキップ</span>' : ""}
+        </div>
+      `;
+
+      const actionsTd = document.createElement("td");
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+      actions.append(
+        openActionLink(candidate),
+        actionButton(isComplete(candidate.id) ? "両方取消" : "フォロー・いいね済み", "done-button", () => toggleBothDone(candidate.id)),
+        actionButton(isSkipped(candidate.id) ? "戻す" : "スキップ", "skip-button", () => toggleSkip(candidate.id))
+      );
+      actionsTd.appendChild(actions);
+
+      const noteTd = document.createElement("td");
+      const note = document.createElement("input");
+      note.className = "note-input";
+      note.placeholder = "メモ";
+      note.value = progress.note || "";
+      note.addEventListener("change", () => {
+        progressFor(candidate.id).note = note.value.trim();
+        saveState();
+        showToast("メモを保存しました");
+      });
+      noteTd.appendChild(note);
+
+      tr.append(nameTd, tagTd, statusTd, actionsTd, noteTd);
+      return tr;
+    }
+
+    function openActionLink(candidate) {
+      const link = document.createElement("a");
+      link.href = candidate.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "open";
+      link.textContent = "ROOMを開く";
+      link.addEventListener("click", () => {
+        selectCandidate(candidate.id, false);
+        markOpened(candidate.id);
+      });
+      return link;
+    }
+
+    function actionButton(label, className, onClick) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.className = className;
+      button.addEventListener("click", onClick);
+      return button;
+    }
+
+    function markOpened(id) {
+      const candidate = state.candidates.find(item => item.id === id);
+      if (!candidate) return;
+      progressFor(id).lastOpenedAt = new Date().toISOString();
+      saveState();
+      render();
+    }
+
+    function openCandidate(id) {
+      const candidate = state.candidates.find(item => item.id === id);
+      if (!candidate) return;
+      selectCandidate(id, false);
+      markOpened(id);
+      window.open(candidate.url, "_blank");
+    }
+
+    function selectCandidate(id, shouldRender = true) {
+      if (!state.candidates.some(candidate => candidate.id === id)) return;
+      state.activeId = id;
+      saveState();
+      if (shouldRender) render();
+    }
+
+    function activeCandidate() {
+      const current = state.candidates.find(candidate => candidate.id === state.activeId);
+      if (current && !isComplete(current.id) && !isSkipped(current.id)) return current;
+      const next = todayCandidates().find(candidate => !isComplete(candidate.id) && !isSkipped(candidate.id));
+      if (next) {
+        state.activeId = next.id;
+        saveState();
+        return next;
+      }
+      return current || null;
+    }
+
+    function renderActiveCandidate() {
+      const candidate = activeCandidate();
+      if (!candidate) {
+        els.activeName.textContent = "未選択";
+        els.activeUrl.textContent = "未完了候補がありません";
+        els.activeOpen.href = "#";
+        els.activeComplete.disabled = true;
+        els.activeSkip.disabled = true;
+        return;
+      }
+      els.activeName.textContent = candidate.name;
+      els.activeUrl.textContent = candidate.url;
+      els.activeOpen.href = candidate.url;
+      els.activeComplete.disabled = false;
+      els.activeSkip.disabled = false;
+      els.activeComplete.textContent = isComplete(candidate.id) ? "フォロー・いいね取消" : "フォロー・いいね済み";
+      els.activeSkip.textContent = isSkipped(candidate.id) ? "戻す" : "スキップ";
+    }
+
+    async function copyActiveUrl() {
+      const candidate = activeCandidate();
+      if (!candidate) return;
+      try {
+        await navigator.clipboard.writeText(candidate.url);
+        showToast("URLをコピーしました");
+      } catch {
+        window.prompt("URLをコピーしてください", candidate.url);
+      }
+    }
+
+    function toggleActiveComplete() {
+      const candidate = activeCandidate();
+      if (!candidate) return;
+      toggleBothDone(candidate.id);
+    }
+
+    function skipActive() {
+      const candidate = activeCandidate();
+      if (!candidate) return;
+      toggleSkip(candidate.id);
+    }
+
+    function moveToNextCandidate() {
+      const currentId = activeCandidate()?.id;
+      const todays = todayCandidates();
+      const currentIndex = todays.findIndex(candidate => candidate.id === currentId);
+      const ordered = currentIndex >= 0
+        ? todays.slice(currentIndex + 1).concat(todays.slice(0, currentIndex + 1))
+        : todays;
+      const next = ordered.find(candidate => !isComplete(candidate.id) && !isSkipped(candidate.id));
+      if (!next) {
+        showToast("今日の未完了候補はありません");
+        return;
+      }
+      selectCandidate(next.id);
+    }
+
+    function toggleDone(id, field) {
+      const progress = progressFor(id);
+      progress[field] = progress[field] ? "" : new Date().toISOString();
+      if (progress.skippedAt && (progress.followedAt || progress.likedAt)) progress.skippedAt = "";
+      saveState();
+      render();
+    }
+
+    function toggleBothDone(id) {
+      const progress = progressFor(id);
+      if (isComplete(id)) {
+        progress.followedAt = "";
+        progress.likedAt = "";
+      } else {
+        const now = new Date().toISOString();
+        progress.followedAt = progress.followedAt || now;
+        progress.likedAt = progress.likedAt || now;
+        progress.skippedAt = "";
+      }
+      saveState();
+      render();
+    }
+
+    function toggleSkip(id) {
+      const progress = progressFor(id);
+      progress.skippedAt = progress.skippedAt ? "" : new Date().toISOString();
+      saveState();
+      render();
+    }
+
+    function openNextCandidate() {
+      const next = todayCandidates().find(candidate => !isComplete(candidate.id) && !isSkipped(candidate.id));
+      if (!next) {
+        showToast("今日の未完了候補はありません");
+        return;
+      }
+      openCandidate(next.id);
+    }
+
+    function addCandidateFromFields() {
+      const name = document.getElementById("addName").value.trim();
+      const url = document.getElementById("addUrl").value.trim();
+      const tags = splitTags(document.getElementById("addTags").value);
+      const note = document.getElementById("addNote").value.trim();
+      const added = addCandidate({ name, url, tags, note });
+      if (!added) return;
+      document.getElementById("addName").value = "";
+      document.getElementById("addUrl").value = "";
+      document.getElementById("addTags").value = "";
+      document.getElementById("addNote").value = "";
+      ensureTodaySelection(true);
+      render();
+      showToast("候補を追加しました");
+    }
+
+    function addCandidate(input) {
+      const url = normalizeRoomUrl(input.url || "");
+      if (!url) {
+        showToast("楽天ROOMのURLを入力してください");
+        return false;
+      }
+      const id = idFromUrl(url);
+      if (!id) {
+        showToast("ROOM URLからIDを読み取れませんでした");
+        return false;
+      }
+      if (state.candidates.some(candidate => candidate.id === id || candidate.url === url)) {
+        showToast("この候補はすでに登録済みです");
+        return false;
+      }
+      state.candidates.push({
+        id,
+        name: input.name || `ROOM候補 ${id}`,
+        url,
+        tags: input.tags?.length ? input.tags : ["育児", "ベビー", "キッズ", "知育"],
+        note: input.note || "",
+        source: "manual",
+        createdAt: new Date().toISOString()
+      });
+      saveState();
+      return true;
+    }
+
+    function bulkAdd() {
+      const input = document.getElementById("bulkInput");
+      const lines = input.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      let added = 0;
+      for (const line of lines) {
+        const parts = parseCsvLine(line);
+        if (parts.length === 1 && parts[0].startsWith("http")) {
+          if (addCandidate({ url: parts[0] })) added += 1;
+        } else {
+          if (addCandidate({
+            name: parts[0],
+            url: parts[1],
+            tags: splitTags(parts[2] || ""),
+            note: parts.slice(3).join(",")
+          })) added += 1;
+        }
+      }
+      input.value = "";
+      ensureTodaySelection(true);
+      render();
+      showToast(`${added}件追加しました`);
+    }
+
+    function parseCsvLine(line) {
+      const result = [];
+      let current = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        if (char === '"') {
+          quoted = !quoted;
+        } else if (char === "," && !quoted) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    function splitTags(value) {
+      return value
+        .split(/[,、]/)
+        .map(tag => tag.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeRoomUrl(value) {
+      if (!value.includes("room.rakuten.co.jp/")) return "";
+      const withoutQuery = value.split("?")[0].replace(/\/+$/, "");
+      if (/\/items$/.test(withoutQuery)) return withoutQuery;
+      const id = idFromUrl(withoutQuery);
+      return id ? `https://room.rakuten.co.jp/${id}/items` : "";
+    }
+
+    function idFromUrl(url) {
+      const match = url.match(/room\.rakuten\.co\.jp\/([^/]+)/);
+      return match ? match[1] : "";
+    }
+
+    function exportJson() {
+      document.getElementById("jsonBox").value = JSON.stringify(state, null, 2);
+      showToast("JSONを書き出しました");
+    }
+
+    function downloadJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `rakuten-room-routine-${routineDate()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson() {
+      const value = document.getElementById("jsonBox").value.trim();
+      if (!value) {
+        showToast("JSONを貼り付けてください");
+        return;
+      }
+      try {
+        const parsed = JSON.parse(value);
+        if (!Array.isArray(parsed.candidates)) throw new Error("invalid");
+        state.candidates = parsed.candidates;
+        state.progress = parsed.progress || {};
+        state.daily = parsed.daily || {};
+        state.activeId = parsed.activeId || "";
+        state.createdAt = parsed.createdAt || state.createdAt;
+        saveState();
+        ensureTodaySelection(true);
+        render();
+        showToast("JSONから復元しました");
+      } catch {
+        showToast("JSONの形式を確認してください");
+      }
+    }
+
+    function resetProgress() {
+      if (!confirm("候補は残して、フォロー済み・いいね済み・スキップ・メモを消します。実行しますか？")) return;
+      state.progress = {};
+      state.daily = {};
+      state.activeId = "";
+      saveState();
+      ensureTodaySelection(true);
+      render();
+      showToast("進捗をリセットしました");
+    }
+
+    function resetAll() {
+      if (!confirm("候補と進捗を初期状態に戻します。追加した候補も消えます。実行しますか？")) return;
+      state.candidates = [];
+      state.progress = {};
+      state.daily = {};
+      state.activeId = "";
+      hydrateDefaults();
+      ensureTodaySelection(true);
+      render();
+      showToast("初期状態に戻しました");
+    }
+
+    function markVisibleDone() {
+      if (!visibleIds.length) return;
+      if (!confirm(`表示中の${visibleIds.length}件をフォロー済み・いいね済みにします。実行しますか？`)) return;
+      const now = new Date().toISOString();
+      for (const id of visibleIds) {
+        const progress = progressFor(id);
+        progress.followedAt = progress.followedAt || now;
+        progress.likedAt = progress.likedAt || now;
+        progress.skippedAt = "";
+      }
+      saveState();
+      render();
+      showToast("表示中の候補を両方済みにしました");
+    }
+
+    function bindEvents() {
+      document.getElementById("viewTabs").addEventListener("click", event => {
+        const button = event.target.closest("button[data-view]");
+        if (!button) return;
+        currentView = button.dataset.view;
+        document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab === button));
+        render();
+      });
+      els.search.addEventListener("input", render);
+      els.sort.addEventListener("change", render);
+      document.getElementById("openNext").addEventListener("click", openNextCandidate);
+      els.activeOpen.addEventListener("click", event => {
+        const candidate = activeCandidate();
+        if (!candidate) {
+          event.preventDefault();
+          return;
+        }
+        selectCandidate(candidate.id, false);
+        markOpened(candidate.id);
+      });
+      els.activeCopy.addEventListener("click", copyActiveUrl);
+      els.activeComplete.addEventListener("click", toggleActiveComplete);
+      els.activeSkip.addEventListener("click", skipActive);
+      els.activeNext.addEventListener("click", moveToNextCandidate);
+      document.getElementById("rebuildToday").addEventListener("click", () => {
+        ensureTodaySelection(true);
+        render();
+        showToast("今日の50件を組み直しました");
+      });
+      document.getElementById("clearFilters").addEventListener("click", () => {
+        els.search.value = "";
+        els.sort.value = "routine";
+        render();
+      });
+      document.getElementById("markVisibleDone").addEventListener("click", markVisibleDone);
+      document.getElementById("addCandidate").addEventListener("click", addCandidateFromFields);
+      document.getElementById("bulkAdd").addEventListener("click", bulkAdd);
+      document.getElementById("exportJson").addEventListener("click", exportJson);
+      document.getElementById("downloadJson").addEventListener("click", downloadJson);
+      document.getElementById("importJson").addEventListener("click", importJson);
+      document.getElementById("resetProgress").addEventListener("click", resetProgress);
+      document.getElementById("resetAll").addEventListener("click", resetAll);
+    }
+
+    function renderSearchLinks() {
+      for (const item of SEARCH_LINKS) {
+        const link = document.createElement("a");
+        link.className = "search-link";
+        link.href = item.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.innerHTML = `<strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.hint)}</span>`;
+        els.searchLinks.appendChild(link);
+      }
+    }
+
+    function showToast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => els.toast.classList.remove("show"), 2400);
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
