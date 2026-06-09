@@ -5,6 +5,7 @@ import logging
 from datetime import date, datetime
 
 from post_generator import (
+    appeal_label,
     build_benefit,
     build_hashtags,
     build_post_text,
@@ -139,7 +140,7 @@ def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
         product.review_count,
         product.review_average,
         item.product_rank,
-        appeal,
+        appeal_label(appeal),
         benefit,
         purchase_checkpoints(product, appeal),
         item.total_score,

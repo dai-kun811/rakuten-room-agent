@@ -11,6 +11,7 @@ from scoring import (
     classify_product,
     filter_and_score_products,
     score_price,
+    score_product,
     score_rating,
     score_sales,
     score_terms,
@@ -120,6 +121,28 @@ class ScoringTest(unittest.TestCase):
 
     def test_score_terms_caps_score(self) -> None:
         self.assertEqual(score_terms("育児 ベビー キッズ 知育 子ども", ["育児", "ベビー", "キッズ"], points_per_match=10, max_score=20), 20)
+
+
+    def test_recommendation_reason_does_not_use_review_count_or_rating_copy(self) -> None:
+        scored = score_product(
+            product(
+                category="ベビー用消耗品",
+                name="おしりふき 大容量 まとめ買い セット",
+                url="https://example.com/wipes",
+                review_count=1200,
+                review_average=4.8,
+                caption="おしりふき 大容量 まとめ買い セール",
+            ),
+            date(2026, 6, 9),
+        )
+
+        reason = scored.recommendation_reason
+
+        self.assertIn("買い忘れ防止", reason)
+        self.assertIn("ストック", reason)
+        self.assertNotIn("レビュー", reason)
+        self.assertNotIn("評価", reason)
+        self.assertNotIn("総合スコア", reason)
 
 
 if __name__ == "__main__":

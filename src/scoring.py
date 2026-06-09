@@ -31,14 +31,13 @@ TARGET_WORDS = [
 ROOM_WORDS = [
     "ギフト",
     "プレゼント",
-    "人気",
-    "ランキング",
     "送料無料",
     "セット",
     "かわいい",
     "おしゃれ",
     "限定",
-    "高評価",
+    "セール",
+    "ポイント",
 ]
 
 SEASONAL_WORDS_BY_MONTH = {
@@ -248,12 +247,21 @@ def classify_product(product: Product, seasonal_score: int) -> str:
 def build_recommendation_reason(
     product: Product, total_score: int, seasonal_score: int, room_score: int
 ) -> str:
-    reasons = [
-        f"レビュー{product.review_count:,}件、評価{product.review_average:.2f}で比較材料が多い商品です。",
-        f"総合スコアは{total_score}点です。",
-    ]
+    text = product.text
+    if any(word in text for word in ["おしりふき", "おむつ", "消耗", "まとめ", "セット"]):
+        reasons = ["毎日使う消耗品として、買い忘れ防止やストック需要に合う商品です。"]
+    elif any(word in text for word in ["知育", "リング", "ブロック", "絵本", "パズル"]):
+        reasons = ["親子遊びや家遊びの中で、遊び方を広げやすい商品です。"]
+    elif any(word in text for word in ["靴", "シューズ", "保育園", "通園", "スニーカー"]):
+        reasons = ["登園前の支度や公園遊びなど、使う場面がはっきりした商品です。"]
+    elif any(word in text for word in ["家電", "時短", "自動", "ブレンダー", "掃除"]):
+        reasons = ["朝や夜の家事負担を減らしたい家庭の利用シーンに合う商品です。"]
+    elif any(word in text for word in ["ギフト", "出産祝い", "プレゼント"]):
+        reasons = ["贈った後に実際の育児で使われる理由がある商品です。"]
+    else:
+        reasons = ["育児中の具体的な利用シーンを想像しやすい商品です。"]
     if seasonal_score >= 5:
-        reasons.append("今月の季節需要ワードにも合っています。")
+        reasons.append("季節の準備や買い替えタイミングにも合わせやすいです。")
     if room_score >= 6:
-        reasons.append("楽天ROOMで反応されやすい訴求語も含まれています。")
+        reasons.append("商品名や説明文から購入シーンを作りやすいです。")
     return "".join(reasons)
