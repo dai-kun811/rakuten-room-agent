@@ -46,7 +46,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertLessEqual(len(title), 30)
         self.assertNotIn("おしりふき", title)
         self.assertGreaterEqual(len(body), 180)
-        self.assertLessEqual(len(body), 280)
+        self.assertLessEqual(len(body), 340)
 
     def test_full_output_uses_requested_room_fields_without_review_references(self) -> None:
         scored = score_product(
@@ -102,7 +102,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertNotIn("知育リングセット", title)
         self.assertIn("指先", post_text)
         self.assertIn("親子", post_text)
-        self.assertIn("利用シーン", post_text)
+        self.assertNotIn("利用シーン", post_text)
         self.assertIn("集中", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
@@ -135,6 +135,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("気持ちがラク", post_text)
         self.assertIn("セール", post_text)
         self.assertIn("容量と価格を確認", post_text)
+        self.assertIn("毎日使う消耗品を切らしたくない家庭", post_text)
         self.assertNotIn("容量と価格だけでも確認", post_text)
         self.assertNotIn("チェックしてください", post_text)
         self.assertNotIn("プレゼント", post_text)
@@ -166,7 +167,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("保育園", post_text)
         self.assertIn("履かせやすさ", post_text)
         self.assertIn("歩き", post_text)
-        self.assertIn("登園前の脱ぎ履き", post_text)
+        self.assertIn("自分で履きたい気持ち", post_text)
         self.assertIn("サイズ欠け", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
@@ -212,9 +213,40 @@ class PostGeneratorTest(unittest.TestCase):
         normal_tags = build_hashtags(normal_scored).split()
 
         self.assertIn("育児ギフト", gift_post)
+        self.assertIn("出産祝いって何を贈るか迷いますよね", gift_post)
+        self.assertIn("赤ちゃんの毎日", gift_post)
+        self.assertIn("相手の育児で出番がある贈り物", gift_post)
+        self.assertNotIn("かわいさより相手の生活で使われるかが大事", gift_post)
         self.assertIn("#出産祝い", gift_tags)
         self.assertNotIn("#出産祝い", normal_tags)
         self.assertNotIn("育児ギフト", normal_post)
+
+    def test_milk_copy_mentions_last_can_and_parent_relief(self) -> None:
+        scored = score_product(
+            Product(
+                category="ベビー用消耗品",
+                name="粉ミルク まとめ買い セット",
+                url="https://example.com/milk",
+                price=5980,
+                review_count=500,
+                review_average=4.6,
+                caption="ミルク 大容量 まとめ買い セール",
+                catchcopy="夜中のストック向き",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 10),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertIn("最後の1缶", post_text)
+        self.assertIn("夜中や夕方のバタバタ", post_text)
+        self.assertIn("子どもがお腹を空かせたタイミング", post_text)
+        self.assertIn("親の気持ちに余裕", post_text)
+        self.assertIn("ミルクの残量で焦りたくない家庭", post_text)
+        self.assertNotIn("口コミ", post_text)
+        self.assertNotIn("レビュー", post_text)
 
     def test_hashtags_include_required_tags_without_broad_low_intent_tags(self) -> None:
         scored = score_product(

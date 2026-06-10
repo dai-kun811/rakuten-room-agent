@@ -100,7 +100,7 @@ def build_post_text(scored: ScoredProduct) -> str:
         buy_now_sentence(product, appeal),
         recommendation_sentence(product, appeal),
     ]
-    body = compress_body("\n".join(sentence for sentence in body_sentences if sentence), max_length=280)
+    body = compress_body("\n".join(sentence for sentence in body_sentences if sentence), max_length=340)
     text = f"タイトル：\n{title}\n\n投稿文：\n{body}"
     return sanitize_post_text(text)
 
@@ -261,27 +261,31 @@ def build_benefit(product: Product, appeal: str) -> str:
 def empathy_sentence(product: Product, appeal: str) -> str:
     focus = focus_phrase(product)
     if appeal == APPEAL_CONSUMABLE:
+        if "ミルク" in product.text:
+            return "ミルクって「まだある」と思っていたのに、最後の1缶を開けて焦ることありませんか💦"
         return f"{focus}って「まだある」と思っていたのに、最後の1パックを開けて焦ることありませんか💦"
     if appeal == APPEAL_EDUCATIONAL:
-        return "せっかく買うなら、数日で飽きずに親子で遊べるものを選びたいですよね。"
+        return "雨の日や夕方、家遊びのネタがなくなって親子で時間を持て余すことありますよね。"
     if appeal == APPEAL_SHOES:
         return "朝の支度中に靴で止まると、登園前から一気に疲れますよね。"
     if appeal == APPEAL_APPLIANCE:
         return "共働きだと、寝かしつけ後の家事まで残る日が本当にきついですよね。"
     if appeal == APPEAL_GIFT:
-        return "育児ギフトは、かわいさより相手の生活で使われるかが大事ですよね。"
+        return "出産祝いって何を贈るか迷いますよね🎁"
     return f"{focus}は、買ってから出番があるかまで考えて選びたいですよね。"
 
 
 def solution_sentence(product: Product, appeal: str) -> str:
     text = product.text
     if appeal == APPEAL_CONSUMABLE:
-        if any(word in text for word in ["大容量", "まとめ", "セット"]):
-            return "毎日使うものだから、切らしてしまうと意外と困るんですよね。"
+        if "ミルク" in text:
+            return "毎日必要なものだから、ストックがあるだけで夜中や夕方のバタバタを減らしやすいです。"
+        if "おむつ" in text:
+            return "毎日替えるものだから、残り枚数を気にしながら過ごすのは地味にストレスなんですよね。"
         return "毎日使うものだから、切らしてしまうと意外と困るんですよね。"
     if appeal == APPEAL_EDUCATIONAL:
         if "リング" in text:
-            return "通す、並べる、色分けする流れが作れるので、指先を使いながら集中する時間につながります。"
+            return "通す、並べる、色分けする遊びなら、指先を使いながら集中する時間につながります。"
         if "ブロック" in text:
             return "作って壊してまた作る流れがあるので、親子で会話しながら遊びを伸ばせます。"
         if "絵本" in text:
@@ -294,7 +298,7 @@ def solution_sentence(product: Product, appeal: str) -> str:
     if appeal == APPEAL_APPLIANCE:
         return "準備や片づけの工程が減ると、子どもが寝た後の自分の時間を少し戻しやすくなります。"
     if appeal == APPEAL_GIFT:
-        return "消耗品や毎日使うものなら、好みに左右されにくく相手の負担にもなりにくいです。"
+        return "育児ギフトは、かわいいものも素敵ですが、毎日使えるものだと相手の負担になりにくいです。"
     return "使う場面がはっきりしているものは、買ったあとにしまい込みにくいです。"
 
 
@@ -307,27 +311,36 @@ def review_differentiation_sentence(product: Product, appeal: str) -> str:
     if "カメラ" in text:
         return "撮って終わりではなく、見返して話す流れまで作れるのがこの商品の良さです。"
     if appeal == APPEAL_CONSUMABLE:
+        if "ミルク" in text:
+            return "まとめて置けるタイプなら、寝る前に残量を見てヒヤッとする回数を減らせそう。"
         return "まとめてストックできるタイプなら、買い足しを気にする回数を減らせそう。"
     if appeal == APPEAL_SHOES:
-        return "見た目より、保育園や公園で何度も脱ぎ履きする場面まで想像できる点を重視したいです。"
+        return "見た目より、保育園や公園で何度も脱ぎ履きする場面まで想像できる点を重視したい一足です。"
     if appeal == APPEAL_APPLIANCE:
         return "性能だけでなく、出してすぐ使えるかまで見られると、結局使う回数が変わります。"
     if appeal == APPEAL_GIFT:
-        return "飾って終わるものより、受け取った家庭でそのまま使える理由がある点を見たいです。"
+        if "おむつ" in text:
+            return "おむつ系なら赤ちゃんの毎日に出番があり、サイズが合う時期にしっかり使ってもらいやすいです。"
+        return "飾って終わるものより、受け取った家庭でそのまま出番がある理由を見たいです。"
     return "商品名だけでなく、どの育児シーンで助かるかまで想像できるのが候補に残る理由です。"
 
 
 def review_signal_sentence(product: Product, appeal: str) -> str:
+    text = product.text
     if appeal == APPEAL_CONSUMABLE:
+        if "ミルク" in text:
+            return "子どもがお腹を空かせたタイミングで慌てず準備できるだけでも、親の気持ちに余裕が出ます◎"
+        if "おむつ" in text:
+            return "子どもを待たせず替えられて、親も残り枚数に追われにくくなるのが助かります。"
         return "夕方の忙しい時間に慌てて買いに行かなくて済むだけでも気持ちがラクになります◎"
     if appeal == APPEAL_EDUCATIONAL:
-        return "利用シーンとして想像したいのは、親子で一緒に遊ぶ時間と、集中が続くかどうかです。"
+        return "子どもは手を動かして遊びに入りやすく、親も横で声をかけながら一緒に過ごせます。"
     if appeal == APPEAL_SHOES:
-        return "利用シーンとして大事なのは、登園前の脱ぎ履きと、公園まで歩いたときの足運びです。"
+        return "子どもが自分で履きたい気持ちを邪魔しにくく、親も玄関で待つ時間を減らせます。"
     if appeal == APPEAL_APPLIANCE:
-        return "準備や片づけの手間が減ると、寝かしつけ後に少しだけ自分の時間を戻せます。"
+        return "子どもと向き合う時間を削らず、親の家事だけを少し軽くできるのが助かります。"
     if appeal == APPEAL_GIFT:
-        return "利用シーンとして見たいのは、贈った後にしまわれず、育児の中で実際に使われる場面です。"
+        return "赤ちゃんの毎日に出番があるものなら、贈られた側も置き場所や好みで悩みにくいです。"
     return "確認したいのは、どの家庭のどんな場面で出番があるかです。"
 
 
@@ -339,22 +352,26 @@ def buy_now_sentence(product: Product, appeal: str) -> str:
         return "切れてから探すと割高でも買いがちなので、余裕があるうちに候補へ入れておきたいです。"
     if appeal == APPEAL_SHOES:
         return "サイズ欠けが出る前に、園用と洗い替え候補を先に見ておくと動きやすいです。"
+    if appeal == APPEAL_GIFT:
+        return "贈る前に、内容量と相手の月齢が合うかだけ見ておくと選びやすいです。"
     return "必要になってから比較すると雑になりやすいので、今のうちに候補だけ見ておくと判断しやすいです。"
 
 
 def recommendation_sentence(product: Product, appeal: str) -> str:
     focus = focus_phrase(product)
     if appeal == APPEAL_CONSUMABLE:
-        return ""
+        if "ミルク" in product.text:
+            return "ミルクの残量で焦りたくない家庭に向いています。"
+        return "毎日使う消耗品を切らしたくない家庭に向いています。"
     if appeal == APPEAL_EDUCATIONAL:
-        return "次の休日に親子で遊ぶ時間を作りたいなら、対象年齢と遊び方を見ておきたい候補です。"
+        return "雨の日や休日の家遊びを親子で回したい家庭に向いています。"
     if appeal == APPEAL_SHOES:
-        return "登園前のバタつきを減らしたいなら、サイズがあるうちに確認しておきたい一足です。"
+        return "登園前のバタつきを減らしたい家庭に向いています。"
     if appeal == APPEAL_APPLIANCE:
-        return "夜の家事を少しでも減らしたい家庭は、置き場所まで見て候補に入れておきたいです。"
+        return "夜の家事を少しでも減らしたい共働き家庭に向いています。"
     if appeal == APPEAL_GIFT:
-        return "使われるギフトを探しているなら、内容量と相手の月齢だけ先に見ておくと選びやすいです。"
-    return f"{focus}を探しているなら、使う場面に合うか今のうちに確認してみてください。"
+        return "見た目だけでなく、相手の育児で出番がある贈り物を選びたい家庭に向いています。"
+    return f"{focus}の出番が具体的に浮かぶ家庭に向いています。"
 
 
 def psychology_note(product: Product, appeal: str) -> str:
