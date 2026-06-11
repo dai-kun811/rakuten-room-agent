@@ -17,6 +17,13 @@ BANNED_EXPRESSIONS = [
     "使いやすい",
     "神アイテム",
     "バズっている",
+    "バズってる",
+    "売れています",
+    "話題です",
+    "絶対買い",
+    "間違いなし",
+    "迷ったらこれ",
+    "コスパ最高",
     "ランキング上位",
     "プレゼントにもおすすめ",
     "レビュー件数が多いので安心",
@@ -33,7 +40,19 @@ BANNED_EXPRESSIONS = [
     "口コミで",
 ]
 
-BROAD_LOW_INTENT_TAGS = {"#子育て", "#育児", "#ママ", "#パパ"}
+BROAD_LOW_INTENT_TAGS = {
+    "#子育て",
+    "#育児",
+    "#ママ",
+    "#パパ",
+    "#赤ちゃん",
+    "#ベビー",
+    "#便利",
+    "#おすすめ",
+    "#人気",
+    "#楽天ROOM",
+    "#楽天購入品",
+}
 BRAND_HASHTAG = "#とらパパ厳選"
 
 APPEAL_CONSUMABLE = "consumable"
@@ -41,6 +60,9 @@ APPEAL_EDUCATIONAL = "educational"
 APPEAL_SHOES = "shoes"
 APPEAL_APPLIANCE = "appliance"
 APPEAL_GIFT = "gift"
+APPEAL_OUTING = "outing"
+APPEAL_FEEDING = "feeding"
+APPEAL_STORAGE = "storage"
 APPEAL_DEFAULT = "default"
 
 APPEAL_LABELS = {
@@ -49,6 +71,9 @@ APPEAL_LABELS = {
     APPEAL_SHOES: "通園準備",
     APPEAL_APPLIANCE: "時短家電",
     APPEAL_GIFT: "実用ギフト",
+    APPEAL_OUTING: "外出準備",
+    APPEAL_FEEDING: "食事サポート",
+    APPEAL_STORAGE: "片づけ対策",
     APPEAL_DEFAULT: "使う場面重視",
 }
 
@@ -62,6 +87,9 @@ CATEGORY_TAGS = {
     "家電": "#時短家電",
     "子ども靴": "#キッズシューズ",
     "プレゼント向き商品": "#ギフト候補",
+    "外出グッズ": "#外出グッズ",
+    "離乳食グッズ": "#離乳食グッズ",
+    "収納": "#おもちゃ収納",
 }
 
 FOCUS_KEYWORDS = {
@@ -73,6 +101,11 @@ FOCUS_KEYWORDS = {
     "リング": "リング",
     "ブロック": "ブロック",
     "カメラ": "キッズカメラ",
+    "積み木": "積み木",
+    "木製": "木製玩具",
+    "ベビーカー": "ベビーカーグッズ",
+    "離乳食": "離乳食グッズ",
+    "収納": "収納",
     "絵本": "絵本",
     "パズル": "パズル",
     "靴": "キッズシューズ",
@@ -101,7 +134,7 @@ def build_post_text(scored: ScoredProduct) -> str:
         buy_now_sentence(product, appeal),
         recommendation_sentence(product, appeal),
     ]
-    body = compress_body("\n".join(sentence for sentence in body_sentences if sentence), max_length=340)
+    body = compress_body("\n".join(sentence for sentence in body_sentences if sentence), max_length=260)
     text = f"タイトル：\n{title}\n\n投稿文：\n{body}"
     return sanitize_post_text(text)
 
@@ -110,8 +143,8 @@ def build_hashtags(scored: ScoredProduct) -> str:
     product = scored.product
     appeal = determine_appeal_category(product)
     tags = [
-        purchase_intent_tag(appeal, product.text),
         category_tag(product.category, product.text, appeal),
+        purchase_intent_tag(appeal, product.text),
         problem_solving_tag(appeal),
         target_or_gift_tag(appeal, product.text),
         BRAND_HASHTAG,
@@ -121,7 +154,7 @@ def build_hashtags(scored: ScoredProduct) -> str:
         if tag not in unique_tags and tag not in BROAD_LOW_INTENT_TAGS:
             unique_tags.append(tag)
     while len(unique_tags) < 5:
-        unique_tags.insert(-1, "#楽天ROOM")
+        unique_tags.insert(-1, "#買う前メモ")
         unique_tags = list(dict.fromkeys(unique_tags))
     return " ".join(unique_tags[:5])
 
@@ -194,6 +227,21 @@ def build_title(product: Product, appeal: str) -> str:
             "気を使わせにくい育児ギフト",
             "出産祝いは実用性で選ぶ",
         ],
+        APPEAL_OUTING: [
+            "外出先で慌てたくない",
+            "荷物が多い日の味方に",
+            "子連れ外出の準備に",
+        ],
+        APPEAL_FEEDING: [
+            "食後の片づけを軽くしたい",
+            "自分で食べたい時期に",
+            "離乳食準備を整えたい",
+        ],
+        APPEAL_STORAGE: [
+            "床の散らかり対策に",
+            "戻す場所を決めたい",
+            "リビング整理を始めたい",
+        ],
         APPEAL_DEFAULT: [
             "迷う時間を減らしたい育児用品",
             "忙しい家庭の候補に残る理由",
@@ -230,6 +278,12 @@ def determine_appeal_category(product: Product) -> str:
         return APPEAL_CONSUMABLE
     if any(word in text for word in ["靴", "シューズ", "スニーカー", "サンダル", "上履き", "保育園", "通園"]):
         return APPEAL_SHOES
+    if any(word in text for word in ["ベビーカー", "抱っこ紐", "マザーズバッグ", "チャイルドシート", "外出", "旅行", "帰省", "扇風機"]):
+        return APPEAL_OUTING
+    if any(word in text for word in ["離乳食", "食器", "エプロン", "マグ", "フードカッター", "保存容器", "ベビーチェア"]):
+        return APPEAL_FEEDING
+    if any(word in text for word in ["収納", "絵本棚", "ラック", "ストッカー", "片づけ", "おもちゃ箱"]):
+        return APPEAL_STORAGE
     if any(word in text for word in ["ブレンダー", "掃除機", "家電", "タイマー", "時短", "自動", "軽量"]):
         return APPEAL_APPLIANCE
     if any(word in text for word in ["知育", "リング", "ブロック", "絵本", "カメラ", "パズル", "おうち遊び"]):
@@ -256,6 +310,12 @@ def build_benefit(product: Product, appeal: str) -> str:
         return "家事の手順を減らしやすい"
     if appeal == APPEAL_GIFT:
         return "贈ったあとに出番を作りやすい"
+    if appeal == APPEAL_OUTING:
+        return "外出前の準備を整えやすい"
+    if appeal == APPEAL_FEEDING:
+        return "食後の片づけを考えやすい"
+    if appeal == APPEAL_STORAGE:
+        return "戻す場所を決めやすい"
     return category_benefit(product.category)
 
 
@@ -264,7 +324,14 @@ def empathy_sentence(product: Product, appeal: str) -> str:
     if appeal == APPEAL_CONSUMABLE:
         if "ミルク" in product.text:
             return "ミルクって「まだある」と思っていたのに、最後の1缶を開けて焦ることありませんか。"
-        return f"{focus}って「まだある」と思っていたのに、最後の1パックを開けて焦ることありませんか。"
+        return choose_option(
+            [
+                f"{focus}って「まだある」と思っていたのに、最後の1パックを開けて焦ることありませんか。",
+                f"{focus}が足りないと気づくのは、だいたい忙しいタイミングです。",
+                f"消耗が早い{focus}は、少し多めに置いておくだけで安心感が変わります。",
+            ],
+            product.text,
+        )
     if appeal == APPEAL_EDUCATIONAL:
         return "雨の日や夕方、家遊びのネタがなくなって親子で時間を持て余すことありますよね。"
     if appeal == APPEAL_SHOES:
@@ -273,6 +340,30 @@ def empathy_sentence(product: Product, appeal: str) -> str:
         return "共働きだと、寝かしつけ後の家事まで残る日が本当にきついですよね。"
     if appeal == APPEAL_GIFT:
         return "出産祝いって何を贈るか迷いますよね。"
+    if appeal == APPEAL_OUTING:
+        return choose_option(
+            [
+                "子連れ外出は、家を出る前から荷物の確認で時間を取られがちです。",
+                "外出先で「あれがない」と気づくと、親も子どもも落ち着きにくいですよね。",
+            ],
+            product.text,
+        )
+    if appeal == APPEAL_FEEDING:
+        return choose_option(
+            [
+                "食後の片づけが増える時期は、食事グッズ選びで差が出ますよね。",
+                "自分で食べたい時期は、こぼす前提で準備しておきたいところです。",
+            ],
+            product.text,
+        )
+    if appeal == APPEAL_STORAGE:
+        return choose_option(
+            [
+                "おもちゃや絵本は、戻す場所がないとすぐ床に広がりますよね。",
+                "リビングに置く育児用品は、片づけやすさまで見て選びたいです。",
+            ],
+            product.text,
+        )
     return f"{focus}は、買ってから出番があるかまで考えて選びたいですよね。"
 
 
@@ -300,6 +391,12 @@ def solution_sentence(product: Product, appeal: str) -> str:
         return "準備や片づけの工程が減ると、子どもが寝た後の自分の時間を少し戻しやすくなります。"
     if appeal == APPEAL_GIFT:
         return "育児ギフトは、かわいいものも素敵ですが、毎日使えるものだと相手の負担になりにくいです。"
+    if appeal == APPEAL_OUTING:
+        return "必要なものをすぐ出せる形なら、移動中や帰省前の小さな不安を減らせます。"
+    if appeal == APPEAL_FEEDING:
+        return "食べる前後の動きまで考えると、準備と片づけの手間を少し減らせます。"
+    if appeal == APPEAL_STORAGE:
+        return "戻す場所が決まると、親だけで片づけ続ける状態を減らしやすいです。"
     return "使う場面がはっきりしているものは、買ったあとにしまい込みにくいです。"
 
 
@@ -323,6 +420,12 @@ def review_differentiation_sentence(product: Product, appeal: str) -> str:
         if "おむつ" in text:
             return "おむつ系なら赤ちゃんの毎日に出番があり、サイズが合う時期にしっかり使ってもらいやすいです。"
         return "飾って終わるものより、受け取った家庭でそのまま出番がある理由を見たいです。"
+    if appeal == APPEAL_OUTING:
+        return "外で使うものは、デザインより先に持ち運びや取り出しやすさまで想像したいです。"
+    if appeal == APPEAL_FEEDING:
+        return "食事まわりは、食べている時だけでなく片づけるところまで含めて選びたいです。"
+    if appeal == APPEAL_STORAGE:
+        return "収納系は、入る量だけでなく家族が戻す場所を迷わないかまで見たいです。"
     return "商品名だけでなく、どの育児シーンで助かるかまで想像できるのが候補に残る理由です。"
 
 
@@ -342,6 +445,12 @@ def review_signal_sentence(product: Product, appeal: str) -> str:
         return "子どもと向き合う時間を削らず、親の家事だけを少し軽くできるのが助かります。"
     if appeal == APPEAL_GIFT:
         return "赤ちゃんの毎日に出番があるものなら、贈られた側も置き場所や好みで悩みにくいです。"
+    if appeal == APPEAL_OUTING:
+        return "親は荷物を探す時間を減らせて、子どもを待たせる場面も少し減らせます。"
+    if appeal == APPEAL_FEEDING:
+        return "子どもの食べたい気持ちを見守りつつ、親の片づけ負担も考えられます。"
+    if appeal == APPEAL_STORAGE:
+        return "子どもにも見える場所を作れると、片づけに参加するきっかけになります。"
     return "確認したいのは、どの家庭のどんな場面で出番があるかです。"
 
 
@@ -355,6 +464,12 @@ def buy_now_sentence(product: Product, appeal: str) -> str:
         return "サイズ欠けが出る前に、園用と洗い替え候補を先に見ておくと動きやすいです。"
     if appeal == APPEAL_GIFT:
         return "贈る前に、内容量と相手の月齢が合うかだけ見ておくと選びやすいです。"
+    if appeal == APPEAL_OUTING:
+        return "外出が増える前に、使う場面とバッグ内の置き場所を想像して見ておきたいです。"
+    if appeal == APPEAL_FEEDING:
+        return "食事回数が増える前に、洗う手間や置き場所だけ先に比べておきたいです。"
+    if appeal == APPEAL_STORAGE:
+        return "置く場所と入れたい量が合うか、家に合わせて見ておきたい商品です。"
     return "必要になってから比較すると雑になりやすいので、今のうちに候補だけ見ておくと判断しやすいです。"
 
 
@@ -372,6 +487,12 @@ def recommendation_sentence(product: Product, appeal: str) -> str:
         return "夜の家事を少しでも減らしたい共働き家庭に向いています。"
     if appeal == APPEAL_GIFT:
         return "見た目だけでなく、相手の育児で出番がある贈り物を選びたい家庭に向いています。"
+    if appeal == APPEAL_OUTING:
+        return "子連れ外出や帰省前に、準備の抜けを減らしたい家庭に向いています。"
+    if appeal == APPEAL_FEEDING:
+        return "食事の準備から片づけまで、少しでも回しやすくしたい家庭に向いています。"
+    if appeal == APPEAL_STORAGE:
+        return "散らかりやすい場所に、戻す定位置を作りたい家庭に向いています。"
     return f"{focus}の出番が具体的に浮かぶ家庭に向いています。"
 
 
@@ -400,7 +521,13 @@ def purchase_intent_tag(appeal: str, product_text: str) -> str:
         return "#時短したい日"
     if appeal == APPEAL_GIFT:
         return "#実用ギフト"
-    return "#楽天ROOM"
+    if appeal == APPEAL_OUTING:
+        return "#外出準備"
+    if appeal == APPEAL_FEEDING:
+        return "#買い足し候補"
+    if appeal == APPEAL_STORAGE:
+        return "#片づけ対策"
+    return "#購入前チェック"
 
 
 def category_tag(category: str, product_text: str, appeal: str) -> str:
@@ -422,7 +549,17 @@ def category_tag(category: str, product_text: str, appeal: str) -> str:
         return "#キッズシューズ"
     if "ブレンダー" in product_text:
         return "#ブレンダー"
-    return CATEGORY_TAGS.get(category, "#楽天ROOM")
+    if "離乳食" in product_text:
+        return "#離乳食グッズ"
+    if "ベビーチェア" in product_text:
+        return "#ベビーチェア"
+    if "ベビーカー" in product_text:
+        return "#ベビーカーグッズ"
+    if "収納" in product_text or "ラック" in product_text:
+        return "#おもちゃ収納"
+    if "積み木" in product_text:
+        return "#積み木"
+    return CATEGORY_TAGS.get(category, "#育児グッズ選び")
 
 
 def problem_solving_tag(appeal: str) -> str:
@@ -436,6 +573,12 @@ def problem_solving_tag(appeal: str) -> str:
         return "#家事負担を軽く"
     if appeal == APPEAL_GIFT:
         return "#贈って使える"
+    if appeal == APPEAL_OUTING:
+        return "#荷物整理"
+    if appeal == APPEAL_FEEDING:
+        return "#食べこぼし対策"
+    if appeal == APPEAL_STORAGE:
+        return "#リビング整理"
     return "#育児グッズ選び"
 
 
@@ -460,6 +603,12 @@ def target_or_gift_tag(appeal: str, product_text: str) -> str:
         return "#通園準備"
     if appeal == APPEAL_APPLIANCE:
         return "#家事時短"
+    if appeal == APPEAL_OUTING:
+        return "#子連れ外出"
+    if appeal == APPEAL_FEEDING:
+        return "#離乳食準備"
+    if appeal == APPEAL_STORAGE:
+        return "#子ども部屋準備"
     return "#買う前メモ"
 
 
@@ -489,6 +638,12 @@ def product_specific_sentence(product: Product, appeal: str) -> str:
         return f"{anchor}は、家事の手間をひとつ減らしたい日に候補になります。買う前は{checkpoints}を見て、出しっぱなしで使えるか考えたいです。"
     if appeal == APPEAL_GIFT:
         return f"{anchor}は、贈った後にしまわれにくい実用寄りの候補。買う前は{checkpoints}を見て、相手の月齢や生活に合うか確認したいです。"
+    if appeal == APPEAL_OUTING:
+        return f"{anchor}は、外出中に必要なものを探す時間を減らしたい家庭向き。買う前は{checkpoints}を見て、バッグやベビーカーに合うか考えたいです。"
+    if appeal == APPEAL_FEEDING:
+        return f"{anchor}は、食後の片づけまで含めて整えたい家庭向き。買う前は{checkpoints}を見て、食卓や外出先で使えるか考えたいです。"
+    if appeal == APPEAL_STORAGE:
+        return f"{anchor}は、散らかるものの戻し場所を決めたい家庭向き。買う前は{checkpoints}を見て、リビングに置けるか考えたいです。"
     return f"{anchor}は、{focus}の出番が生活の中で浮かぶ家庭向き。買う前は{checkpoints}を見ると判断しやすいです。"
 
 
@@ -501,6 +656,12 @@ def purchase_checkpoints(product: Product, appeal: str) -> str:
         checks.append("対象年齢")
     if any(word in text for word in ["収納", "折りたたみ", "軽量", "置き場所"]):
         checks.append("収納しやすさ")
+    if appeal == APPEAL_OUTING or any(word in text for word in ["ベビーカー", "バッグ", "外出", "旅行", "帰省"]):
+        checks.append("持ち運び")
+    if appeal == APPEAL_FEEDING or any(word in text for word in ["洗", "食器", "エプロン", "マグ", "保存容器"]):
+        checks.append("洗う手間")
+    if appeal == APPEAL_STORAGE or any(word in text for word in ["収納", "ラック", "ストッカー", "絵本棚"]):
+        checks.append("置き場所")
     if any(word in text for word in ["電池", "充電", "コードレス", "コード"]):
         checks.append("電源まわり")
     if any(word in text for word in ["面ファスナー", "マジックテープ", "滑り", "つま先", "ソール"]):

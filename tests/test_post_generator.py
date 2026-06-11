@@ -42,11 +42,10 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("タイトル：", post_text)
         self.assertIn("投稿文：", post_text)
-        self.assertGreaterEqual(len(title), 14)
-        self.assertLessEqual(len(title), 30)
+        self.assertLessEqual(len(title), 20)
         self.assertNotIn("おしりふき", title)
         self.assertGreaterEqual(len(body), 180)
-        self.assertLessEqual(len(body), 340)
+        self.assertLessEqual(len(body), 260)
 
     def test_full_output_uses_requested_room_fields_without_review_references(self) -> None:
         scored = score_product(
@@ -131,11 +130,10 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("ストック", post_text)
         self.assertIn("買い足し", post_text)
-        self.assertIn("最後の1パック", post_text)
-        self.assertIn("気持ちがラク", post_text)
+        self.assertIn("焦", post_text)
         self.assertIn("セール", post_text)
         self.assertIn("容量と価格を確認", post_text)
-        self.assertIn("毎日使う消耗品を切らしたくない家庭", post_text)
+        self.assertIn("ストック候補", post_text)
         self.assertNotIn("容量と価格だけでも確認", post_text)
         self.assertNotIn("チェックしてください", post_text)
         self.assertNotIn("プレゼント", post_text)
@@ -168,7 +166,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("履かせやすさ", post_text)
         self.assertIn("歩き", post_text)
         self.assertIn("自分で履きたい気持ち", post_text)
-        self.assertIn("サイズ欠け", post_text)
+        self.assertIn("園用", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
         self.assertNotIn("評価", post_text)
@@ -215,7 +213,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("育児ギフト", gift_post)
         self.assertIn("出産祝いって何を贈るか迷いますよね", gift_post)
         self.assertIn("赤ちゃんの毎日", gift_post)
-        self.assertIn("相手の育児で出番がある贈り物", gift_post)
+        self.assertIn("月齢", gift_post)
         self.assertNotIn("かわいさより相手の生活で使われるかが大事", gift_post)
         self.assertIn("#出産祝い", gift_tags)
         self.assertNotIn("#出産祝い", normal_tags)
@@ -244,7 +242,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("夜中や夕方のバタバタ", post_text)
         self.assertIn("子どもがお腹を空かせたタイミング", post_text)
         self.assertIn("親の気持ちに余裕", post_text)
-        self.assertIn("ミルクの残量で焦りたくない家庭", post_text)
+        self.assertIn("ストック候補", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
 
@@ -306,7 +304,7 @@ class PostGeneratorTest(unittest.TestCase):
 
         post_text = build_post_text(scored)
 
-        self.assertIn("焦ることありませんか", post_text)
+        self.assertIn("焦", post_text)
         self.assertIn("夜用おむつ", post_text)
         self.assertIn("買う前", post_text)
         self.assertIn("ストック候補", post_text)
@@ -363,6 +361,59 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("#ストック管理", tags)
         self.assertNotIn("#子ども用品", tags)
+        self.assertNotIn("#楽天ROOM", tags)
+
+    def test_outing_feeding_and_storage_copy_use_distinct_scenes(self) -> None:
+        products = [
+            Product(
+                category="外出グッズ",
+                name="ベビーカー バッグ 外出 収納",
+                url="https://example.com/outing",
+                price=2980,
+                review_count=300,
+                review_average=4.5,
+                caption="ベビーカー 外出 荷物 整理",
+                catchcopy="子連れ外出",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="離乳食グッズ",
+                name="離乳食 エプロン 食べこぼし対策",
+                url="https://example.com/feeding",
+                price=1980,
+                review_count=300,
+                review_average=4.5,
+                caption="離乳食 食器 エプロン 片づけ",
+                catchcopy="離乳食準備",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="収納",
+                name="おもちゃ収納 ラック リビング整理",
+                url="https://example.com/storage",
+                price=4980,
+                review_count=300,
+                review_average=4.5,
+                caption="おもちゃ 収納 ラック 片づけ",
+                catchcopy="リビング整理",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+        ]
+
+        outputs = [build_post_text(score_product(item, date(2026, 6, 9))) for item in products]
+        tags = [build_hashtags(score_product(item, date(2026, 6, 9))).split() for item in products]
+
+        self.assertIn("外出", outputs[0])
+        self.assertIn("食後", outputs[1])
+        self.assertIn("戻す場所", outputs[2])
+        self.assertIn("#ベビーカーグッズ", tags[0])
+        self.assertNotIn("#おもちゃ収納", tags[0])
+        self.assertIn("#子連れ外出", tags[0])
+        self.assertIn("#離乳食準備", tags[1])
+        self.assertIn("#子ども部屋準備", tags[2])
 
     def test_long_product_name_is_shortened(self) -> None:
         name = "限定カラー キッズシューズ 面ファスナー 軽量 通園 通学 まとめ買い対象モデル"

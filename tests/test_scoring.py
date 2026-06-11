@@ -172,6 +172,40 @@ class ScoringTest(unittest.TestCase):
         self.assertNotIn("レビュー", reason)
         self.assertNotIn("評価", reason)
 
+    def test_recommendation_reason_is_one_sentence_and_keeps_toys_out_of_gift_logic(self) -> None:
+        scored = score_product(
+            product(
+                category="知育玩具",
+                name="2歳向け 木製 積み木 知育玩具",
+                url="https://example.com/blocks",
+                caption="2歳 木製 積み木 知育玩具",
+            ),
+            date(2026, 6, 9),
+        )
+
+        reason = scored.recommendation_reason
+
+        self.assertEqual(reason.count("。"), 1)
+        self.assertIn("親子の会話", reason)
+        self.assertIn("対象年齢", reason)
+        self.assertNotIn("贈った後", reason)
+
+    def test_recommendation_reason_uses_outing_purchase_check(self) -> None:
+        scored = score_product(
+            product(
+                category="外出グッズ",
+                name="ベビーカー バッグ 外出 収納",
+                url="https://example.com/outing",
+                caption="ベビーカー 外出 荷物 整理",
+            ),
+            date(2026, 6, 9),
+        )
+
+        reason = scored.recommendation_reason
+
+        self.assertIn("子連れ外出", reason)
+        self.assertIn("持ち運び", reason)
+
 
 if __name__ == "__main__":
     unittest.main()

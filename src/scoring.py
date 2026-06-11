@@ -253,10 +253,16 @@ def product_decision_point(product: Product) -> str:
     text = product.text
     if any(word in text for word in ["おしりふき", "おむつ", "ミルク", "ティッシュ", "シート"]):
         return "切らすとすぐ困る消耗品で、買い忘れ防止とストック需要を作りやすい"
-    if any(word in text for word in ["リング", "ブロック", "絵本", "パズル", "カメラ"]):
+    if any(word in text for word in ["リング", "ブロック", "絵本", "パズル", "カメラ", "知育", "積み木", "木製玩具", "レゴ", "デュプロ"]):
         return "雨の日や夕方の家遊びで、親子の会話や集中時間につなげやすい"
     if any(word in text for word in ["靴", "シューズ", "スニーカー", "上履き", "保育園", "通園"]):
         return "登園前や公園前の支度で、履かせやすさ・歩きやすさの悩みに刺さる"
+    if any(word in text for word in ["ベビーカー", "抱っこ紐", "マザーズバッグ", "チャイルドシート", "外出", "旅行", "帰省"]):
+        return "子連れ外出の荷物や移動中の不安を減らしたい家庭に刺さる"
+    if any(word in text for word in ["離乳食", "食器", "エプロン", "マグ", "フードカッター", "保存容器", "ベビーチェア"]):
+        return "食後の片づけや自分で食べたい時期の負担を減らしたい家庭に刺さる"
+    if any(word in text for word in ["収納", "絵本棚", "ラック", "ストッカー", "片づけ", "おもちゃ箱"]):
+        return "散らかりや戻す場所に悩む家庭に刺さり、リビング整理の動機を作りやすい"
     if any(word in text for word in ["家電", "時短", "自動", "ブレンダー", "掃除"]):
         return "寝かしつけ後や朝の家事負担を減らしたい家庭に訴求しやすい"
     if any(word in text for word in ["ギフト", "出産祝い", "プレゼント"]):
@@ -275,6 +281,12 @@ def product_purchase_check(product: Product) -> str:
         checks.append("購入単位")
     if any(word in text for word in ["電池", "充電", "コードレス"]):
         checks.append("電源まわり")
+    if any(word in text for word in ["ベビーカー", "バッグ", "外出", "旅行", "帰省"]):
+        checks.append("持ち運び")
+    if any(word in text for word in ["収納", "ラック", "ストッカー", "絵本棚"]):
+        checks.append("置き場所")
+    if any(word in text for word in ["離乳食", "食器", "エプロン", "マグ", "保存容器"]):
+        checks.append("洗う手間")
     if not checks:
         checks.append("使う場面")
     return "・".join(dict.fromkeys(checks))
@@ -283,12 +295,7 @@ def product_purchase_check(product: Product) -> str:
 def build_recommendation_reason(
     product: Product, total_score: int, seasonal_score: int, room_score: int
 ) -> str:
-    reasons = [
-        f"{product_reason_anchor(product)}は、{product_decision_point(product)}ため選定。"
-        f"訴求は悩み解消を先に出し、購入前確認は{product_purchase_check(product)}に絞る。"
-    ]
-    if seasonal_score >= 5:
-        reasons.append("季節準備や買い替えのタイミングにも合わせやすい。")
-    if room_score >= 6:
-        reasons.append("ROOMでは保存・比較されやすい生活シーンに落とし込める。")
-    return "".join(reasons)
+    return (
+        f"{product_reason_anchor(product)}は、{product_decision_point(product)}ため選定し、"
+        f"訴求は悩み解消を先に出して購入前確認は{product_purchase_check(product)}に絞る。"
+    )
