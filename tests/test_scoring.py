@@ -144,6 +144,20 @@ class ScoringTest(unittest.TestCase):
         self.assertNotIn("評価", reason)
         self.assertNotIn("総合スコア", reason)
 
+    def test_recommendation_reason_uses_product_specific_anchor(self) -> None:
+        alpha = score_product(
+            product(name="Alpha Stock Wipes", url="https://example.com/alpha"),
+            date(2026, 6, 9),
+        )
+        beta = score_product(
+            product(name="Beta Night Diapers", url="https://example.com/beta"),
+            date(2026, 6, 9),
+        )
+
+        self.assertIn("Alpha Stock Wipes", alpha.recommendation_reason)
+        self.assertIn("Beta Night Diapers", beta.recommendation_reason)
+        self.assertNotEqual(alpha.recommendation_reason, beta.recommendation_reason)
+
 
 if __name__ == "__main__":
     unittest.main()

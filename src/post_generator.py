@@ -96,6 +96,7 @@ def build_post_text(scored: ScoredProduct) -> str:
         empathy_sentence(product, appeal),
         solution_sentence(product, appeal),
         review_differentiation_sentence(product, appeal),
+        product_specific_sentence(product, appeal),
         review_signal_sentence(product, appeal),
         buy_now_sentence(product, appeal),
         recommendation_sentence(product, appeal),
@@ -460,6 +461,19 @@ def focus_phrase(product: Product) -> str:
         if keyword in text:
             return label
     return shorten_product_name(product.name, max_length=14)
+
+
+def product_anchor(product: Product) -> str:
+    return shorten_product_name(product.name, max_length=22)
+
+
+def product_specific_sentence(product: Product, appeal: str) -> str:
+    anchor = product_anchor(product)
+    focus = focus_phrase(product)
+    checkpoints = purchase_checkpoints(product, appeal)
+    if anchor and anchor != focus:
+        return f"この商品で見る点は、{anchor}の{focus}感と{checkpoints}です。"
+    return f"この商品で見る点は、{focus}感と{checkpoints}です。"
 
 
 def purchase_checkpoints(product: Product, appeal: str) -> str:

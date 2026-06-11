@@ -248,6 +248,45 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
 
+    def test_post_text_includes_product_specific_anchor(self) -> None:
+        alpha = score_product(
+            Product(
+                category="ベビー用消耗品",
+                name="Alpha Stock Wipes",
+                url="https://example.com/alpha",
+                price=3280,
+                review_count=500,
+                review_average=4.6,
+                caption="おしりふき 大容量 まとめ買い",
+                catchcopy="ストック向き",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 10),
+        )
+        beta = score_product(
+            Product(
+                category="ベビー用消耗品",
+                name="Beta Night Diapers",
+                url="https://example.com/beta",
+                price=3280,
+                review_count=500,
+                review_average=4.6,
+                caption="おむつ 夜用 まとめ買い",
+                catchcopy="ストック向き",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 10),
+        )
+
+        alpha_post = build_post_text(alpha)
+        beta_post = build_post_text(beta)
+
+        self.assertIn("Alpha Stock Wipes", alpha_post)
+        self.assertIn("Beta Night Diapers", beta_post)
+        self.assertNotEqual(alpha_post, beta_post)
+
     def test_hashtags_include_required_tags_without_broad_low_intent_tags(self) -> None:
         scored = score_product(
             Product(

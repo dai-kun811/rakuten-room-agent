@@ -244,6 +244,11 @@ def classify_product(product: Product, seasonal_score: int) -> str:
     return "Bランク"
 
 
+def product_reason_anchor(product: Product) -> str:
+    name = " ".join(product.name.split())
+    return name[:24] if name else "この商品"
+
+
 def build_recommendation_reason(
     product: Product, total_score: int, seasonal_score: int, room_score: int
 ) -> str:
@@ -260,6 +265,7 @@ def build_recommendation_reason(
         reasons = ["贈った後に実際の育児で使われる理由がある商品です。"]
     else:
         reasons = ["育児中の具体的な利用シーンを想像しやすい商品です。"]
+    reasons[0] = f"{product_reason_anchor(product)}は、{reasons[0]}"
     if seasonal_score >= 5:
         reasons.append("季節の準備や買い替えタイミングにも合わせやすいです。")
     if room_score >= 6:
