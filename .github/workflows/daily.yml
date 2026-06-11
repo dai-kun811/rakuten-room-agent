@@ -2,8 +2,9 @@ name: Daily Rakuten ROOM Agent
 
 on:
   schedule:
-    # 07:00 JST = 22:00 UTC on the previous day.
-    - cron: "0 22 * * *"
+    # 07:17 JST = 22:17 UTC on the previous day.
+    # Avoid minute 0 because GitHub Actions scheduled runs can be delayed or dropped at peak load.
+    - cron: "17 22 * * *"
   workflow_dispatch:
 
 jobs:
