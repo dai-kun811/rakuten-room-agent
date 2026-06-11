@@ -249,25 +249,46 @@ def product_reason_anchor(product: Product) -> str:
     return name[:24] if name else "この商品"
 
 
+def product_decision_point(product: Product) -> str:
+    text = product.text
+    if any(word in text for word in ["おしりふき", "おむつ", "ミルク", "ティッシュ", "シート"]):
+        return "切らすとすぐ困る消耗品で、買い忘れ防止とストック需要を作りやすい"
+    if any(word in text for word in ["リング", "ブロック", "絵本", "パズル", "カメラ"]):
+        return "雨の日や夕方の家遊びで、親子の会話や集中時間につなげやすい"
+    if any(word in text for word in ["靴", "シューズ", "スニーカー", "上履き", "保育園", "通園"]):
+        return "登園前や公園前の支度で、履かせやすさ・歩きやすさの悩みに刺さる"
+    if any(word in text for word in ["家電", "時短", "自動", "ブレンダー", "掃除"]):
+        return "寝かしつけ後や朝の家事負担を減らしたい家庭に訴求しやすい"
+    if any(word in text for word in ["ギフト", "出産祝い", "プレゼント"]):
+        return "贈った後に実際の育児で使われる実用性を伝えやすい"
+    return "使う場面が具体的に浮かび、購入後の出番を説明しやすい"
+
+
+def product_purchase_check(product: Product) -> str:
+    text = product.text
+    checks: list[str] = []
+    if any(word in text for word in ["サイズ", "cm", "靴", "シューズ", "上履き"]):
+        checks.append("サイズ")
+    if any(word in text for word in ["1歳", "2歳", "3歳", "対象年齢", "年齢"]):
+        checks.append("対象年齢")
+    if any(word in text for word in ["セット", "まとめ買い", "大容量", "配送", "送料無料"]):
+        checks.append("購入単位")
+    if any(word in text for word in ["電池", "充電", "コードレス"]):
+        checks.append("電源まわり")
+    if not checks:
+        checks.append("使う場面")
+    return "・".join(dict.fromkeys(checks))
+
+
 def build_recommendation_reason(
     product: Product, total_score: int, seasonal_score: int, room_score: int
 ) -> str:
-    text = product.text
-    if any(word in text for word in ["おしりふき", "おむつ", "消耗", "まとめ", "セット"]):
-        reasons = ["毎日使う消耗品として、買い忘れ防止やストック需要に合う商品です。"]
-    elif any(word in text for word in ["知育", "リング", "ブロック", "絵本", "パズル"]):
-        reasons = ["親子遊びや家遊びの中で、遊び方を広げやすい商品です。"]
-    elif any(word in text for word in ["靴", "シューズ", "保育園", "通園", "スニーカー"]):
-        reasons = ["登園前の支度や公園遊びなど、使う場面がはっきりした商品です。"]
-    elif any(word in text for word in ["家電", "時短", "自動", "ブレンダー", "掃除"]):
-        reasons = ["朝や夜の家事負担を減らしたい家庭の利用シーンに合う商品です。"]
-    elif any(word in text for word in ["ギフト", "出産祝い", "プレゼント"]):
-        reasons = ["贈った後に実際の育児で使われる理由がある商品です。"]
-    else:
-        reasons = ["育児中の具体的な利用シーンを想像しやすい商品です。"]
-    reasons[0] = f"{product_reason_anchor(product)}は、{reasons[0]}"
+    reasons = [
+        f"{product_reason_anchor(product)}は、{product_decision_point(product)}ため選定。"
+        f"訴求は悩み解消を先に出し、購入前確認は{product_purchase_check(product)}に絞る。"
+    ]
     if seasonal_score >= 5:
-        reasons.append("季節の準備や買い替えタイミングにも合わせやすいです。")
+        reasons.append("季節準備や買い替えのタイミングにも合わせやすい。")
     if room_score >= 6:
-        reasons.append("商品名や説明文から購入シーンを作りやすいです。")
+        reasons.append("ROOMでは保存・比較されやすい生活シーンに落とし込める。")
     return "".join(reasons)

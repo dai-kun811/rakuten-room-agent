@@ -263,8 +263,8 @@ def empathy_sentence(product: Product, appeal: str) -> str:
     focus = focus_phrase(product)
     if appeal == APPEAL_CONSUMABLE:
         if "ミルク" in product.text:
-            return "ミルクって「まだある」と思っていたのに、最後の1缶を開けて焦ることありませんか💦"
-        return f"{focus}って「まだある」と思っていたのに、最後の1パックを開けて焦ることありませんか💦"
+            return "ミルクって「まだある」と思っていたのに、最後の1缶を開けて焦ることありませんか。"
+        return f"{focus}って「まだある」と思っていたのに、最後の1パックを開けて焦ることありませんか。"
     if appeal == APPEAL_EDUCATIONAL:
         return "雨の日や夕方、家遊びのネタがなくなって親子で時間を持て余すことありますよね。"
     if appeal == APPEAL_SHOES:
@@ -272,7 +272,7 @@ def empathy_sentence(product: Product, appeal: str) -> str:
     if appeal == APPEAL_APPLIANCE:
         return "共働きだと、寝かしつけ後の家事まで残る日が本当にきついですよね。"
     if appeal == APPEAL_GIFT:
-        return "出産祝いって何を贈るか迷いますよね🎁"
+        return "出産祝いって何を贈るか迷いますよね。"
     return f"{focus}は、買ってから出番があるかまで考えて選びたいですよね。"
 
 
@@ -452,7 +452,15 @@ def target_or_gift_tag(appeal: str, product_text: str) -> str:
         return "#3歳向け"
     if "保育園" in product_text:
         return "#保育園用"
-    return "#子ども用品"
+    if appeal == APPEAL_CONSUMABLE:
+        return "#ストック管理"
+    if appeal == APPEAL_EDUCATIONAL:
+        return "#雨の日遊び"
+    if appeal == APPEAL_SHOES:
+        return "#通園準備"
+    if appeal == APPEAL_APPLIANCE:
+        return "#家事時短"
+    return "#買う前メモ"
 
 
 def focus_phrase(product: Product) -> str:
@@ -471,9 +479,17 @@ def product_specific_sentence(product: Product, appeal: str) -> str:
     anchor = product_anchor(product)
     focus = focus_phrase(product)
     checkpoints = purchase_checkpoints(product, appeal)
-    if anchor and anchor != focus:
-        return f"この商品で見る点は、{anchor}の{focus}感と{checkpoints}です。"
-    return f"この商品で見る点は、{focus}感と{checkpoints}です。"
+    if appeal == APPEAL_CONSUMABLE:
+        return f"{anchor}は、{focus}を切らした時の焦りを減らしたい家庭向き。買う前は{checkpoints}を見ておくと、ストック候補にしやすいです。"
+    if appeal == APPEAL_EDUCATIONAL:
+        return f"{anchor}は、ただ時間をつぶすより親子で会話が増える候補。買う前は{checkpoints}を見ると、年齢に合うか判断しやすいです。"
+    if appeal == APPEAL_SHOES:
+        return f"{anchor}は、玄関で止まりがちな朝を短くしたい家庭向き。買う前は{checkpoints}を見て、園用に回せるか確認したいです。"
+    if appeal == APPEAL_APPLIANCE:
+        return f"{anchor}は、家事の手間をひとつ減らしたい日に候補になります。買う前は{checkpoints}を見て、出しっぱなしで使えるか考えたいです。"
+    if appeal == APPEAL_GIFT:
+        return f"{anchor}は、贈った後にしまわれにくい実用寄りの候補。買う前は{checkpoints}を見て、相手の月齢や生活に合うか確認したいです。"
+    return f"{anchor}は、{focus}の出番が生活の中で浮かぶ家庭向き。買う前は{checkpoints}を見ると判断しやすいです。"
 
 
 def purchase_checkpoints(product: Product, appeal: str) -> str:

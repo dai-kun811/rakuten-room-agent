@@ -158,6 +158,20 @@ class ScoringTest(unittest.TestCase):
         self.assertIn("Beta Night Diapers", beta.recommendation_reason)
         self.assertNotEqual(alpha.recommendation_reason, beta.recommendation_reason)
 
+    def test_recommendation_reason_frames_marketing_decision(self) -> None:
+        scored = score_product(
+            product(name="夜用おむつ まとめ買い セット", url="https://example.com/diapers"),
+            date(2026, 6, 9),
+        )
+
+        reason = scored.recommendation_reason
+
+        self.assertIn("悩み解消を先に", reason)
+        self.assertIn("購入前確認", reason)
+        self.assertIn("ストック需要", reason)
+        self.assertNotIn("レビュー", reason)
+        self.assertNotIn("評価", reason)
+
 
 if __name__ == "__main__":
     unittest.main()

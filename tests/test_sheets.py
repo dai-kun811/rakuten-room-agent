@@ -38,6 +38,7 @@ class SheetsTest(unittest.TestCase):
         self.assertIn("通園準備", row[9])
         self.assertIn("サイズ", row[10])
         self.assertIsInstance(row[11], int)
+        self.assertNotIn("選定条件=", row[12])
         self.assertEqual(len(row[14].split()), 5)
         self.assertIn("#とらパパ厳選", row[14])
 

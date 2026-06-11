@@ -287,6 +287,32 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("Beta Night Diapers", beta_post)
         self.assertNotEqual(alpha_post, beta_post)
 
+    def test_post_text_moves_from_pain_to_purchase_check(self) -> None:
+        scored = score_product(
+            Product(
+                category="ベビー用消耗品",
+                name="夜用おむつ まとめ買い セット",
+                url="https://example.com/diapers",
+                price=3980,
+                review_count=500,
+                review_average=4.6,
+                caption="おむつ 夜用 大容量 まとめ買い",
+                catchcopy="ストック向き 送料無料",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 10),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertIn("焦ることありませんか", post_text)
+        self.assertIn("夜用おむつ", post_text)
+        self.assertIn("買う前", post_text)
+        self.assertIn("ストック候補", post_text)
+        self.assertNotIn("おすすめです", post_text)
+        self.assertNotIn("レビュー", post_text)
+
     def test_hashtags_include_required_tags_without_broad_low_intent_tags(self) -> None:
         scored = score_product(
             Product(
@@ -315,6 +341,28 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertNotIn("#育児", tags)
         self.assertNotIn("#ママ", tags)
         self.assertNotIn("#パパ", tags)
+
+    def test_hashtags_use_intent_specific_fallbacks(self) -> None:
+        scored = score_product(
+            Product(
+                category="ベビー用消耗品",
+                name="大容量ティッシュ セット",
+                url="https://example.com/tissue",
+                price=2480,
+                review_count=400,
+                review_average=4.6,
+                caption="ティッシュ まとめ買い セット",
+                catchcopy="ストック向き",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 9),
+        )
+
+        tags = build_hashtags(scored).split()
+
+        self.assertIn("#ストック管理", tags)
+        self.assertNotIn("#子ども用品", tags)
 
     def test_long_product_name_is_shortened(self) -> None:
         name = "限定カラー キッズシューズ 面ファスナー 軽量 通園 通学 まとめ買い対象モデル"

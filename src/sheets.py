@@ -144,7 +144,7 @@ def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
         benefit,
         purchase_checkpoints(product, appeal),
         item.total_score,
-        f"{item.recommendation_reason} 選定条件={item.selection_tier}",
+        item.recommendation_reason,
         build_post_text(item),
         build_hashtags(item),
     ]
