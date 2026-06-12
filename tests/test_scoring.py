@@ -166,8 +166,8 @@ class ScoringTest(unittest.TestCase):
 
         reason = scored.recommendation_reason
 
-        self.assertIn("悩み解消を先に", reason)
-        self.assertIn("購入前確認", reason)
+        self.assertIn("候補にしやすい一方", reason)
+        self.assertIn("購入前に確認", reason)
         self.assertIn("ストック需要", reason)
         self.assertNotIn("レビュー", reason)
         self.assertNotIn("評価", reason)
@@ -186,7 +186,7 @@ class ScoringTest(unittest.TestCase):
         reason = scored.recommendation_reason
 
         self.assertEqual(reason.count("。"), 1)
-        self.assertIn("親子の会話", reason)
+        self.assertIn("手先", reason)
         self.assertIn("対象年齢", reason)
         self.assertNotIn("贈った後", reason)
 
@@ -205,6 +205,45 @@ class ScoringTest(unittest.TestCase):
 
         self.assertIn("子連れ外出", reason)
         self.assertIn("持ち運び", reason)
+
+    def test_specific_product_types_do_not_fall_back_to_consumable_reason(self) -> None:
+        cases = [
+            (
+                product(
+                    category="知育玩具",
+                    name="積み木 音が鳴る 木製 知育玩具",
+                    url="https://example.com/blocks",
+                    caption="1歳 積み木 木のおもちゃ 音が鳴る 名入れ",
+                ),
+                "手先",
+            ),
+            (
+                product(
+                    category="キッズ用品",
+                    name="キッズカメラ ゲームなし スマホ転送 SDカード",
+                    url="https://example.com/camera",
+                    caption="写真 撮影 外出 旅行 スマホ転送 SDカード ゲームなし",
+                ),
+                "写真遊び",
+            ),
+            (
+                product(
+                    category="ベビー用品",
+                    name="ホワイトノイズ 授乳ライト 寝かしつけ",
+                    url="https://example.com/sleep",
+                    caption="夜泣き 胎内音 睡眠 スピーカー ライト 電源",
+                ),
+                "寝かしつけ",
+            ),
+        ]
+
+        for item, expected in cases:
+            reason = score_product(item, date(2026, 6, 9)).recommendation_reason
+            self.assertIn(expected, reason)
+            self.assertNotIn("消耗品", reason)
+            self.assertNotIn("買い忘れ", reason)
+            self.assertNotIn("ストック需要", reason)
+            self.assertNotIn("購入単位", reason)
 
 
 if __name__ == "__main__":

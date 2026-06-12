@@ -5,6 +5,22 @@ from dataclasses import dataclass
 from datetime import date
 
 from rakuten_api import Product
+from product_type import (
+    APPEAL_APPLIANCE,
+    APPEAL_CONSUMABLE,
+    APPEAL_DEFAULT,
+    APPEAL_EDUCATIONAL,
+    APPEAL_FEEDING,
+    APPEAL_GIFT,
+    APPEAL_KIDS_CAMERA,
+    APPEAL_OUTING,
+    APPEAL_SHOES,
+    APPEAL_SLEEP,
+    APPEAL_STORAGE,
+    classify_product_type,
+    product_display_name,
+    purchase_checkpoints,
+)
 
 TARGET_WORDS = [
     "育児",
@@ -245,57 +261,42 @@ def classify_product(product: Product, seasonal_score: int) -> str:
 
 
 def product_reason_anchor(product: Product) -> str:
-    name = " ".join(product.name.split())
-    return name[:24] if name else "この商品"
+    return product_display_name(product)
 
 
 def product_decision_point(product: Product) -> str:
-    text = product.text
-    if any(word in text for word in ["おしりふき", "おむつ", "ミルク", "ティッシュ", "シート"]):
+    product_type = classify_product_type(product)
+    if product_type == APPEAL_CONSUMABLE:
         return "切らすとすぐ困る消耗品で、買い忘れ防止とストック需要を作りやすい"
-    if any(word in text for word in ["リング", "ブロック", "絵本", "パズル", "カメラ", "知育", "積み木", "木製玩具", "レゴ", "デュプロ"]):
-        return "雨の日や夕方の家遊びで、親子の会話や集中時間につなげやすい"
-    if any(word in text for word in ["靴", "シューズ", "スニーカー", "上履き", "保育園", "通園"]):
+    if product_type == APPEAL_EDUCATIONAL:
+        return "手先を使う遊びや色・形への興味を親子で広げやすい"
+    if product_type == APPEAL_KIDS_CAMERA:
+        return "子どもの誕生日や外出先で写真遊びを楽しみたい家庭に刺さる"
+    if product_type == APPEAL_SLEEP:
+        return "夜の授乳や寝かしつけ前の音と灯りをまとめたい家庭に刺さる"
+    if product_type == APPEAL_SHOES:
         return "登園前や公園前の支度で、履かせやすさ・歩きやすさの悩みに刺さる"
-    if any(word in text for word in ["ベビーカー", "抱っこ紐", "マザーズバッグ", "チャイルドシート", "外出", "旅行", "帰省"]):
+    if product_type == APPEAL_OUTING:
         return "子連れ外出の荷物や移動中の不安を減らしたい家庭に刺さる"
-    if any(word in text for word in ["離乳食", "食器", "エプロン", "マグ", "フードカッター", "保存容器", "ベビーチェア"]):
+    if product_type == APPEAL_FEEDING:
         return "食後の片づけや自分で食べたい時期の負担を減らしたい家庭に刺さる"
-    if any(word in text for word in ["収納", "絵本棚", "ラック", "ストッカー", "片づけ", "おもちゃ箱"]):
+    if product_type == APPEAL_STORAGE:
         return "散らかりや戻す場所に悩む家庭に刺さり、リビング整理の動機を作りやすい"
-    if any(word in text for word in ["家電", "時短", "自動", "ブレンダー", "掃除"]):
+    if product_type == APPEAL_APPLIANCE:
         return "寝かしつけ後や朝の家事負担を減らしたい家庭に訴求しやすい"
-    if any(word in text for word in ["ギフト", "出産祝い", "プレゼント"]):
+    if product_type == APPEAL_GIFT:
         return "贈った後に実際の育児で使われる実用性を伝えやすい"
     return "使う場面が具体的に浮かび、購入後の出番を説明しやすい"
 
 
 def product_purchase_check(product: Product) -> str:
-    text = product.text
-    checks: list[str] = []
-    if any(word in text for word in ["サイズ", "cm", "靴", "シューズ", "上履き"]):
-        checks.append("サイズ")
-    if any(word in text for word in ["1歳", "2歳", "3歳", "対象年齢", "年齢"]):
-        checks.append("対象年齢")
-    if any(word in text for word in ["セット", "まとめ買い", "大容量", "配送", "送料無料"]):
-        checks.append("購入単位")
-    if any(word in text for word in ["電池", "充電", "コードレス"]):
-        checks.append("電源まわり")
-    if any(word in text for word in ["ベビーカー", "バッグ", "外出", "旅行", "帰省"]):
-        checks.append("持ち運び")
-    if any(word in text for word in ["収納", "ラック", "ストッカー", "絵本棚"]):
-        checks.append("置き場所")
-    if any(word in text for word in ["離乳食", "食器", "エプロン", "マグ", "保存容器"]):
-        checks.append("洗う手間")
-    if not checks:
-        checks.append("使う場面")
-    return "・".join(dict.fromkeys(checks))
+    return purchase_checkpoints(product, classify_product_type(product))
 
 
 def build_recommendation_reason(
     product: Product, total_score: int, seasonal_score: int, room_score: int
 ) -> str:
     return (
-        f"{product_reason_anchor(product)}は、{product_decision_point(product)}ため選定し、"
-        f"訴求は悩み解消を先に出して購入前確認は{product_purchase_check(product)}に絞る。"
+        f"{product_reason_anchor(product)}は、{product_decision_point(product)}ため候補にしやすい一方、"
+        f"{product_purchase_check(product)}は購入前に確認したい。"
     )

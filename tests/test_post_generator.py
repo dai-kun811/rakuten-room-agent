@@ -11,6 +11,7 @@ from post_generator import (
     build_hashtags,
     build_post_text,
     build_room_output,
+    determine_appeal_category,
     purchase_checkpoints,
     shorten_product_name,
 )
@@ -240,8 +241,6 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("最後の1缶", post_text)
         self.assertIn("夜中や夕方のバタバタ", post_text)
-        self.assertIn("子どもがお腹を空かせたタイミング", post_text)
-        self.assertIn("親の気持ちに余裕", post_text)
         self.assertIn("ストック候補", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
@@ -281,8 +280,8 @@ class PostGeneratorTest(unittest.TestCase):
         alpha_post = build_post_text(alpha)
         beta_post = build_post_text(beta)
 
-        self.assertIn("Alpha Stock Wipes", alpha_post)
-        self.assertIn("Beta Night Diapers", beta_post)
+        self.assertIn("おしりふき", alpha_post)
+        self.assertIn("おむつ", beta_post)
         self.assertNotEqual(alpha_post, beta_post)
 
     def test_post_text_moves_from_pain_to_purchase_check(self) -> None:
@@ -445,6 +444,200 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("サイズ", checkpoints)
         self.assertIn("対象年齢", checkpoints)
         self.assertIn("履き心地", checkpoints)
+
+    def test_toy_camera_and_sleep_products_keep_type_specific_copy(self) -> None:
+        banned_reason_terms = ["消耗品", "買い忘れ", "ストック需要", "まとめ買い", "毎日切らす"]
+        products = [
+            Product(
+                category="知育玩具",
+                name="積み木 音が鳴る 木製 知育玩具 赤ちゃん 安全 大きめサイズ 名入れ",
+                url="https://example.com/blocks",
+                price=3980,
+                review_count=800,
+                review_average=4.6,
+                caption="1歳 積み木 木のおもちゃ 音が鳴る パーツ 大きめ 名入れ",
+                catchcopy="誕生日 プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="キッズ用品",
+                name="【公式】MiNiPiC キッズカメラ ゲームなし スマホ転送 SDカード",
+                url="https://example.com/camera",
+                price=4980,
+                review_count=800,
+                review_average=4.6,
+                caption="キッズカメラ 写真 撮影 旅行 スマホ転送 SDカード ゲームなし",
+                catchcopy="誕生日プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="ベビー用品",
+                name="ラルミー ホワイトノイズ 授乳ライト 寝かしつけ 夜泣き",
+                url="https://example.com/sleep",
+                price=3980,
+                review_count=800,
+                review_average=4.6,
+                caption="ホワイトノイズ 授乳ライト 胎内音 睡眠 スピーカー",
+                catchcopy="出産祝い ギフト",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+        ]
+
+        reasons = [score_product(item, date(2026, 6, 9)).recommendation_reason for item in products]
+        posts = [build_post_text(score_product(item, date(2026, 6, 9))) for item in products]
+        tags = [build_hashtags(score_product(item, date(2026, 6, 9))).split() for item in products]
+
+        self.assertTrue(all(term not in reasons[0] for term in banned_reason_terms))
+        self.assertTrue(all(term not in reasons[1] for term in banned_reason_terms))
+        self.assertIn("手先", reasons[0])
+        self.assertIn("写真遊び", reasons[1])
+        self.assertIn("寝かしつけ", reasons[2])
+        self.assertNotIn("#ベビーカーグッズ", tags[2])
+        self.assertIn("#ホワイトノイズ", tags[2])
+        self.assertIn("#授乳ライト", tags[2])
+        self.assertRegex(posts[0], r"手先|親子|遊び方|対象年齢|パーツ|収納")
+        self.assertRegex(posts[1], r"写真|撮る|外出|旅行|スマホ転送|SDカード|ゲームなし")
+        self.assertRegex(posts[2], r"寝かしつけ|授乳|ライト|音|寝室|電源")
+
+    def test_unrelated_purchase_checks_do_not_leak_between_product_types(self) -> None:
+        toy = Product(
+            category="知育玩具",
+            name="木のおもちゃ アクティビティキューブ 1歳 名入れ無料 1年保証",
+            url="https://example.com/activity",
+            price=5980,
+            review_count=600,
+            review_average=4.7,
+            caption="知育玩具 1歳 木のおもちゃ アクティビティキューブ 型はめ ルーピング",
+            catchcopy="誕生日プレゼント",
+            shop_name="楽天ショップ",
+            image_url="https://example.com/image.jpg",
+        )
+        camera = Product(
+            category="キッズ用品",
+            name="キッズカメラ ゲームなし スマホ転送 SDカード 充電式",
+            url="https://example.com/camera",
+            price=4980,
+            review_count=600,
+            review_average=4.7,
+            caption="写真 撮影 外出 旅行 スマホ転送 SDカード ゲームなし",
+            catchcopy="誕生日プレゼント",
+            shop_name="楽天ショップ",
+            image_url="https://example.com/image.jpg",
+        )
+        sleep = Product(
+            category="ベビー用品",
+            name="ホワイトノイズ 授乳ライト 寝かしつけ スピーカー",
+            url="https://example.com/sleep",
+            price=4980,
+            review_count=600,
+            review_average=4.7,
+            caption="夜泣き 胎内音 睡眠 ライト 音 電源",
+            catchcopy="出産祝い",
+            shop_name="楽天ショップ",
+            image_url="https://example.com/image.jpg",
+        )
+
+        for product in [toy, camera, sleep]:
+            appeal = determine_appeal_category(product)
+            checks = purchase_checkpoints(product, appeal)
+            self.assertNotIn("履き心地", checks)
+            self.assertNotIn("洗う手間", checks)
+            self.assertNotIn("購入単位", checks)
+
+    def test_post_text_does_not_use_truncated_product_name_anchor(self) -> None:
+        scored = score_product(
+            Product(
+                category="知育玩具",
+                name="積み木 音が鳴る 木製 知育玩具 赤ちゃん 安全 大きめサイズ 名入れ無料 かわいい プレゼント",
+                url="https://example.com/long-blocks",
+                price=3980,
+                review_count=500,
+                review_average=4.6,
+                caption="1歳 積み木 木のおもちゃ 音が鳴る",
+                catchcopy="誕生日プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 9),
+        )
+
+        post_text = build_post_text(scored)
+        body = post_text.split("投稿文：")[1]
+
+        self.assertNotRegex(body, r"\.\.\.は")
+        self.assertIn("音が鳴る木製つみき", body)
+
+    def test_post_openings_are_not_repeated_three_times_for_same_category(self) -> None:
+        products = [
+            Product(
+                category="知育玩具",
+                name="積み木 木製 知育玩具",
+                url="https://example.com/blocks",
+                price=3980,
+                review_count=500,
+                review_average=4.6,
+                caption="1歳 積み木 木のおもちゃ",
+                catchcopy="誕生日プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="知育玩具",
+                name="アクティビティキューブ 木のおもちゃ",
+                url="https://example.com/activity",
+                price=5980,
+                review_count=500,
+                review_average=4.6,
+                caption="1歳 型はめ ルーピング 知育玩具",
+                catchcopy="名入れ 誕生日",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="知育玩具",
+                name="リングテン 紐通し 木製玩具",
+                url="https://example.com/ring",
+                price=4980,
+                review_count=500,
+                review_average=4.6,
+                caption="リング 紐通し 手先 知育",
+                catchcopy="長く遊べる",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+        ]
+
+        openings = [
+            build_post_text(score_product(product, date(2026, 6, 9))).split("投稿文：")[1].strip().split("。")[0]
+            for product in products
+        ]
+
+        self.assertGreater(len(set(openings)), 1)
+
+    def test_review_count_and_rating_are_not_purchase_reasons_in_post(self) -> None:
+        scored = score_product(
+            Product(
+                category="キッズ用品",
+                name="キッズカメラ レビュー8000件 評価4.8 ゲームなし",
+                url="https://example.com/review-camera",
+                price=4980,
+                review_count=8000,
+                review_average=4.8,
+                caption="キッズカメラ 写真 撮影 スマホ転送 SDカード",
+                catchcopy="誕生日プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 9),
+        )
+
+        post_text = build_post_text(scored)
+
+        self.assertNotIn("レビュー", post_text)
+        self.assertNotIn("評価", post_text)
 
 
 if __name__ == "__main__":
