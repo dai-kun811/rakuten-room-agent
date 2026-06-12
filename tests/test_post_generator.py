@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from collections import Counter
 import sys
 import unittest
 
@@ -17,6 +18,14 @@ from post_generator import (
 )
 from rakuten_api import Product
 from scoring import score_product
+
+
+def post_body(post_text: str) -> str:
+    return post_text.split("投稿文：")[1].strip()
+
+
+def post_title(post_text: str) -> str:
+    return post_text.split("投稿文：")[0].replace("タイトル：", "").strip()
 
 
 class PostGeneratorTest(unittest.TestCase):
@@ -132,9 +141,9 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("ストック", post_text)
         self.assertIn("買い足し", post_text)
         self.assertIn("焦", post_text)
-        self.assertIn("セール", post_text)
-        self.assertIn("容量と価格を確認", post_text)
-        self.assertIn("ストック候補", post_text)
+        self.assertIn("容量", post_text)
+        self.assertIn("価格", post_text)
+        self.assertIn("ストック", post_text)
         self.assertNotIn("容量と価格だけでも確認", post_text)
         self.assertNotIn("チェックしてください", post_text)
         self.assertNotIn("プレゼント", post_text)
@@ -212,8 +221,8 @@ class PostGeneratorTest(unittest.TestCase):
         normal_tags = build_hashtags(normal_scored).split()
 
         self.assertIn("育児ギフト", gift_post)
-        self.assertIn("出産祝いって何を贈るか迷いますよね", gift_post)
-        self.assertIn("赤ちゃんの毎日", gift_post)
+        self.assertIn("出産祝いは", gift_post)
+        self.assertIn("育児で使える", gift_post)
         self.assertIn("月齢", gift_post)
         self.assertNotIn("かわいさより相手の生活で使われるかが大事", gift_post)
         self.assertIn("#出産祝い", gift_tags)
@@ -241,7 +250,7 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("最後の1缶", post_text)
         self.assertIn("夜中や夕方のバタバタ", post_text)
-        self.assertIn("ストック候補", post_text)
+        self.assertIn("ストック", post_text)
         self.assertNotIn("口コミ", post_text)
         self.assertNotIn("レビュー", post_text)
 
@@ -305,8 +314,8 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertIn("焦", post_text)
         self.assertIn("夜用おむつ", post_text)
-        self.assertIn("買う前", post_text)
-        self.assertIn("ストック候補", post_text)
+        self.assertIn("見比べて", post_text)
+        self.assertIn("ストック", post_text)
         self.assertNotIn("おすすめです", post_text)
         self.assertNotIn("レビュー", post_text)
 
@@ -638,6 +647,120 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertNotIn("レビュー", post_text)
         self.assertNotIn("評価", post_text)
+
+    def test_post_body_is_compact_and_avoids_repeated_claims(self) -> None:
+        products = [
+            Product(
+                category="知育玩具",
+                name="積み木 音が鳴る 木製 知育玩具 赤ちゃん 安全 大きめサイズ 名入れ",
+                url="https://example.com/blocks",
+                price=3980,
+                review_count=800,
+                review_average=4.6,
+                caption="1歳 積み木 木のおもちゃ 音が鳴る パーツ 大きめ 名入れ",
+                catchcopy="誕生日 プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="知育玩具",
+                name="木のおもちゃ アクティビティキューブ 1歳 名入れ無料 1年保証",
+                url="https://example.com/activity",
+                price=5980,
+                review_count=600,
+                review_average=4.7,
+                caption="知育玩具 1歳 木のおもちゃ アクティビティキューブ 型はめ ルーピング",
+                catchcopy="誕生日プレゼント",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="知育玩具",
+                name="リングテン 紐通し 木製玩具",
+                url="https://example.com/ring",
+                price=4980,
+                review_count=500,
+                review_average=4.6,
+                caption="リング 紐通し 手先 知育",
+                catchcopy="長く遊べる",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            Product(
+                category="ベビー用消耗品",
+                name="おしりふき 大容量 まとめ買い セット",
+                url="https://example.com/wipes",
+                price=3280,
+                review_count=500,
+                review_average=4.6,
+                caption="おしりふき 大容量 厚手 まとめ買い セール",
+                catchcopy="ストック向き 送料無料",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+        ]
+
+        posts = [build_post_text(score_product(product, date(2026, 6, 12))) for product in products]
+        bodies = [post_body(text) for text in posts]
+        titles = [post_title(text) for text in posts]
+
+        for body in bodies:
+            self.assertLessEqual(body.count("。"), 5)
+            self.assertGreaterEqual(len(body), 180)
+            self.assertLessEqual(len(body), 230)
+            self.assertNotIn("ところを見たいです", body)
+            self.assertNotIn("判断したいです", body)
+            self.assertNotIn("親子で遊び方を広げやすい", body)
+            self.assertNotRegex(body, r"(.{2,12})は、\1を")
+
+        self.assertTrue(all(count < 3 for count in Counter(titles).values()))
+        self.assertNotIn("これなら親子で長く遊べる", titles)
+        self.assertNotIn("遊びながら成長を感じたい日", titles)
+        self.assertNotIn("おしりふきは、おしりふき", bodies[-1])
+
+    def test_purchase_checkpoints_appear_only_in_final_sentence(self) -> None:
+        products_and_terms = [
+            (
+                Product(
+                    category="知育玩具",
+                    name="積み木 音が鳴る 木製 知育玩具 赤ちゃん 安全 大きめサイズ 名入れ",
+                    url="https://example.com/blocks",
+                    price=3980,
+                    review_count=800,
+                    review_average=4.6,
+                    caption="1歳 積み木 木のおもちゃ 音が鳴る パーツ 大きめ 名入れ",
+                    catchcopy="誕生日 プレゼント",
+                    shop_name="楽天ショップ",
+                    image_url="https://example.com/image.jpg",
+                ),
+                ["対象年齢", "パーツ"],
+            ),
+            (
+                Product(
+                    category="ベビー用消耗品",
+                    name="おしりふき 大容量 まとめ買い セット",
+                    url="https://example.com/wipes",
+                    price=3280,
+                    review_count=500,
+                    review_average=4.6,
+                    caption="おしりふき 大容量 厚手 まとめ買い セール",
+                    catchcopy="ストック向き 送料無料",
+                    shop_name="楽天ショップ",
+                    image_url="https://example.com/image.jpg",
+                ),
+                ["購入単位", "容量", "価格"],
+            ),
+        ]
+
+        for product, terms in products_and_terms:
+            body = post_body(build_post_text(score_product(product, date(2026, 6, 12))))
+            sentences = [sentence for sentence in body.split("。") if sentence]
+            final_sentence = sentences[-1]
+            previous_text = "。".join(sentences[:-1])
+            for term in terms:
+                self.assertEqual(body.count(term), 1)
+                self.assertNotIn(term, previous_text)
+                self.assertIn(term, final_sentence)
 
 
 if __name__ == "__main__":

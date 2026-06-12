@@ -141,6 +141,10 @@ def product_display_name(product: Product, product_type: str | None = None) -> s
         if "ブロック" in text:
             return "知育ブロック"
         return "知育玩具"
+    if product_type == APPEAL_CONSUMABLE:
+        for keyword in ["夜用おむつ", "おむつ", "おしりふき", "粉ミルク", "ミルク", "ティッシュ"]:
+            if keyword in text:
+                return keyword
 
     cleaned = re.sub(r"[\[\]【】()（）]", " ", product.name)
     cleaned = re.sub(r"[★☆◆◇■□●○◎※♪]", " ", cleaned)
@@ -194,10 +198,6 @@ def purchase_checkpoints(product: Product, product_type: str | None = None) -> s
             checks.append("遊ぶスペース")
         if contains_any(text, ["収納", "箱", "ケース"]):
             checks.append("収納場所")
-        if "名入れ" in text:
-            checks.append("名入れ対応")
-        if contains_any(text, ["ギフト", "プレゼント", "誕生日", "出産祝い"]):
-            checks.append("ギフト包装")
         if contains_any(text, ["電池", "充電", "ライト", "音"]):
             checks.append("電池の有無")
         if "収納場所" not in checks:
