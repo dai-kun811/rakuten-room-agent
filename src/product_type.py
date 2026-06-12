@@ -139,14 +139,17 @@ def product_display_name(product: Product, product_type: str | None = None) -> s
         if "木のおもちゃ" in text or "木製" in text:
             return "木のおもちゃ"
         if "ブロック" in text:
-            return "知育ブロック"
+            if "マグネット" in text or "磁石" in text:
+                return "マグネット知育ブロック"
+            return "形を変えて遊べるブロック"
         return "知育玩具"
     if product_type == APPEAL_CONSUMABLE:
         for keyword in ["夜用おむつ", "おむつ", "おしりふき", "粉ミルク", "ミルク", "ティッシュ"]:
             if keyword in text:
                 return keyword
 
-    cleaned = re.sub(r"[\[\]【】()（）]", " ", product.name)
+    cleaned = strip_promotional_claims(product.name)
+    cleaned = re.sub(r"[\[\]【】()（）]", " ", cleaned)
     cleaned = re.sub(r"[★☆◆◇■□●○◎※♪]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not cleaned:
@@ -154,6 +157,21 @@ def product_display_name(product: Product, product_type: str | None = None) -> s
     if len(cleaned) <= 18:
         return cleaned
     return keyword_display_name(cleaned, product_type)
+
+
+def strip_promotional_claims(text: str) -> str:
+    cleaned = text
+    for pattern in [
+        r"口コミ\s*[\d,]+\s*件",
+        r"レビュー\s*[\d,]+\s*件",
+        r"楽天\s*1位",
+        r"\d+\s*冠",
+        r"No\.?\s*1",
+        r"ランキング\s*(?:1位|上位)",
+    ]:
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(?:高評価|売れている|大人気|人気)", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def keyword_display_name(name: str, product_type: str) -> str:
@@ -191,18 +209,11 @@ def purchase_checkpoints(product: Product, product_type: str | None = None) -> s
     checks: list[str] = []
 
     if product_type == APPEAL_EDUCATIONAL:
-        checks.append("対象年齢")
-        if contains_any(text, ["大きめ", "パーツ", "誤飲", "サイズ", "cm", "型はめ"]):
-            checks.append("パーツの大きさ")
-        else:
-            checks.append("遊ぶスペース")
-        if contains_any(text, ["収納", "箱", "ケース"]):
-            checks.append("収納場所")
-        if contains_any(text, ["電池", "充電", "ライト", "音"]):
-            checks.append("電池の有無")
-        if "収納場所" not in checks:
-            checks.append("収納場所")
-        return "・".join(dict.fromkeys(checks[:4]))
+        if "アクティビティキューブ" in text:
+            return "対象年齢・サイズ・置き場所"
+        if contains_any(text, ["紐通し", "リングテン", "ring10", "リング"]):
+            return "対象年齢・パーツ数・収納場所"
+        return "対象年齢・パーツの大きさ・収納場所"
 
     if product_type == APPEAL_KIDS_CAMERA:
         checks.append("対象年齢")
@@ -219,7 +230,10 @@ def purchase_checkpoints(product: Product, product_type: str | None = None) -> s
             checks.append("ゲーム機能の有無")
         if "保証" in text:
             checks.append("保証内容")
-        return "・".join(dict.fromkeys(checks[:4]))
+        preferred = ["対象年齢"]
+        preferred.append("スマホ転送の方法" if "スマホ転送の方法" in checks else "SDカード容量")
+        preferred.append("充電方式")
+        return "・".join(dict.fromkeys(preferred[:3]))
 
     if product_type == APPEAL_SLEEP:
         checks.extend(["音の種類", "音量調整"])
@@ -233,14 +247,14 @@ def purchase_checkpoints(product: Product, product_type: str | None = None) -> s
             checks.append("持ち運びやすさ")
         if contains_any(text, ["サイズ", "cm"]):
             checks.append("サイズ")
-        return "・".join(dict.fromkeys(checks[:4]))
+        preferred = ["音量調整"]
+        if "ライト機能" in checks:
+            preferred.append("ライト機能")
+        preferred.append("電源方式" if "電源方式" in checks else "設置場所")
+        return "・".join(dict.fromkeys(preferred[:3]))
 
     if product_type == APPEAL_CONSUMABLE:
-        if contains_any(text, ["セット", "まとめ買い", "大容量", "配送", "送料無料"]):
-            checks.append("購入単位")
-        checks.append("容量")
-        checks.append("価格")
-        return "・".join(dict.fromkeys(checks[:3]))
+        return "容量・価格・置き場所"
 
     if product_type == APPEAL_SHOES:
         checks.append("サイズ")

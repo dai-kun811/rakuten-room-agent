@@ -5,6 +5,7 @@ import logging
 from datetime import date, datetime
 
 from post_generator import (
+    GenerationContext,
     appeal_label,
     build_benefit,
     build_hashtags,
@@ -83,7 +84,11 @@ class SheetsClient:
         if not scored_products:
             LOGGER.info("追記対象の商品がありません。")
             return
-        rows = [scored_product_to_row(item, today=today) for item in scored_products]
+        context = GenerationContext()
+        rows = [
+            scored_product_to_row(item, today=today, generation_context=context)
+            for item in scored_products
+        ]
         self.append_rows(sheet_name, rows)
 
     def append_error(self, sheet_name: str, *, today: date, reason: str) -> None:
@@ -127,7 +132,12 @@ class SheetsClient:
         return response.get("values", [])
 
 
-def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
+def scored_product_to_row(
+    item: ScoredProduct,
+    *,
+    today: date,
+    generation_context: GenerationContext | None = None,
+) -> list[object]:
     product = item.product
     appeal = determine_appeal_category(product)
     benefit = build_benefit(product, appeal)
@@ -145,7 +155,7 @@ def scored_product_to_row(item: ScoredProduct, *, today: date) -> list[object]:
         purchase_checkpoints(product, appeal),
         item.total_score,
         item.recommendation_reason,
-        build_post_text(item),
+        build_post_text(item, context=generation_context),
         build_hashtags(item),
     ]
 

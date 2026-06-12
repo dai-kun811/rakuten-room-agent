@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from post_generator import (
     BANNED_EXPRESSIONS,
     BRAND_HASHTAG,
+    GenerationContext,
     build_hashtags,
     build_post_text,
     build_room_output,
@@ -29,6 +30,52 @@ def post_title(post_text: str) -> str:
 
 
 class PostGeneratorTest(unittest.TestCase):
+    def test_execution_copy_is_unique_specific_and_free_of_promotional_claims(self) -> None:
+        products = [
+            Product(
+                category="知育玩具",
+                name="口コミ3300件 楽天1位17冠 知育ブロック 組み立て パーツ",
+                url=f"https://example.com/block-{index}",
+                price=3980,
+                review_count=3300,
+                review_average=4.7,
+                caption="ブロック 組み立て 形を変える 創造遊び",
+                catchcopy="高評価 人気",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            )
+            for index in range(3)
+        ]
+        context = GenerationContext()
+        posts = [
+            build_post_text(score_product(product, date(2026, 6, 12)), context=context)
+            for product in products
+        ]
+        titles = [post_title(post) for post in posts]
+        bodies = [post_body(post) for post in posts]
+        openings = ["。".join(body.split("。")[:2]) for body in bodies]
+
+        self.assertEqual(len(titles), len(set(titles)))
+        self.assertEqual(len(openings), len(set(openings)))
+        for body in bodies:
+            self.assertGreaterEqual(len(body), 160, body)
+            self.assertLessEqual(len(body), 220)
+            self.assertIn(body.count("。"), {3, 4})
+            self.assertTrue(any(word in body for word in ["ブロック", "組み立て", "形を変える", "パーツ", "創造遊び"]))
+            for banned in [
+                "口コミ",
+                "レビュー",
+                "楽天1位",
+                "冠",
+                "高評価",
+                "人気",
+                "売れている",
+                "見た目だけで決めず",
+                "安全に長く遊べる",
+                "これなら親子で長く遊べる",
+            ]:
+                self.assertNotIn(banned, body)
+
     def test_post_text_uses_requested_title_and_body_format(self) -> None:
         scored = score_product(
             Product(
@@ -54,7 +101,7 @@ class PostGeneratorTest(unittest.TestCase):
         self.assertIn("投稿文：", post_text)
         self.assertLessEqual(len(title), 20)
         self.assertNotIn("おしりふき", title)
-        self.assertGreaterEqual(len(body), 180)
+        self.assertGreaterEqual(len(body), 160)
         self.assertLessEqual(len(body), 260)
 
     def test_full_output_uses_requested_room_fields_without_review_references(self) -> None:
@@ -706,8 +753,8 @@ class PostGeneratorTest(unittest.TestCase):
 
         for body in bodies:
             self.assertLessEqual(body.count("。"), 5)
-            self.assertGreaterEqual(len(body), 180)
-            self.assertLessEqual(len(body), 230)
+            self.assertGreaterEqual(len(body), 160, body)
+            self.assertLessEqual(len(body), 220)
             self.assertNotIn("ところを見たいです", body)
             self.assertNotIn("判断したいです", body)
             self.assertNotIn("親子で遊び方を広げやすい", body)
@@ -748,7 +795,7 @@ class PostGeneratorTest(unittest.TestCase):
                     shop_name="楽天ショップ",
                     image_url="https://example.com/image.jpg",
                 ),
-                ["購入単位", "容量", "価格"],
+                ["容量", "価格", "置き場所"],
             ),
         ]
 

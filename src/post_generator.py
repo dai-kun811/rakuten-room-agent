@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 
 from rakuten_api import Product
 from scoring import ScoredProduct
@@ -60,6 +61,22 @@ BANNED_EXPRESSIONS = [
     "毎日使うものだから、切らしてしまうと意外と困るんですよね",
     "セール中のうちに、容量と価格を確認しておきたいアイテムです",
     "子どもは手を動かして遊びに入りやすく、親も横で声をかけながら一緒に過ごせます",
+    "見た目だけで決めず",
+    "今の生活に合うか見ておきたいです",
+    "家で安全に長く遊べる候補",
+    "先にしっかり入れておきたい",
+    "これなら親子で長く遊べる",
+    "集中して遊べる時間を作る",
+    "安全に遊べる",
+    "安全に長く遊べる",
+    "必ず使える",
+    "喜ばれる",
+    "寝てくれる",
+    "食べてくれる",
+    "泣き止む",
+    "楽天1位",
+    "高評価",
+    "売れている",
 ]
 
 BROAD_LOW_INTENT_TAGS = {
@@ -134,11 +151,22 @@ FOCUS_KEYWORDS = {
 }
 
 
-def build_post_text(scored: ScoredProduct) -> str:
+@dataclass
+class GenerationContext:
+    used_titles: set[str] = field(default_factory=set)
+    used_openings: set[str] = field(default_factory=set)
+
+
+def build_post_text(scored: ScoredProduct, context: GenerationContext | None = None) -> str:
     product = scored.product
     appeal = determine_appeal_category(product)
     title = build_title(product, appeal)
     body = build_post_body(product, appeal)
+    if context is not None:
+        title = unique_title(title, product, appeal, context.used_titles)
+        body = unique_opening(body, product, context.used_openings)
+        context.used_titles.add(title)
+        context.used_openings.add(first_two_sentences(body))
     text = f"タイトル：\n{title}\n\n投稿文：\n{body}"
     return sanitize_post_text(text)
 
@@ -151,45 +179,45 @@ def build_post_body(product: Product, appeal: str) -> str:
     if appeal == APPEAL_EDUCATIONAL:
         if "アクティビティキューブ" in text:
             sentences = [
-                "1歳頃のおもちゃは、すぐ飽きないかも気になりますよね。",
-                "型はめやルーピングなど複数の遊びがあるアクティビティキューブなら、手先を使う時間を作りやすいです。",
-                "名入れや保証がある商品は、誕生日ギフトにも選びやすく、成長に合わせた遊びもじっくり想像できます。",
-                f"見た目だけで決めず、{checkpoints}を確認して、家の遊び場に置きやすい候補に入れておきたいです。",
+                "1歳頃のおもちゃは、成長に合う遊びがいくつあるか迷いますよね。",
+                "型はめやルーピングなど、1台で複数の遊びができるアクティビティキューブなら、手先を使う場面を変えやすいです。",
+                "名入れや保証があるタイプは、遊びの内容が伝わる誕生日ギフトとしても選びやすいので、",
+                f"{checkpoints}を確かめて、家の遊び場に置ける候補か考えたいです。",
             ]
         elif "紐通し" in text or "リングテン" in text or "ring10" in text or "リング" in text:
             sentences = [
-                "知育玩具は、長く出番を作れるかも大事にしたいところです。",
-                "リングを積む・並べる・紐に通す遊びなら、指先を使って集中しながら遊び方を変えやすいです。",
-                "色や形を声に出しながら遊べるので、親子で関わる時間を作りたい家庭にも合います。",
-                f"見た目だけで決めず、{checkpoints}を確認して、今の遊び方と家のスペースに無理なく合う候補か先にじっくり見ておきたいです。",
+                "知育玩具は、成長に合わせて遊び方を変えられるかも気になりますよね。",
+                "リングを積む・並べる・紐通しをするなど、色分けや数を数えながら指先を使って集中する遊びへ広げられます。",
+                "親子で色や並べ方を相談し、一緒に繰り返し次の遊び方を考える時間にもつながるので、",
+                f"{checkpoints}を確かめて、今の遊び方に合うか選びたいです。",
             ]
         elif "積み木" in text or "つみき" in text:
             sentences = [
                 "1歳前後のおもちゃは、今の成長に合うか迷いやすいですよね。",
-                f"{name}なら、振る・積む・並べる遊びで手先を使う時間を作りやすいです。",
-                "音や色の変化を親子で楽しめて、名入れ対応なら誕生日や出産祝いのギフト感も出せます。",
-                f"見た目だけで決めず、{checkpoints}を確認して、家で安全に長く遊べる候補として先にしっかり入れておきたいです。",
+                f"{name}なら、振る・積む・並べる遊びで、親子一緒に音や形の違いに触れる時間を作りやすいです。",
+                "名入れ対応なら、遊びの特徴が伝わる誕生日や出産祝いのギフト感も添えられるので、",
+                f"{checkpoints}を確かめて、家での遊び方に合うものを選びたいです。",
             ]
         else:
             sentences = [
-                "家遊びのおもちゃは、すぐ飽きないかも気になりますよね。",
-                f"{name}なら、手先を使いながら親子で遊ぶ時間を作りやすいです。",
-                "色や形に触れられるタイプは、成長に合わせて遊びを変えられます。",
-                f"見た目だけで決めず、{checkpoints}を確認して、今の生活に合うか見ておきたいです。",
+                "家遊びのおもちゃは、今の成長に合う遊びへ広げられるか迷いますよね。",
+                f"{name}なら、ブロックを組み立てたり形を変えたりしながら、手先を使う創造遊びを始めやすいです。",
+                "親子で作る形や組み立て方を相談し、完成した形を見比べる時間も作れるので、",
+                f"{checkpoints}を確かめて、遊ぶ場所に合うパーツ構成を選びたいです。",
             ]
     elif appeal == APPEAL_KIDS_CAMERA:
         sentences = [
-            "子どもの誕生日プレゼントは、思い出にも残るものを選びたいですよね。",
-            f"{name}なら、外出先や旅行で子どもが見つけた景色を写真に残しやすいです。",
-            "ゲームなしやスマホ転送つきなら、撮った写真を親子で見返す流れも作りやすいです。",
-            f"見た目だけで決めず、{checkpoints}を確認して、子どもが自分で扱いやすいか見ておきたいです。",
+            "子どもの誕生日プレゼントは、遊んだ後にも思い出が残るものを選びたいですよね。",
+            f"{name}なら、外出や旅行で子ども目線の写真を撮り、親子で見返す楽しみを作れます。",
+            "ゲームなし・スマホ転送・SDカードなど、写真遊びに必要な機能を家庭に合わせて絞り、",
+            f"{checkpoints}を確かめて、家庭で写真を残しやすい一台を選びたいです。",
         ]
     elif appeal == APPEAL_SLEEP:
         sentences = [
-            "夜の授乳やおむつ替えは、部屋を明るくしすぎると寝かしつけが大変になることがあります。",
-            f"{name}なら、ホワイトノイズとライトで寝る前の環境を整えやすいです。",
-            "音と灯りをまとめたい家庭や、出産祝いの実用ギフトにも合います。",
-            f"見た目だけで決めず、{checkpoints}を確認して、毎晩の寝室まわりに置きやすいか見ておきたいです。",
+            "夜の授乳やおむつ替えは、部屋を明るくしすぎない環境を整えたいですよね。",
+            f"{name}なら、ホワイトノイズと授乳ライトをまとめて、寝かしつけ前の音と灯りを調整しやすいです。",
+            "寝室で使う音とライトの機能を一つにまとめ、夜の手元を整えたい家庭にも合うので、",
+            f"{checkpoints}を確かめて、夜の動線に置きやすいタイプを選びたいです。",
         ]
     elif appeal == APPEAL_CONSUMABLE:
         if "ミルク" in text:
@@ -202,9 +230,9 @@ def build_post_body(product: Product, appeal: str) -> str:
         elif "おしりふき" in text:
             sentences = [
                 "おしりふきは、残り少ないことに気づくのが忙しいタイミングになりがちです。",
-                "おむつ替えや食後に出番が多いので、まとめて置けるタイプは買い足しの手間を減らせます。",
-                "玄関や収納棚に置ける量を決めておくと、ストックを切らしたくない家庭と相性が良いです。",
-                f"値段だけで決めず、{checkpoints}を見比べて、日々の収納に買いすぎず置ける候補として無理なく早めに入れておきたいです。",
+                "おむつ替えや食後に使うおしりふきは、箱単位でまとめ買いすると買い足しの回数を減らしやすいです。",
+                "洗面所や収納棚など、置けるストック量を先に決めておくと、忙しい日も残りを管理しやすいので、",
+                f"{checkpoints}を比べて、収納に無理のないセットを選びたいです。",
             ]
         else:
             sentences = [
@@ -303,6 +331,8 @@ def evidence_note(*, product_page_checked: bool, review_text_available: bool) ->
 
 def sanitize_post_text(text: str) -> str:
     sanitized = text
+    sanitized = re.sub(r"(?:口コミ|レビュー)\s*[\d,]+\s*件", "", sanitized)
+    sanitized = re.sub(r"楽天\s*1位|\d+\s*冠|No\.?\s*1", "", sanitized, flags=re.IGNORECASE)
     for expression in BANNED_EXPRESSIONS:
         sanitized = sanitized.replace(expression, "")
     sanitized = re.sub(r"[ 　]+", " ", sanitized)
@@ -329,6 +359,8 @@ def build_title(product: Product, appeal: str) -> str:
             return "遊び方を広げる知育に"
         if "積み木" in text or "つみき" in text:
             return "はじめての積み木遊びに"
+        if "ブロック" in text:
+            return "組み立て遊びに集中したい"
     if appeal == APPEAL_KIDS_CAMERA:
         return "子ども目線を残したい"
     if appeal == APPEAL_SLEEP:
@@ -345,9 +377,9 @@ def build_title(product: Product, appeal: str) -> str:
             "夕方に買いに走りたくない",
         ],
         APPEAL_EDUCATIONAL: [
-            "これなら親子で長く遊べる",
-            "集中して遊べる時間を作る",
-            "遊びながら成長を感じたい日",
+            "形を変える知育遊びに",
+            "手先を使う家遊びに",
+            "親子で作る形を増やしたい",
         ],
         APPEAL_KIDS_CAMERA: [
             "子ども目線を残したい",
@@ -370,7 +402,7 @@ def build_title(product: Product, appeal: str) -> str:
             "家事の負担を明日に残さない",
         ],
         APPEAL_GIFT: [
-            "贈った後に使われる実用品",
+            "贈った後の出番で選びたい",
             "気を使わせにくい育児ギフト",
             "出産祝いは実用性で選ぶ",
         ],
@@ -945,11 +977,76 @@ def choose_option(options: list[str], text: str) -> str:
     return options[index]
 
 
-def compact_body(sentences: list[str], *, min_length: int = 180, max_length: int = 230) -> str:
+def first_two_sentences(body: str) -> str:
+    sentences = [sentence for sentence in re.findall(r"[^。]+。", body)]
+    return "".join(sentences[:2])
+
+
+def unique_title(
+    title: str,
+    product: Product,
+    appeal: str,
+    used_titles: set[str],
+) -> str:
+    if title not in used_titles:
+        return title
+    alternatives = {
+        APPEAL_EDUCATIONAL: [
+            "音と形を楽しむ積み木に",
+            "型はめとルーピング遊びに",
+            "リングを並べる知育時間に",
+            "形を変えるブロック遊びに",
+        ],
+        APPEAL_KIDS_CAMERA: ["旅行で子どもの写真を残したい", "ゲームなしで写真遊びに"],
+        APPEAL_SLEEP: ["寝室の音と灯りを整えたい", "授乳ライトを夜の手元に"],
+        APPEAL_CONSUMABLE: ["おむつ替えのストックを整えたい", "食後にも使う分を備えたい"],
+        APPEAL_GIFT: ["月齢に合う実用ギフトを選びたい", "セット内容で贈り物を選びたい"],
+    }
+    for candidate in alternatives.get(appeal, []):
+        if candidate not in used_titles:
+            return candidate
+    anchor = product_anchor(product).replace("の", "")[:12]
+    candidate = f"{anchor}を選ぶ前に"
+    if candidate not in used_titles:
+        return candidate
+    return f"{anchor}{len(used_titles) + 1}の候補"
+
+
+def unique_opening(body: str, product: Product, used_openings: set[str]) -> str:
+    opening = first_two_sentences(body)
+    if opening not in used_openings:
+        return body
+    replacements = {
+        APPEAL_EDUCATIONAL: [
+            "家遊びを選ぶ日は、具体的に何をして遊べるか比べたいですよね。",
+            "知育玩具は、手を動かす場面が浮かぶものから選びたいですよね。",
+            "おうち時間のおもちゃは、遊び方を変えられるか気になりますよね。",
+        ],
+        APPEAL_KIDS_CAMERA: ["子ども用カメラは、持たせる場面まで想像して選びたいですよね。"],
+        APPEAL_SLEEP: ["寝室で使う育児グッズは、夜の動線に合うか気になりますよね。"],
+        APPEAL_CONSUMABLE: ["育児の消耗品は、なくなる前に置ける量を決めたいですよね。"],
+        APPEAL_GIFT: ["育児ギフトは、贈った後の使う場面まで考えたいですよね。"],
+    }
+    first = re.match(r"^.*?。", body)
+    if not first:
+        return body
+    candidates = replacements.get(
+        determine_appeal_category(product),
+        ["使う場面を具体的に想像して選びたいですよね。"],
+    )
+    for replacement in candidates:
+        candidate = replacement + body[first.end():]
+        if first_two_sentences(candidate) not in used_openings:
+            return candidate
+    anchor = product_anchor(product)
+    return f"{anchor}は、使う場面まで具体的に考えて選びたいですよね。" + body[first.end():]
+
+
+def compact_body(sentences: list[str], *, min_length: int = 160, max_length: int = 220) -> str:
     cleaned = [sentence for sentence in sentences if sentence]
     body = "".join(cleaned)
-    if len(body) > max_length and len(cleaned) >= 4:
-        body = "".join([cleaned[0], cleaned[1], cleaned[-1]])
+    if len(body) > max_length:
+        body = compress_body(body, max_length=max_length)
     return body
 
 
