@@ -35,6 +35,18 @@ def product_for(product_type: str, *, suffix: str = "") -> Product:
             "厚手 おしりふき 80枚 20個",
             "厚手 水分量 おしりふき 80枚 20個 おむつ替え 食後",
         ),
+        "swaddle": (
+            "モロー反射 おくるみ スワドル 新生児",
+            "モロー反射 おくるみ スワドル 新生児 夜 洗える コットン",
+        ),
+        "nursing_support": (
+            "ハンズフリー授乳 ママ代行ミルク屋さん",
+            "ハンズフリー授乳 ミルクサポート 哺乳瓶ホルダー 授乳準備",
+        ),
+        "baby_bedding": (
+            "抱っこ布団 日本製 ダブルガーゼ",
+            "抱っこ布団 ねんねクッション ダブルガーゼ 綿100 洗える 背中スイッチ対策",
+        ),
         "diaper": (
             "紙おむつ パンツタイプ Mサイズ 52枚",
             "紙おむつ パンツタイプ Mサイズ 52枚 夜間交換 外出",
@@ -107,6 +119,36 @@ class FixedRuleGeneratorTest(unittest.TestCase):
                 product_type,
             )
 
+    def test_requested_new_product_types_are_classified(self) -> None:
+        cases = [
+            ("【楽天3冠】モロー反射 おくるみ スワドル 新生児", "swaddle"),
+            ("スワドル 手が出せる おくるみ 新生児", "swaddle"),
+            ("赤ちゃん用ねくるみ モロー反射対策", "swaddle"),
+            ("ハンズフリー授乳 ママ代行ミルク屋さん", "nursing_support"),
+            ("哺乳瓶ホルダー 授乳サポート", "nursing_support"),
+            ("授乳クッション 新生児", "nursing_support"),
+            ("抱っこ布団 日本製 ダブルガーゼ", "baby_bedding"),
+            ("背中スイッチ対策 ねんねクッション", "baby_bedding"),
+            ("ベビー布団 新生児用", "baby_bedding"),
+            ("紙おむつ 新生児 テープタイプ", "diaper"),
+            ("ベビー用おむつ パンツタイプ", "diaper"),
+        ]
+        for name, expected in cases:
+            product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
+            self.assertEqual(classify_product_type(product), expected, name)
+
+    def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
+        cases = [
+            "おくるみ スワドル 新生児",
+            "おむつポーチ 大容量",
+            "おむつ替えシート 防水",
+            "授乳クッション",
+            "抱っこ布団",
+        ]
+        for name in cases:
+            product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
+            self.assertNotEqual(classify_product_type(product), "diaper", name)
+
     def test_normal_run_never_calls_openai(self) -> None:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "secret-value"}):
             with patch("urllib.request.urlopen") as urlopen:
@@ -173,6 +215,25 @@ class FixedRuleGeneratorTest(unittest.TestCase):
                 "別商品または商品タイプ違いの特徴が混入",
                 validate_post(generated, generated.attributes),
             )
+
+    def test_product_type_keyword_conflict_prevents_ready(self) -> None:
+        generated = generate("diaper")
+        conflicted_attributes = replace(
+            generated.attributes,
+            source_product_text="おくるみ スワドル 新生児",
+        )
+
+        errors = validate_post(generated, conflicted_attributes)
+
+        self.assertTrue(any("product_type_keyword_conflict" in error for error in errors), errors)
+
+    def test_new_product_types_generate_ready_without_diaper_context(self) -> None:
+        for product_type in ["swaddle", "nursing_support", "baby_bedding"]:
+            generated = generate(product_type)
+            self.assertEqual(generated.status, "ready", generated.quality_errors)
+            self.assertEqual(generated.analysis.product_type, product_type)
+            self.assertNotIn("#紙おむつ", generated.hashtags)
+            self.assertNotIn("紙おむつ", generated.body)
 
     def test_title_and_body_type_mismatch_is_rejected(self) -> None:
         generated = generate("ring_toy")

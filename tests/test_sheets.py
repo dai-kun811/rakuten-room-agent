@@ -5,10 +5,17 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from generation_report import GenerationReportItem, build_report_payload, ensure_no_secret_fields
 from rakuten_api import Product
 from fixed_rule_generator import FixedRulePostGenerator, GenerationContext
 from scoring import score_product
-from sheets import SHEET_HEADERS, error_row, normalize_product_url, scored_product_to_row
+from sheets import (
+    SHEET_HEADERS,
+    error_row,
+    normalize_product_url,
+    scored_product_to_row,
+    target_sheet_for_status,
+)
 
 
 class SheetsTest(unittest.TestCase):
@@ -82,6 +89,110 @@ class SheetsTest(unittest.TestCase):
         urls = SheetsLikeMixin.read_existing_urls(FakeSheetsClient(), "Sheet1")
 
         self.assertEqual(urls, {"https://item.rakuten.co.jp/shop/book"})
+
+    def test_ready_and_needs_review_target_different_sheets(self) -> None:
+        self.assertEqual(
+            target_sheet_for_status(
+                "ready",
+                output_sheet_name="ROOM_Posts_v2",
+                review_sheet_name="ROOM_Posts_Review",
+            ),
+            "ROOM_Posts_v2",
+        )
+        self.assertEqual(
+            target_sheet_for_status(
+                "needs_review",
+                output_sheet_name="ROOM_Posts_v2",
+                review_sheet_name="ROOM_Posts_Review",
+            ),
+            "ROOM_Posts_Review",
+        )
+
+    def test_generation_report_keeps_34_column_shape_and_no_secret_fields(self) -> None:
+        scored = score_product(
+            Product(
+                category="ベビー用品",
+                name="抱っこ布団 日本製 ダブルガーゼ",
+                url="https://example.com/bedding",
+                price=3980,
+                review_count=500,
+                review_average=4.6,
+                caption="抱っこ布団 ねんねクッション ダブルガーゼ 綿100 洗える 背中スイッチ対策",
+                catchcopy="抱っこ布団 ねんねクッション",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 16),
+        )
+        generated = FixedRulePostGenerator().generate(
+            scored,
+            context=GenerationContext(),
+        )
+        row = scored_product_to_row(
+            scored,
+            generated,
+            today=date(2026, 6, 16),
+            run_id="run123",
+        )
+        payload = build_report_payload(
+            run_id="run123",
+            executed_at=date(2026, 6, 16),
+            generation_mode="fallback",
+            output_sheet_name="ROOM_Posts_v2",
+            review_sheet_name="ROOM_Posts_Review",
+            fetch_report=None,
+            items=[
+                GenerationReportItem(
+                    scored=scored,
+                    generated=generated,
+                    row=row,
+                    write_sheet="ROOM_Posts_v2",
+                    duplicate_result="重複なし",
+                )
+            ],
+        )
+
+        ensure_no_secret_fields(payload)
+        self.assertEqual(payload["sheet_column_count"], 34)
+        self.assertEqual(payload["items"][0]["sheet_row_column_count"], 34)
+        self.assertEqual(payload["items"][0]["write_sheet"], "ROOM_Posts_v2")
+
+    def test_unknown_row_is_not_targeted_to_normal_output_sheet(self) -> None:
+        scored = score_product(
+            Product(
+                category="ベビー用品",
+                name="分類できない育児用品",
+                url="https://example.com/unknown",
+                price=1000,
+                review_count=10,
+                review_average=4.0,
+                caption="分類できない育児用品",
+                catchcopy="",
+                shop_name="楽天ショップ",
+                image_url="https://example.com/image.jpg",
+            ),
+            date(2026, 6, 16),
+        )
+        generated = FixedRulePostGenerator().generate(scored, context=GenerationContext())
+
+        self.assertEqual(generated.status, "needs_review")
+        self.assertEqual(
+            target_sheet_for_status(
+                generated.status,
+                output_sheet_name="ROOM_Posts_v2",
+                review_sheet_name="ROOM_Posts_Review",
+            ),
+            "ROOM_Posts_Review",
+        )
+
+    def test_main_reads_legacy_sheet_but_does_not_append_to_it(self) -> None:
+        main_source = (Path(__file__).resolve().parents[1] / "src" / "main.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("read_existing_urls(source_sheet_name)", main_source)
+        self.assertNotIn("append_products(source_sheet_name", main_source)
+        self.assertNotIn("append_error(source_sheet_name", main_source)
 
 
 class SheetsLikeMixin:

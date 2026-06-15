@@ -8,6 +8,7 @@ from fixed_rule_generator import GeneratedPost
 from scoring import ScoredProduct
 
 LOGGER = logging.getLogger(__name__)
+DEFAULT_REVIEW_SHEET_NAME = "ROOM_Posts_Review"
 
 SHEET_HEADERS = [
     "日付",
@@ -65,6 +66,15 @@ LEGACY_HEADERS = [
 ]
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+
+def target_sheet_for_status(
+    status: str,
+    *,
+    output_sheet_name: str,
+    review_sheet_name: str,
+) -> str:
+    return output_sheet_name if status == "ready" else review_sheet_name
 
 
 class SheetsClient:

@@ -236,6 +236,33 @@ class ScoringTest(unittest.TestCase):
                 ),
                 "ホワイトノイズ",
             ),
+            (
+                product(
+                    category="寝かしつけ用品",
+                    name="おくるみ スワドル モロー反射 新生児",
+                    url="https://example.com/swaddle",
+                    caption="おくるみ スワドル モロー反射 新生児 夜 洗える",
+                ),
+                "スワドル",
+            ),
+            (
+                product(
+                    category="ベビー用品",
+                    name="ハンズフリー授乳 ママ代行ミルク屋さん",
+                    url="https://example.com/nursing",
+                    caption="ハンズフリー授乳 ミルクサポート 哺乳瓶ホルダー",
+                ),
+                "ハンズフリー",
+            ),
+            (
+                product(
+                    category="寝かしつけ用品",
+                    name="抱っこ布団 日本製 ダブルガーゼ",
+                    url="https://example.com/bedding",
+                    caption="抱っこ布団 ねんねクッション ダブルガーゼ 綿100 洗える",
+                ),
+                "抱っこ布団",
+            ),
         ]
 
         for item, expected in cases:

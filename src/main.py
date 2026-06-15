@@ -8,6 +8,7 @@ import uuid
 from collections import Counter
 from datetime import datetime
 from difflib import SequenceMatcher
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fixed_rule_generator import (
@@ -16,6 +17,7 @@ from fixed_rule_generator import (
     GenerationContext,
     classify_product_type,
 )
+from generation_report import GenerationReportItem, write_generation_reports
 from rakuten_api import Product, RakutenApiClient, rotating_categories
 from scoring import (
     ScoredProduct,
@@ -24,7 +26,13 @@ from scoring import (
     score_all_products,
     select_products,
 )
-from sheets import SheetsClient, normalize_product_url, scored_product_to_row
+from sheets import (
+    DEFAULT_REVIEW_SHEET_NAME,
+    SheetsClient,
+    normalize_product_url,
+    scored_product_to_row,
+    target_sheet_for_status,
+)
 
 JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
@@ -45,6 +53,7 @@ def main() -> int:
         spreadsheet_id = get_required_env("SPREADSHEET_ID")
         source_sheet_name = os.getenv("SHEET_NAME", "Sheet1")
         output_sheet_name = os.getenv("OUTPUT_SHEET_NAME", "ROOM_Posts_v2")
+        review_sheet_name = os.getenv("REVIEW_SHEET_NAME", DEFAULT_REVIEW_SHEET_NAME)
 
         now = datetime.now(JST)
         today = now.date()
@@ -68,6 +77,7 @@ def main() -> int:
 
         sheets_client = SheetsClient(spreadsheet_id, service_account_json)
         sheets_client.ensure_headers(output_sheet_name)
+        sheets_client.ensure_headers(review_sheet_name)
 
         rakuten_client = RakutenApiClient(
             application_id,
@@ -88,7 +98,7 @@ def main() -> int:
             reason = fetch_report.failure_summary()
             LOGGER.error("楽天APIから商品を取得できませんでした run_id=%s reason=%s", run_id, reason)
             sheets_client.append_error(
-                output_sheet_name,
+                review_sheet_name,
                 today=today,
                 run_id=run_id,
                 reason=reason,
@@ -96,12 +106,20 @@ def main() -> int:
             return 0
 
         existing_urls = sheets_client.read_existing_urls(output_sheet_name)
+        existing_urls.update(sheets_client.read_existing_urls(review_sheet_name))
         if output_sheet_name != source_sheet_name:
             existing_urls.update(sheets_client.read_existing_urls(source_sheet_name))
         recent_history = sheets_client.read_recent_history(
             output_sheet_name,
             today=today,
             days=30,
+        )
+        recent_history.extend(
+            sheets_client.read_recent_history(
+                review_sheet_name,
+                today=today,
+                days=30,
+            )
         )
         deduped_products, duplicate_count = deduplicate_products(
             products,
@@ -119,7 +137,7 @@ def main() -> int:
             reason = "楽天APIから商品は取得できましたが、既存URLまたは類似商品とすべて重複しました。"
             LOGGER.error("%s run_id=%s", reason, run_id)
             sheets_client.append_error(
-                output_sheet_name,
+                review_sheet_name,
                 today=today,
                 run_id=run_id,
                 reason=reason,
@@ -147,7 +165,7 @@ def main() -> int:
             )
             LOGGER.error("%s run_id=%s", reason, run_id)
             sheets_client.append_error(
-                output_sheet_name,
+                review_sheet_name,
                 today=today,
                 run_id=run_id,
                 reason=reason,
@@ -156,7 +174,9 @@ def main() -> int:
 
         generator = FixedRulePostGenerator()
         context = GenerationContext.from_history(recent_history)
-        rows: list[list[object]] = []
+        ready_rows: list[list[object]] = []
+        review_rows: list[list[object]] = []
+        report_items: list[GenerationReportItem] = []
         for item in selected_products:
             generated = generator.generate(
                 item,
@@ -178,21 +198,50 @@ def main() -> int:
                 generated.generation_mode,
                 generated.quality_errors,
             )
-            rows.append(
-                scored_product_to_row(
-                    item,
-                    generated,
-                    today=today,
-                    run_id=run_id,
+            row = scored_product_to_row(
+                item,
+                generated,
+                today=today,
+                run_id=run_id,
+            )
+            write_sheet = target_sheet_for_status(
+                generated.status,
+                output_sheet_name=output_sheet_name,
+                review_sheet_name=review_sheet_name,
+            )
+            if generated.status == "ready":
+                ready_rows.append(row)
+            else:
+                review_rows.append(row)
+            report_items.append(
+                GenerationReportItem(
+                    scored=item,
+                    generated=generated,
+                    row=row,
+                    write_sheet=write_sheet,
+                    duplicate_result=generated.duplicate_result,
                 )
             )
 
-        sheets_client.append_products(output_sheet_name, rows)
+        write_generation_reports(
+            Path("reports"),
+            run_id=run_id,
+            executed_at=now,
+            generation_mode=GENERATION_MODE,
+            output_sheet_name=output_sheet_name,
+            review_sheet_name=review_sheet_name,
+            fetch_report=fetch_report,
+            items=report_items,
+        )
+        sheets_client.append_products(output_sheet_name, ready_rows)
+        sheets_client.append_products(review_sheet_name, review_rows)
         LOGGER.info(
-            "Googleスプレッドシート追記完了 run_id=%s sheet=%s rows=%s",
+            "Googleスプレッドシート追記完了 run_id=%s ready_sheet=%s ready_rows=%s review_sheet=%s review_rows=%s",
             run_id,
             output_sheet_name,
-            len(rows),
+            len(ready_rows),
+            review_sheet_name,
+            len(review_rows),
         )
         return 0
     except Exception:

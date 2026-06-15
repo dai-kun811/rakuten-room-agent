@@ -19,7 +19,10 @@ APPEAL_DEFAULT = "default"
 
 ROOM_PRODUCT_TYPE_KEYWORDS = {
     "wipes": ["おしりふき", "手口ふき", "手口拭き"],
-    "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ"],
+    "swaddle": ["おくるみ", "スワドル", "モロー反射", "新生児スリーパー", "ねくるみ"],
+    "nursing_support": ["授乳サポート", "ハンズフリー授乳", "授乳クッション", "ミルクサポート", "哺乳瓶ホルダー"],
+    "baby_bedding": ["抱っこ布団", "ねんねクッション", "ベビー布団", "背中スイッチ対策", "寝かしつけクッション"],
+    "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ", "おむつ替え"],
     "formula": ["粉ミルク", "液体ミルク", "フォローアップミルク"],
     "sound_blocks": ["音が鳴る積み木", "音の鳴る積み木", "音入り積み木"],
     "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "マグネット"],
@@ -30,6 +33,32 @@ ROOM_PRODUCT_TYPE_KEYWORDS = {
     "stroller_storage": ["ベビーカーバッグ", "ベビーカー用バッグ", "ベビーカー収納"],
     "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき"],
 }
+
+DIAPER_RELATED_ACCESSORIES = [
+    "おむつポーチ",
+    "オムツポーチ",
+    "おむつストッカー",
+    "オムツストッカー",
+    "おむつ替えシート",
+    "オムツ替えシート",
+]
+
+ROOM_PRODUCT_TYPE_PRIORITY = [
+    "swaddle",
+    "nursing_support",
+    "baby_bedding",
+    "wipes",
+    "formula",
+    "diaper",
+    "sound_blocks",
+    "magnetic_blocks",
+    "activity_cube",
+    "ring_toy",
+    "kids_camera",
+    "sleep_light",
+    "stroller_storage",
+    "wooden_blocks",
+]
 
 EDUCATIONAL_KEYWORDS = [
     "積み木",
@@ -87,19 +116,12 @@ def classify_room_product_type(product: Product) -> str:
         "音が鳴る" in text or "音の鳴る" in text or "音入り" in text
     ):
         return "sound_blocks"
-    for product_type in [
-        "wipes",
-        "formula",
-        "diaper",
-        "sound_blocks",
-        "magnetic_blocks",
-        "activity_cube",
-        "ring_toy",
-        "kids_camera",
-        "sleep_light",
-        "stroller_storage",
-        "wooden_blocks",
-    ]:
+    if contains_any(text, DIAPER_RELATED_ACCESSORIES) and not contains_any(
+        text,
+        ["紙おむつ", "紙オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ"],
+    ):
+        return "unknown"
+    for product_type in ROOM_PRODUCT_TYPE_PRIORITY:
         if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS[product_type]):
             return product_type
     return "unknown"
@@ -113,6 +135,9 @@ def room_product_label(product: Product, product_type: str | None = None) -> str
     return {
         "diaper": "紙おむつ",
         "formula": "粉ミルク" if "粉ミルク" in text else "液体ミルク" if "液体ミルク" in text else "ミルク",
+        "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
+        "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
+        "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
         "sound_blocks": "音が鳴る積み木",
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",

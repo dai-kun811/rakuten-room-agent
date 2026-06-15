@@ -365,6 +365,9 @@ def build_recommendation_reason(
     )
     scene = {
         "wipes": wipe_scene,
+        "swaddle": "夜の支度や洗い替えを先に考えたい家庭",
+        "nursing_support": "ミルク時間の置き方や固定方法を確認したい家庭",
+        "baby_bedding": "寝かしつけ前の置き場所や洗い替えを整えたい家庭",
         "diaper": "サイズ変更の時期にストック量で迷う家庭",
         "formula": "授乳回数に合わせて残量を管理したい家庭",
         "sound_blocks": "音や形に触れる家遊びを取り入れたい家庭",
@@ -394,6 +397,15 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
     if product_type == "wipes":
         thickness = "厚手の" if "厚手" in text else ""
         return f"{thickness}{quantity_text}{room_product_label_from_text(product_type, text)}をまとめて置ける"
+    if product_type == "swaddle":
+        details = [value for value, marker in [("モロー反射期", "モロー反射"), ("スワドル", "スワドル"), ("おくるみ", "おくるみ")] if marker in text]
+        return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}の着せ方や洗い替えを確認できる"
+    if product_type == "nursing_support":
+        details = [value for value, marker in [("ハンズフリー", "ハンズフリー"), ("哺乳瓶ホルダー", "哺乳瓶ホルダー"), ("授乳クッション", "授乳クッション"), ("ミルクサポート", "ミルクサポート")] if marker in text]
+        return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}の固定方法や置き場所を確認できる"
+    if product_type == "baby_bedding":
+        details = [value for value, marker in [("抱っこ布団", "抱っこ布団"), ("ねんねクッション", "ねんねクッション"), ("ベビー布団", "ベビー布団"), ("ダブルガーゼ", "ダブルガーゼ")] if marker in text]
+        return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}のサイズや洗い替えを確認できる"
     if product_type == "diaper":
         style = "パンツタイプ" if "パンツタイプ" in text else "テープタイプ" if "テープタイプ" in text else ""
         return f"{style}{quantity_text}紙おむつを使用量に合わせて管理しやすい"
@@ -438,6 +450,9 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
     if product_type == "formula":
         return "粉ミルク" if "粉ミルク" in text else "液体ミルク" if "液体ミルク" in text else "ミルク"
     return {
+        "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
+        "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
+        "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
         "diaper": "紙おむつ",
         "sound_blocks": "音が鳴る積み木",
         "wooden_blocks": "木製積み木",
@@ -453,6 +468,9 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
 def recommendation_checkpoints(product_type: str) -> str:
     return {
         "wipes": "個数・収納場所・1個あたり価格",
+        "swaddle": "サイズ・素材・着せ方",
+        "nursing_support": "対応する哺乳瓶・固定方法・洗濯方法",
+        "baby_bedding": "サイズ・素材・洗濯方法",
         "diaper": "サイズ・枚数・1枚あたり価格",
         "formula": "容量・個数・賞味期限",
         "sound_blocks": "対象年齢・パーツサイズ・名入れ内容",

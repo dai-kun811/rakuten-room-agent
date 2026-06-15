@@ -47,3 +47,11 @@ jobs:
           DEBUG_MIN_REVIEW_AVERAGE: ${{ vars.DEBUG_MIN_REVIEW_AVERAGE || '0' }}
           DEBUG_MIN_TOTAL_SCORE: ${{ vars.DEBUG_MIN_TOTAL_SCORE || '0' }}
         run: python src/main.py
+
+      - name: Upload generation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-generation-report
+          path: reports/room_generation_report.*
+          if-no-files-found: ignore
