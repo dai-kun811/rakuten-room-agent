@@ -9,3 +9,43 @@ service-account.json
 dist/
 build/
 *.egg-info/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+~$*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node / frontend generated files
+node_modules/
+.next/
+.turbo/
+.cache/
+.parcel-cache/
+.vite/
+.nuxt/
+.output/
+.vercel/
+coverage/
+
+# Python tooling
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+reports/
+
+# Local tool state
+.claude/
+.codex/
+
+# Keep package metadata trackable if Node tooling is added later
+!package.json
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock

@@ -548,9 +548,9 @@ class PostGeneratorTest(unittest.TestCase):
 
         self.assertTrue(all(term not in reasons[0] for term in banned_reason_terms))
         self.assertTrue(all(term not in reasons[1] for term in banned_reason_terms))
-        self.assertIn("手先", reasons[0])
-        self.assertIn("写真遊び", reasons[1])
-        self.assertIn("寝かしつけ", reasons[2])
+        self.assertIn("振る・積む", reasons[0])
+        self.assertIn("キッズカメラ", reasons[1])
+        self.assertIn("夜の授乳", reasons[2])
         self.assertNotIn("#ベビーカーグッズ", tags[2])
         self.assertIn("#ホワイトノイズ", tags[2])
         self.assertIn("#授乳ライト", tags[2])

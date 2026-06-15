@@ -14,7 +14,22 @@ APPEAL_GIFT = "gift"
 APPEAL_OUTING = "outing"
 APPEAL_FEEDING = "feeding"
 APPEAL_STORAGE = "storage"
+APPEAL_BATH = "bath"
 APPEAL_DEFAULT = "default"
+
+ROOM_PRODUCT_TYPE_KEYWORDS = {
+    "wipes": ["おしりふき", "手口ふき", "手口拭き"],
+    "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ"],
+    "formula": ["粉ミルク", "液体ミルク", "フォローアップミルク"],
+    "sound_blocks": ["音が鳴る積み木", "音の鳴る積み木", "音入り積み木"],
+    "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "マグネット"],
+    "activity_cube": ["アクティビティキューブ", "ルーピング", "型はめ"],
+    "ring_toy": ["リングテン", "ring10", "リング玩具", "紐通し"],
+    "kids_camera": ["キッズカメラ", "子ども用カメラ"],
+    "sleep_light": ["ホワイトノイズ", "授乳ライト", "寝かしつけライト"],
+    "stroller_storage": ["ベビーカーバッグ", "ベビーカー用バッグ", "ベビーカー収納"],
+    "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき"],
+}
 
 EDUCATIONAL_KEYWORDS = [
     "積み木",
@@ -64,6 +79,51 @@ def contains_any(text: str, words: list[str]) -> bool:
     return any(word.lower() in text for word in words)
 
 
+def classify_room_product_type(product: Product) -> str:
+    text = product.text
+    if "ベビーカー" in text and ("バッグ" in text or "収納" in text):
+        return "stroller_storage"
+    if ("積み木" in text or "つみき" in text) and (
+        "音が鳴る" in text or "音の鳴る" in text or "音入り" in text
+    ):
+        return "sound_blocks"
+    for product_type in [
+        "wipes",
+        "formula",
+        "diaper",
+        "sound_blocks",
+        "magnetic_blocks",
+        "activity_cube",
+        "ring_toy",
+        "kids_camera",
+        "sleep_light",
+        "stroller_storage",
+        "wooden_blocks",
+    ]:
+        if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS[product_type]):
+            return product_type
+    return "unknown"
+
+
+def room_product_label(product: Product, product_type: str | None = None) -> str:
+    product_type = product_type or classify_room_product_type(product)
+    text = product.text
+    if product_type == "wipes":
+        return "手口ふき" if contains_any(text, ["手口ふき", "手口拭き"]) else "おしりふき"
+    return {
+        "diaper": "紙おむつ",
+        "formula": "粉ミルク" if "粉ミルク" in text else "液体ミルク" if "液体ミルク" in text else "ミルク",
+        "sound_blocks": "音が鳴る積み木",
+        "wooden_blocks": "木製積み木",
+        "magnetic_blocks": "マグネットブロック",
+        "activity_cube": "アクティビティキューブ",
+        "ring_toy": "リング玩具",
+        "kids_camera": "キッズカメラ",
+        "sleep_light": "ホワイトノイズ付きライト" if "ホワイトノイズ" in text else "授乳ライト",
+        "stroller_storage": "ベビーカーバッグ",
+    }.get(product_type, "")
+
+
 def classify_product_type(product: Product) -> str:
     text = product.text
 
@@ -73,6 +133,8 @@ def classify_product_type(product: Product) -> str:
         return APPEAL_KIDS_CAMERA
     if contains_any(text, EDUCATIONAL_KEYWORDS):
         return APPEAL_EDUCATIONAL
+    if contains_any(text, ["お風呂", "沐浴", "バスチェア", "バスマット", "湯上がり", "ワンオペ入浴"]):
+        return APPEAL_BATH
     if contains_any(text, ["ベビーカー", "抱っこ紐", "マザーズバッグ", "チャイルドシート", "外出", "旅行", "帰省"]):
         return APPEAL_OUTING
     if is_gift_candidate(product):
@@ -199,6 +261,12 @@ def keyword_display_name(name: str, product_type: str) -> str:
         if "ラック" in name:
             return "おもちゃ収納ラック"
         return "おもちゃ収納"
+    if product_type == APPEAL_BATH:
+        if "バスチェア" in name:
+            return "ベビーバスチェア"
+        if "バスマット" in name:
+            return "ベビーバスマット"
+        return "お風呂グッズ"
     return name[:18].rstrip()
 
 
@@ -282,6 +350,9 @@ def purchase_checkpoints(product: Product, product_type: str | None = None) -> s
         checks.append("収納量")
         checks.append("子どもの戻しやすさ")
         return "・".join(dict.fromkeys(checks))
+
+    if product_type == APPEAL_BATH:
+        return "対象月齢・設置場所・手入れ"
 
     if product_type == APPEAL_APPLIANCE:
         checks.append("電源方式")

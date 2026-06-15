@@ -4,7 +4,14 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from rakuten_api import LATEST_ITEM_SEARCH_URL, LEGACY_ITEM_SEARCH_URL, RakutenApiClient
+from datetime import date
+
+from rakuten_api import (
+    LATEST_ITEM_SEARCH_URL,
+    LEGACY_ITEM_SEARCH_URL,
+    RakutenApiClient,
+    rotating_categories,
+)
 
 
 class FakeHttpError(Exception):
@@ -172,6 +179,14 @@ class RakutenApiTest(unittest.TestCase):
 
         self.assertEqual(len(session.calls), 5)
         self.assertEqual(len(report.attempts), 5)
+
+    def test_search_categories_rotate_by_date(self) -> None:
+        first = [name for name, _ in rotating_categories(date(2026, 6, 13), 5)]
+        second = [name for name, _ in rotating_categories(date(2026, 6, 14), 5)]
+
+        self.assertEqual(len(first), 5)
+        self.assertEqual(len(second), 5)
+        self.assertNotEqual(first, second)
 
     def test_429_retries_three_times_then_succeeds(self) -> None:
         session = FakeSession(

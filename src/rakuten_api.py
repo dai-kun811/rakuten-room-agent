@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
@@ -35,6 +36,7 @@ class Product:
     catchcopy: str
     shop_name: str
     image_url: str
+    search_keyword: str = ""
 
     @property
     def text(self) -> str:
@@ -99,6 +101,11 @@ CATEGORY_KEYWORDS = {
     "絵本": ["絵本 子ども", "知育 絵本"],
     "育児家電": ["育児 家電", "ベビー 家電"],
     "プレゼント向け商品": ["子ども プレゼント", "ベビー ギフト"],
+    "離乳食用品": ["離乳食 グッズ", "ベビー 食器"],
+    "収納用品": ["おもちゃ 収納", "絵本棚 子ども"],
+    "お風呂グッズ": ["ベビー お風呂 グッズ", "ワンオペ お風呂"],
+    "寝かしつけ用品": ["寝かしつけ グッズ", "授乳ライト ホワイトノイズ"],
+    "ベビー用消耗品": ["おしりふき まとめ買い", "おむつ まとめ買い"],
 }
 
 
@@ -148,10 +155,13 @@ class RakutenApiClient:
         category_limit: int = DEFAULT_CATEGORY_LIMIT,
         keywords_per_category: int = DEFAULT_KEYWORDS_PER_CATEGORY,
         pages_per_keyword: int = DEFAULT_PAGES_PER_KEYWORD,
+        target_date: date | None = None,
     ) -> tuple[list[Product], FetchReport]:
         products_by_url: dict[str, Product] = {}
         report = FetchReport()
-        for category, keywords in list(CATEGORY_KEYWORDS.items())[:category_limit]:
+        categories = rotating_categories(target_date or date.today(), category_limit)
+        LOGGER.info("楽天API検索対象 categories=%s", [category for category, _ in categories])
+        for category, keywords in categories:
             for keyword in keywords[:keywords_per_category]:
                 for page in range(1, pages_per_keyword + 1):
                     try:
@@ -241,7 +251,10 @@ class RakutenApiClient:
             return []
         response.raise_for_status()
         payload = response.json()
-        return [self._to_product(category, item) for item in self._extract_items(payload)]
+        return [
+            self._to_product(category, keyword, item)
+            for item in self._extract_items(payload)
+        ]
 
     def _extract_items(self, payload: dict) -> list[dict]:
         if "items" in payload:
@@ -335,7 +348,7 @@ class RakutenApiClient:
             return None
         return f"{parsed.scheme}://{parsed.netloc}"
 
-    def _to_product(self, category: str, item: dict) -> Product:
+    def _to_product(self, category: str, keyword: str, item: dict) -> Product:
         image_url = ""
         image_urls = item.get("mediumImageUrls") or []
         if image_urls:
@@ -352,6 +365,7 @@ class RakutenApiClient:
             catchcopy=str(item.get("catchcopy", "")),
             shop_name=str(item.get("shopName", "")),
             image_url=image_url,
+            search_keyword=keyword,
         )
 
     def _safe_error_text(self, response: Any | None) -> str:
@@ -370,3 +384,14 @@ class RakutenApiClient:
             return str(error)[:300]
         except ValueError:
             return response.text[:300]
+
+
+def rotating_categories(target_date: date, category_limit: int) -> list[tuple[str, list[str]]]:
+    categories = list(CATEGORY_KEYWORDS.items())
+    if not categories or category_limit <= 0:
+        return []
+    start = ((target_date.toordinal() - 1) * category_limit) % len(categories)
+    return [
+        categories[(start + offset) % len(categories)]
+        for offset in range(min(category_limit, len(categories)))
+    ]

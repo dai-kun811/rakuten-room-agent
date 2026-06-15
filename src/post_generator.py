@@ -228,9 +228,10 @@ def build_post_body(product: Product, appeal: str) -> str:
                 f"値段だけで決めず、{checkpoints}を見比べて、無理なく置ける候補に入れておきたいです。",
             ]
         elif "おしりふき" in text:
+            pack_detail = "厚手タイプや80枚入りなど、使う量に合うセットなら" if "厚手" in text or "80枚" in text else "箱単位のセットなら"
             sentences = [
                 "おしりふきは、残り少ないことに気づくのが忙しいタイミングになりがちです。",
-                "おむつ替えや食後に使うおしりふきは、箱単位でまとめ買いすると買い足しの回数を減らしやすいです。",
+                f"おむつ替えや食後に使うおしりふきは、{pack_detail}まとめ買いで買い足しの回数を減らしやすいです。",
                 "洗面所や収納棚など、置けるストック量を先に決めておくと、忙しい日も残りを管理しやすいので、",
                 f"{checkpoints}を比べて、収納に無理のないセットを選びたいです。",
             ]
@@ -246,42 +247,43 @@ def build_post_body(product: Product, appeal: str) -> str:
             "保育園や公園用の靴は、朝の支度で止まらないか気になりますよね。",
             f"{name}なら、履かせやすさと歩きやすさを見ながら園用に回しやすいです。",
             "自分で履きたい気持ちも邪魔しにくく、玄関で待つ時間を減らせます。",
-            f"見た目だけで決めず、{checkpoints}を確認して、毎日の通園に合うか見ておきたいです。",
+            f"{checkpoints}を確認して、毎日の通園に合うか見ておきたいです。",
         ]
     elif appeal == APPEAL_GIFT:
         sentences = [
             "出産祝いは、かわいさだけでなく育児で使えるかも気になりますよね。",
             f"{name}なら、受け取った家庭でそのまま出番を作りやすいです。",
             "気を使わせにくい育児ギフトを選びたい家庭にも合います。",
-            f"見た目だけで決めず、{checkpoints}を確認して、相手の月齢や生活に合うか見ておきたいです。",
+            f"{checkpoints}を確認して、相手の月齢や生活に合うか見ておきたいです。",
         ]
     elif appeal == APPEAL_OUTING:
+        feature = "軽量・防水に加えてポケット数も比べると、ベビーカーに付けた時や外出先での荷物の分け方まで考えやすいです。" if any(word in text for word in ["軽量", "防水", "ポケット"]) else "バッグ内の定位置を決めると、必要なものを探す時間を減らしやすいです。"
         sentences = [
             "子連れ外出は、家を出る前から荷物の確認で時間を取られがちです。",
-            f"{name}なら、必要なものをまとめて取り出しやすくなります。",
-            "外出先で慌てたくない家庭の荷物整理に合います。",
-            f"見た目だけで決めず、{checkpoints}を確認して、持ち歩きやすいか見ておきたいです。",
+            f"{name}なら、おむつや飲み物など必要なものをまとめて、移動中でも取り出しやすくなります。",
+            feature,
+            f"{checkpoints}を確認して、持ち歩きやすいか見ておきたいです。",
         ]
     elif appeal == APPEAL_FEEDING:
         sentences = [
             "食事まわりは、食べこぼしと片づけまで考えると選び方に迷いますよね。",
             f"{name}なら、自分で食べたい時期の準備を少し整えやすいです。",
             "毎日の食卓や外出先で使う場面を想像しやすい候補です。",
-            f"見た目だけで決めず、{checkpoints}を確認して、続けて使えるか見ておきたいです。",
+            f"{checkpoints}を確認して、続けて使えるか見ておきたいです。",
         ]
     elif appeal == APPEAL_STORAGE:
         sentences = [
             "おもちゃや絵本は、戻す場所がないとすぐ床に広がりますよね。",
             f"{name}なら、リビングに片づける定位置を作りやすいです。",
             "子どもも戻す場所を見つけやすく、片づけに参加しやすくなります。",
-            f"見た目だけで決めず、{checkpoints}を確認して、部屋に置けるか見ておきたいです。",
+            f"{checkpoints}を確認して、部屋に置けるか見ておきたいです。",
         ]
     else:
         sentences = [
             "育児用品は、買ったあとに出番があるかまで考えて選びたいですよね。",
             f"{name}なら、日常の中で使う場面を想像しやすいです。",
             "家族の生活に合えば、しまい込まずに使いやすくなります。",
-            f"見た目だけで決めず、{checkpoints}を確認して、無理なく使えるか見ておきたいです。",
+            f"{checkpoints}を確認して、無理なく使えるか見ておきたいです。",
         ]
 
     return compact_body(sentences)
@@ -301,9 +303,11 @@ def build_hashtags(scored: ScoredProduct) -> str:
     for tag in tags:
         if tag not in unique_tags and tag not in BROAD_LOW_INTENT_TAGS:
             unique_tags.append(tag)
-    while len(unique_tags) < 5:
-        unique_tags.insert(-1, "#買う前メモ")
-        unique_tags = list(dict.fromkeys(unique_tags))
+    for fallback_tag in ["#買う前メモ", "#比較検討", "#暮らしに合うか確認", "#育児用品メモ"]:
+        if len(unique_tags) >= 5:
+            break
+        if fallback_tag not in unique_tags:
+            unique_tags.insert(max(0, len(unique_tags) - 1), fallback_tag)
     return " ".join(unique_tags[:5])
 
 
@@ -407,9 +411,9 @@ def build_title(product: Product, appeal: str) -> str:
             "出産祝いは実用性で選ぶ",
         ],
         APPEAL_OUTING: [
-            "外出先で慌てたくない",
-            "荷物が多い日の味方に",
-            "子連れ外出の準備に",
+            "外出先で荷物を探したくない",
+            "荷物が多い日の収納候補に",
+            "子連れ外出の荷物準備に",
         ],
         APPEAL_FEEDING: [
             "食後の片づけを軽くしたい",

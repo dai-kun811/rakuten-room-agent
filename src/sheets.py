@@ -2,22 +2,51 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from post_generator import (
-    GenerationContext,
-    appeal_label,
-    build_benefit,
-    build_hashtags,
-    build_post_text,
-    determine_appeal_category,
-    purchase_checkpoints,
-)
+from fixed_rule_generator import GeneratedPost
 from scoring import ScoredProduct
 
 LOGGER = logging.getLogger(__name__)
 
 SHEET_HEADERS = [
+    "日付",
+    "実行ID",
+    "カテゴリ",
+    "検索キーワード",
+    "商品名",
+    "商品URL",
+    "正規化URL",
+    "価格",
+    "レビュー件数",
+    "評価",
+    "ショップ名",
+    "商品区分",
+    "商品タイプ",
+    "訴求軸",
+    "構成パターン",
+    "想定ターゲット",
+    "ターゲットの悩み",
+    "検索意図",
+    "購入前不安",
+    "使用シーン",
+    "ベネフィット",
+    "購入前確認点",
+    "選定理由",
+    "総合スコア",
+    "需要スコア",
+    "投稿品質スコア",
+    "リライト回数",
+    "ステータス",
+    "タイトル",
+    "投稿文",
+    "ハッシュタグ",
+    "改善コメント",
+    "画像URL",
+    "生成モード",
+]
+
+LEGACY_HEADERS = [
     "日付",
     "カテゴリ",
     "商品名",
@@ -50,50 +79,97 @@ class SheetsClient:
         self.service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
     def ensure_headers(self, sheet_name: str) -> None:
-        values = self.read_values(f"{sheet_name}!A1:O1")
+        self.ensure_sheet_exists(sheet_name)
+        values = self.read_values(f"{sheet_name}!A1:AH1")
         if values and values[0] == SHEET_HEADERS:
             return
-        if values:
-            self.update_row(f"{sheet_name}!A1:O1", SHEET_HEADERS)
+        if values and any(cell for cell in values[0]):
+            raise RuntimeError(
+                f"出力先シート {sheet_name} には旧形式または別形式のヘッダーがあります。"
+                "既存データを保護するため上書きしません。OUTPUT_SHEET_NAME に新しいシート名を指定してください。"
+            )
+        self.update_row(f"{sheet_name}!A1:AH1", SHEET_HEADERS)
+
+    def ensure_sheet_exists(self, sheet_name: str) -> None:
+        metadata = (
+            self.service.spreadsheets()
+            .get(spreadsheetId=self.spreadsheet_id, fields="sheets.properties.title")
+            .execute()
+        )
+        titles = {
+            sheet.get("properties", {}).get("title", "")
+            for sheet in metadata.get("sheets", [])
+        }
+        if sheet_name in titles:
             return
-        self.append_rows(sheet_name, [SHEET_HEADERS])
+        (
+            self.service.spreadsheets()
+            .batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body={"requests": [{"addSheet": {"properties": {"title": sheet_name}}}]},
+            )
+            .execute()
+        )
 
     def read_existing_urls(self, sheet_name: str) -> set[str]:
-        values = self.read_values(f"{sheet_name}!A:O")
+        values = self.read_values(f"{sheet_name}!A:AH")
         if not values:
             return set()
-
-        rows = values[1:] if values[0] == SHEET_HEADERS else values
+        headers = values[0]
+        url_index = header_index(headers, "正規化URL")
+        if url_index is None:
+            url_index = header_index(headers, "商品URL")
+        if url_index is None:
+            return set()
         existing_urls: set[str] = set()
-
-        for row in rows:
-            if len(row) < 4:
+        for row in values[1:]:
+            if len(row) <= url_index:
                 continue
-            product_url = row[3].strip() if isinstance(row[3], str) else str(row[3])
-            if product_url.startswith("http"):
-                existing_urls.add(normalize_product_url(product_url))
+            value = str(row[url_index]).strip()
+            if value.startswith("http"):
+                existing_urls.add(normalize_product_url(value))
         return existing_urls
+
+    def read_recent_history(self, sheet_name: str, *, today: date, days: int = 30) -> list[dict[str, str]]:
+        values = self.read_values(f"{sheet_name}!A:AH")
+        if not values:
+            return []
+        headers = values[0]
+        cutoff = today - timedelta(days=days)
+        history: list[dict[str, str]] = []
+        for row in values[1:]:
+            record = {
+                header: str(row[index]) if index < len(row) else ""
+                for index, header in enumerate(headers)
+            }
+            row_date = parse_date(record.get("日付", ""))
+            if row_date is not None and row_date >= cutoff:
+                history.append(record)
+        return history
 
     def append_products(
         self,
         sheet_name: str,
-        scored_products: list[ScoredProduct],
-        *,
-        today: date,
+        rows: list[list[object]],
     ) -> None:
-        if not scored_products:
+        if not rows:
             LOGGER.info("追記対象の商品がありません。")
             return
-        context = GenerationContext()
-        rows = [
-            scored_product_to_row(item, today=today, generation_context=context)
-            for item in scored_products
-        ]
         self.append_rows(sheet_name, rows)
 
-    def append_error(self, sheet_name: str, *, today: date, reason: str) -> None:
+    def append_error(
+        self,
+        sheet_name: str,
+        *,
+        today: date,
+        run_id: str,
+        reason: str,
+    ) -> None:
         LOGGER.error("ERROR行をスプレッドシートへ追記します reason=%s", reason)
-        self.append_rows(sheet_name, [error_row(today=today, reason=reason)])
+        self.append_rows(
+            sheet_name,
+            [error_row(today=today, run_id=run_id, reason=reason)],
+        )
 
     def append_rows(self, sheet_name: str, rows: list[list[object]]) -> None:
         (
@@ -101,7 +177,7 @@ class SheetsClient:
             .values()
             .append(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{sheet_name}!A:O",
+                range=f"{sheet_name}!A:AH",
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
                 body={"values": rows},
@@ -134,50 +210,69 @@ class SheetsClient:
 
 def scored_product_to_row(
     item: ScoredProduct,
+    generated: GeneratedPost,
     *,
     today: date,
-    generation_context: GenerationContext | None = None,
+    run_id: str,
 ) -> list[object]:
     product = item.product
-    appeal = determine_appeal_category(product)
-    benefit = build_benefit(product, appeal)
+    analysis = generated.analysis
+    product_type = analysis.product_type
     return [
         today.isoformat(),
+        run_id,
         product.category,
+        product.search_keyword,
         product.name,
         product.url,
+        normalize_product_url(product.url),
         product.price,
         product.review_count,
         product.review_average,
+        product.shop_name,
         item.product_rank,
-        appeal_label(appeal),
-        benefit,
-        purchase_checkpoints(product, appeal),
+        product_type,
+        analysis.appeal_axis,
+        generated.structure_pattern,
+        analysis.target,
+        analysis.user_pain,
+        analysis.search_intent,
+        analysis.purchase_anxiety,
+        analysis.usage_scene,
+        analysis.benefit,
+        "・".join(generated.attributes.purchase_checkpoints) if generated.attributes else "",
+        generated.recommendation_reason,
         item.total_score,
-        item.recommendation_reason,
-        build_post_text(item, context=generation_context),
-        build_hashtags(item),
+        item.demand_score,
+        generated.quality.score,
+        generated.rewrite_count,
+        generated.status,
+        generated.title,
+        generated.body,
+        " ".join(generated.hashtags),
+        " / ".join(generated.quality_errors),
+        product.image_url,
+        generated.generation_mode,
     ]
 
 
-def error_row(*, today: date, reason: str) -> list[object]:
-    return [
-        today.isoformat(),
-        "ERROR",
-        "商品データなし",
-        "",
-        "",
-        "",
-        "",
-        "ERROR",
-        "",
-        "",
-        "",
-        "",
-        reason[:1000],
-        "GitHub Actionsのログを確認してください。",
-        "",
-    ]
+def error_row(*, today: date, run_id: str, reason: str) -> list[object]:
+    row: list[object] = [""] * len(SHEET_HEADERS)
+    row[0] = today.isoformat()
+    row[1] = run_id
+    row[2] = "ERROR"
+    row[22] = reason[:1000]
+    row[27] = "ERROR"
+    row[31] = "GitHub Actionsのログを確認してください。"
+    row[33] = "system"
+    return row
+
+
+def header_index(headers: list[str], name: str) -> int | None:
+    try:
+        return headers.index(name)
+    except ValueError:
+        return None
 
 
 def parse_date(value: str) -> date | None:
