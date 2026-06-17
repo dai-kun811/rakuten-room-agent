@@ -19,10 +19,13 @@ APPEAL_DEFAULT = "default"
 
 ROOM_PRODUCT_TYPE_KEYWORDS = {
     "wipes": ["おしりふき", "手口ふき", "手口拭き"],
-    "swaddle": ["おくるみ", "スワドル", "モロー反射", "新生児スリーパー", "ねくるみ"],
-    "nursing_support": ["授乳サポート", "ハンズフリー授乳", "授乳クッション", "ミルクサポート", "哺乳瓶ホルダー"],
+    "swaddle": ["おくるみ", "スワドル", "モロー反射", "ねくるみ"],
+    "nursing_support": ["授乳サポート", "ハンズフリー授乳", "授乳クッション", "ミルクサポート", "哺乳瓶ホルダー", "おやすみたまご", "Cカーブ", "C字", "授乳用品"],
     "baby_bedding": ["抱っこ布団", "ねんねクッション", "ベビー布団", "背中スイッチ対策", "寝かしつけクッション"],
-    "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ", "おむつ替え"],
+    "baby_care": ["保湿", "ベビーローション", "ベビークリーム", "ワセリン", "爪切り", "鼻吸い", "鼻水吸引", "体温計", "ケア用品"],
+    "baby_sleep": ["スリーパー", "ガーゼケット", "ベビーケット", "ナイトライト", "ベビーベッド", "寝具", "寝冷え"],
+    "soothing_plush": ["寝かしつけぬいぐるみ", "プラネタリウム付きぬいぐるみ", "ぬいぐるみ", "プラネタリウム", "オルゴール", "メロディー", "心音", "投影"],
+    "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ", "おむつ替え", "おむつポーチ", "おむつストッカー", "おむつ替えシート"],
     "formula": ["粉ミルク", "液体ミルク", "フォローアップミルク"],
     "sound_blocks": ["音が鳴る積み木", "音の鳴る積み木", "音入り積み木"],
     "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "マグネット"],
@@ -46,7 +49,10 @@ DIAPER_RELATED_ACCESSORIES = [
 ROOM_PRODUCT_TYPE_PRIORITY = [
     "swaddle",
     "nursing_support",
+    "baby_care",
+    "baby_sleep",
     "baby_bedding",
+    "soothing_plush",
     "wipes",
     "formula",
     "diaper",
@@ -116,11 +122,8 @@ def classify_room_product_type(product: Product) -> str:
         "音が鳴る" in text or "音の鳴る" in text or "音入り" in text
     ):
         return "sound_blocks"
-    if contains_any(text, DIAPER_RELATED_ACCESSORIES) and not contains_any(
-        text,
-        ["紙おむつ", "紙オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ"],
-    ):
-        return "unknown"
+    if contains_any(text, DIAPER_RELATED_ACCESSORIES):
+        return "diaper"
     for product_type in ROOM_PRODUCT_TYPE_PRIORITY:
         if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS[product_type]):
             return product_type
@@ -133,11 +136,14 @@ def room_product_label(product: Product, product_type: str | None = None) -> str
     if product_type == "wipes":
         return "手口ふき" if contains_any(text, ["手口ふき", "手口拭き"]) else "おしりふき"
     return {
-        "diaper": "紙おむつ",
+        "diaper": "おむつ替えシート" if "おむつ替えシート" in text else "おむつポーチ" if "おむつポーチ" in text else "おむつストッカー" if "おむつストッカー" in text else "紙おむつ",
         "formula": "粉ミルク" if "粉ミルク" in text else "液体ミルク" if "液体ミルク" in text else "ミルク",
         "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
         "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
+        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビーケア用品",
+        "baby_sleep": "スリーパー" if "スリーパー" in text else "ガーゼケット" if "ガーゼケット" in text else "ナイトライト" if "ナイトライト" in text else "ベビー寝具",
         "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
+        "soothing_plush": "プラネタリウムぬいぐるみ" if "プラネタリウム" in text else "寝かしつけぬいぐるみ",
         "sound_blocks": "音が鳴る積み木",
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",

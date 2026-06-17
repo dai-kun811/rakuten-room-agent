@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import unittest
 from dataclasses import replace
@@ -17,6 +18,7 @@ from fixed_rule_generator import (
     PATTERNS,
     ProductAttributes,
     classify_product_type,
+    confirmation_repeat_count,
     ending_family,
     extract_attributes,
     stable_index,
@@ -46,6 +48,14 @@ def product_for(product_type: str, *, suffix: str = "") -> Product:
         "baby_bedding": (
             "抱っこ布団 日本製 ダブルガーゼ",
             "抱っこ布団 ねんねクッション ダブルガーゼ 綿100 洗える 背中スイッチ対策",
+        ),
+        "baby_care": (
+            "ベビー保湿剤 ベビーローション 新生児",
+            "ベビー保湿剤 ベビーローション 保湿 新生児 全身 お風呂上がり",
+        ),
+        "baby_sleep": (
+            "ベビー スリーパー ガーゼ 寝冷え対策",
+            "ベビー スリーパー ガーゼ 綿 夜 寝冷え 洗える 新生児",
         ),
         "diaper": (
             "紙おむつ パンツタイプ Mサイズ 52枚",
@@ -82,6 +92,10 @@ def product_for(product_type: str, *, suffix: str = "") -> Product:
         "sleep_light": (
             "ホワイトノイズ 授乳ライト コードレス USB充電",
             "ホワイトノイズ 授乳ライト コードレス USB充電 音量",
+        ),
+        "soothing_plush": (
+            "寝かしつけぬいぐるみ プラネタリウム メロディー",
+            "寝かしつけぬいぐるみ プラネタリウム メロディー オルゴール 投影 音楽",
         ),
         "stroller_storage": (
             "ベビーカー用バッグ 軽量 防水 6ポケット",
@@ -130,8 +144,16 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             ("抱っこ布団 日本製 ダブルガーゼ", "baby_bedding"),
             ("背中スイッチ対策 ねんねクッション", "baby_bedding"),
             ("ベビー布団 新生児用", "baby_bedding"),
+            ("ベビー保湿剤 ベビーローション 新生児", "baby_care"),
+            ("赤ちゃん 爪切り ケア用品", "baby_care"),
+            ("鼻吸い器 鼻水吸引 ベビーケア", "baby_care"),
+            ("ベビー スリーパー ガーゼ 寝冷え対策", "baby_sleep"),
+            ("ナイトライト 夜のお世話 ベビー", "baby_sleep"),
             ("紙おむつ 新生児 テープタイプ", "diaper"),
             ("ベビー用おむつ パンツタイプ", "diaper"),
+            ("寝かしつけぬいぐるみ プラネタリウム メロディー", "soothing_plush"),
+            ("プラネタリウム付きぬいぐるみ オルゴール", "soothing_plush"),
+            ("投影機能付きベビートイ 音楽 ライト", "soothing_plush"),
         ]
         for name, expected in cases:
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
@@ -140,10 +162,10 @@ class FixedRuleGeneratorTest(unittest.TestCase):
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
             "おくるみ スワドル 新生児",
-            "おむつポーチ 大容量",
-            "おむつ替えシート 防水",
             "授乳クッション",
             "抱っこ布団",
+            "ベビー保湿剤 ベビーローション",
+            "ベビー スリーパー ガーゼ",
         ]
         for name in cases:
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
@@ -228,12 +250,150 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertTrue(any("product_type_keyword_conflict" in error for error in errors), errors)
 
     def test_new_product_types_generate_ready_without_diaper_context(self) -> None:
-        for product_type in ["swaddle", "nursing_support", "baby_bedding"]:
+        for product_type in ["swaddle", "nursing_support", "baby_bedding", "baby_care", "baby_sleep", "soothing_plush"]:
             generated = generate(product_type)
             self.assertEqual(generated.status, "ready", generated.quality_errors)
             self.assertEqual(generated.analysis.product_type, product_type)
             self.assertNotIn("#紙おむつ", generated.hashtags)
             self.assertNotIn("紙おむつ", generated.body)
+
+    def test_required_quality_cases_classify_and_generate_safely(self) -> None:
+        cases = [
+            ("おくるみ モロー反射 新生児 コットン", "swaddle"),
+            ("スワドル 手が出せる おくるみ 新生児", "swaddle"),
+            ("ガーゼケット ベビー 綿 洗える", "baby_sleep"),
+            ("紙おむつ 新生児 テープタイプ 52枚", "diaper"),
+            ("おむつ替えシート 防水 持ち運び", "diaper"),
+            ("授乳クッション Cカーブ 新生児 カバー洗える", "nursing_support"),
+            ("Cカーブクッション 授乳用品 新生児", "nursing_support"),
+            ("ベビー保湿剤 ベビーローション 新生児 全身", "baby_care"),
+            ("ベビー スリーパー ガーゼ 寝冷え対策", "baby_sleep"),
+        ]
+        for name, expected_type in cases:
+            product = replace(
+                product_for("wipes"),
+                name=name,
+                caption=name,
+                catchcopy=name,
+                url=f"https://example.com/quality/{expected_type}/{stable_index(name, 100000)}",
+            )
+            generated = FixedRulePostGenerator().generate(
+                score_product(product, date(2026, 6, 16)),
+                context=GenerationContext(),
+            )
+            self.assertEqual(generated.attributes.product_type, expected_type, name)
+            self.assertEqual(generated.status, "ready", (name, generated.body, generated.quality_errors))
+            external = f"{generated.title}{generated.body}{generated.recommendation_reason}"
+            for banned in ["万能", "絶対", "確実に", "治る", "防げる", "誰でも", "これ一つで完璧"]:
+                self.assertNotIn(banned, external)
+            if expected_type == "swaddle":
+                self.assertNotIn("おむつ替え", external)
+            if expected_type == "nursing_support":
+                self.assertIn("授乳", external)
+            if expected_type == "baby_care":
+                self.assertIn("ケア", external)
+            if expected_type == "baby_sleep":
+                self.assertTrue(any(term in external for term in ["夜", "寝冷え", "布もの", "灯り"]))
+
+    def test_previous_action_run_fixture_generates_at_least_three_ready_posts(self) -> None:
+        fixture_path = Path(__file__).parent / "fixtures" / "room_run_27583525520_products.json"
+        items = json.loads(fixture_path.read_text(encoding="utf-8"))
+        context = GenerationContext()
+        posts = []
+        for item in items:
+            product = Product(**item)
+            posts.append(
+                FixedRulePostGenerator().generate(
+                    score_product(product, date(2026, 6, 16)),
+                    context=context,
+                )
+            )
+
+        ready_posts = [post for post in posts if post.status == "ready"]
+        self.assertGreaterEqual(len(ready_posts), 3, [post.quality_errors for post in posts])
+        for post in posts:
+            self.assertEqual(len(post.hashtags), 5, (post.title, post.hashtags, post.quality_errors))
+            self.assertNotIn("授乳クッションの授乳クッション", post.body)
+            self.assertNotIn("授乳クッションの授乳クッション", post.recommendation_reason)
+            self.assertFalse(
+                any(term in post.body for term in ["必ず寝る", "泣き止む", "安眠できる", "背中スイッチを防ぐ"]),
+                post.body,
+            )
+        self.assertEqual(posts[0].attributes.product_type, "nursing_support")
+        self.assertEqual(posts[2].attributes.product_type, "soothing_plush")
+        self.assertEqual(posts[4].attributes.product_type, "soothing_plush")
+        external_banned = [
+            "赤ちゃんを置く",
+            "寝かせる場所",
+            "枕元",
+            "添い寝",
+            "ベッド内",
+            "背中スイッチ",
+            "安眠",
+            "夜泣き改善",
+        ]
+        for post in posts:
+            external = f"{post.title}{post.body}{post.recommendation_reason}{' '.join(post.hashtags)}"
+            self.assertFalse(any(term in external for term in external_banned), external)
+            self.assertLess(confirmation_repeat_count(post.body), 3, post.body)
+
+    def test_soothing_plush_does_not_use_planetarium_tag_without_feature(self) -> None:
+        product = replace(
+            product_for("soothing_plush"),
+            name="寝かしつけぬいぐるみ メロディー 音楽",
+            caption="寝かしつけぬいぐるみ メロディー 音楽",
+            catchcopy="寝かしつけぬいぐるみ メロディー 音楽",
+            url="https://example.com/soothing/no-projector",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 6, 16)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("#プラネタリウム", generated.hashtags)
+
+    def test_specific_review_reason_codes_are_exposed(self) -> None:
+        generated = generate("soothing_plush")
+        changed = replace(generated, hashtags=generated.hashtags[:3])
+        errors = validate_post(changed, generated.attributes)
+        self.assertTrue(any(error.startswith("hashtag_count_below_5") for error in errors), errors)
+
+        repeated_label = f"{generated.attributes.short_product_label}の{generated.attributes.short_product_label}"
+        changed = replace(generated, body=generated.body + f"{repeated_label}です。")
+        errors = validate_post(changed, generated.attributes)
+        self.assertTrue(any(error.startswith("duplicate_short_label") for error in errors), errors)
+
+    def test_sleep_safety_phrases_are_hard_errors(self) -> None:
+        nursing = generate("nursing_support")
+        changed = replace(nursing, body=nursing.body + "赤ちゃんを一時的に寝かせる場所として使えます。")
+        errors = validate_post(changed, nursing.attributes)
+        self.assertTrue(any("睡眠場所" in error for error in errors), errors)
+
+        changed = replace(nursing, body=nursing.body + "背中スイッチ対策にも触れています。")
+        errors = validate_post(changed, nursing.attributes)
+        self.assertTrue(any("back_switch" in error for error in errors), errors)
+
+        plush = generate("soothing_plush")
+        changed = replace(plush, title="枕元に置きたいぬいぐるみ")
+        errors = validate_post(changed, plush.attributes)
+        self.assertTrue(any("枕元" in error for error in errors), errors)
+
+    def test_repeated_confirmation_and_semantic_benefits_are_rejected(self) -> None:
+        generated = generate("soothing_plush")
+        changed = replace(
+            generated,
+            body="対象年齢を確認したいです。音量を確認したいです。電源方式を見ておきたいです。",
+        )
+        errors = validate_post(changed, generated.attributes)
+        self.assertTrue(any("確認系表現" in error for error in errors), errors)
+
+        changed = replace(
+            generated,
+            body="光や音を整えたいです。光や音を寝室に合わせたいです。対象年齢を手がかりに選びたいです。",
+        )
+        errors = validate_post(changed, generated.attributes)
+        self.assertTrue(any("同一ベネフィット" in error for error in errors), errors)
 
     def test_title_and_body_type_mismatch_is_rejected(self) -> None:
         generated = generate("ring_toy")

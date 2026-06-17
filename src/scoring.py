@@ -365,9 +365,12 @@ def build_recommendation_reason(
     )
     scene = {
         "wipes": wipe_scene,
-        "swaddle": "夜の支度や洗い替えを先に考えたい家庭",
-        "nursing_support": "ミルク時間の置き方や固定方法を確認したい家庭",
+        "swaddle": "夜中に着せる物をその都度考えたくない家庭",
+        "nursing_support": "授乳前に手持ちのクッションで調整する手間を減らしたい家庭",
         "baby_bedding": "寝かしつけ前の置き場所や洗い替えを整えたい家庭",
+        "baby_care": "毎日のケア用品を探す手間を減らしたい家庭",
+        "baby_sleep": "夜に使う布ものや灯りを決めたい家庭",
+        "soothing_plush": "就寝前の絵本や声かけと合わせたい家庭",
         "diaper": "サイズ変更の時期にストック量で迷う家庭",
         "formula": "授乳回数に合わせて残量を管理したい家庭",
         "sound_blocks": "音や形に触れる家遊びを取り入れたい家庭",
@@ -380,6 +383,22 @@ def build_recommendation_reason(
         "stroller_storage": "ベビーカー周りの荷物を取り出しやすくしたい家庭",
     }.get(product_type, "使う場面が具体的な家庭")
     checks = recommendation_checkpoints(product_type)
+    if product_type == "nursing_support" and "多機能" in text and "授乳クッション" in text:
+        return "授乳クッションとしての具体用途が不足しており、人間が対象月齢・使える場面・手入れ方法を確認する必要がある。"
+    if product_type == "nursing_support" and "ハンズフリー" in text:
+        return f"授乳中に哺乳瓶を支える手間を減らしたい家庭に合い、{feature}ため、使える哺乳瓶サイズと対象月齢を選べば授乳中に手で支え続ける手間を減らせる。"
+    if product_type == "nursing_support":
+        return f"{scene}に合い、{feature}ため、普段の授乳場所に置けるサイズなら授乳前に支えを探し直す手間を減らせる。"
+    if product_type == "swaddle":
+        return f"{scene}に合い、{feature}ため、今の月齢に合うサイズなら夜中に着せる物を毎回選び直す時間を減らせる。"
+    if product_type == "baby_care":
+        return f"{scene}に合い、{feature}ため、対象月齢や使う部位を見て選べば毎日のケアで迷う時間を減らせる。"
+    if product_type == "baby_sleep":
+        return f"{scene}に合い、{feature}ため、今の月齢に合うサイズや素材なら夜に用意する物を減らせる。"
+    if product_type == "soothing_plush":
+        if "心音" in text:
+            return f"{scene}に合い、{feature}ため、絵本後に使う音と投影を一つの商品にまとめられる。"
+        return f"{scene}に合い、{feature}ため、寝る前に用意して片づける物を減らせる。"
     return f"{scene}に合い、{feature}一方、{checks}は購入前に確認したい。"
 
 
@@ -398,15 +417,51 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
         thickness = "厚手の" if "厚手" in text else ""
         return f"{thickness}{quantity_text}{room_product_label_from_text(product_type, text)}をまとめて置ける"
     if product_type == "swaddle":
-        details = [value for value, marker in [("モロー反射期", "モロー反射"), ("スワドル", "スワドル"), ("おくるみ", "おくるみ")] if marker in text]
-        return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}の着せ方や洗い替えを確認できる"
+        if "スリーパー" in text and "コットン" in text:
+            return "コットン素材のスリーパー型スワドルで夜用の一枚を決めやすい"
+        return f"{room_product_label_from_text(product_type, text)}のサイズや素材を夜支度に合わせやすい"
     if product_type == "nursing_support":
-        details = [value for value, marker in [("ハンズフリー", "ハンズフリー"), ("哺乳瓶ホルダー", "哺乳瓶ホルダー"), ("授乳クッション", "授乳クッション"), ("ミルクサポート", "ミルクサポート")] if marker in text]
-        return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}の固定方法や置き場所を確認できる"
+        if "多機能" in text and "授乳クッション" in text:
+            return "多機能の具体用途を人間が確認する必要がある授乳クッションである"
+        if "ハンズフリー" in text:
+            return "ハンズフリー授乳をサポートするアイテムで補助を一つに決めやすい"
+        if "Cカーブ" in text and "授乳クッション" in text:
+            return "Cカーブ形状の授乳クッションで授乳に使う物を一つに決めやすい"
+        if "Cカーブ" in text and "授乳用品" in text:
+            return "授乳用品として案内されたCカーブ形状のクッションで授乳に使う物を一つに決めやすい"
+        if "Cカーブ" in text:
+            return "Cカーブ形状のクッションで使う物を一つに決めやすい"
+        if "哺乳瓶ホルダー" in text:
+            return "哺乳瓶ホルダーとして案内された授乳サポートで補助アイテムを一つに決めやすい"
+        return f"{room_product_label_from_text(product_type, text)}を手がかりに授乳時の補助を一つに決めやすい"
     if product_type == "baby_bedding":
         details = [value for value, marker in [("抱っこ布団", "抱っこ布団"), ("ねんねクッション", "ねんねクッション"), ("ベビー布団", "ベビー布団"), ("ダブルガーゼ", "ダブルガーゼ")] if marker in text]
         return f"{'・'.join(dict.fromkeys(details)) or room_product_label_from_text(product_type, text)}のサイズや洗い替えを確認できる"
+    if product_type == "baby_care":
+        if "保湿" in text or "ローション" in text or "クリーム" in text:
+            return "保湿ケアに使うベビー保湿剤で毎日のケア用品を一つに決めやすい"
+        if "爪" in text:
+            return "赤ちゃんの爪まわりに使うケア用品で必要な時に手に取りやすい"
+        if "鼻" in text:
+            return "鼻まわりのケアに使うアイテムで支度をそろえやすい"
+        if "体温計" in text:
+            return "毎日の体調確認に使う体温計で使う物を一つに決めやすい"
+        return "ベビーケア用品で毎日のケアに使う物を決めやすい"
+    if product_type == "baby_sleep":
+        if "スリーパー" in text:
+            return "夜に着せやすいスリーパーで寝る前の布ものを一つ決めやすい"
+        if "ガーゼ" in text:
+            return "肌ざわりを見て選べるガーゼケットで夜に使う布ものを決めやすい"
+        if "ナイトライト" in text:
+            return "夜のお世話で使うナイトライトで手元の灯りを一つに決めやすい"
+        return "ベビー寝具で夜に使う物を一つに決めやすい"
     if product_type == "diaper":
+        if "おむつ替えシート" in text:
+            return "外出先でも使うおむつ替えシートを準備しやすい"
+        if "おむつポーチ" in text:
+            return "おむつ替え用品をまとめるおむつポーチで外出時に探す手間を減らしやすい"
+        if "おむつストッカー" in text:
+            return "おむつ替え用品をまとめるおむつストッカーで家の交換場所を整えやすい"
         style = "パンツタイプ" if "パンツタイプ" in text else "テープタイプ" if "テープタイプ" in text else ""
         return f"{style}{quantity_text}紙おむつを使用量に合わせて管理しやすい"
     if product_type == "formula":
@@ -436,6 +491,12 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
     if product_type == "sleep_light":
         details = [value for value, marker in [("ホワイトノイズ", "ホワイトノイズ"), ("授乳ライト", "授乳ライト"), ("コードレス", "コードレス")] if marker in text]
         return f"{'・'.join(details)}を一台で使い分けられる"
+    if product_type == "soothing_plush":
+        if "心音" in text:
+            return "心音表記もあるぬいぐるみ型で絵本後に使う物を一つにしやすい"
+        if "プラネタリウム" in text:
+            return "投影機能とメロディーを備えたぬいぐるみ型で光と音を一つにしやすい"
+        return "ぬいぐるみ型で絵本後に使う音のアイテムを一つにしやすい"
     if product_type == "stroller_storage":
         details = [value for value, marker in [("防水", "防水"), ("軽量", "軽量")] if marker in text]
         if quantity and "ポケット" in quantity:
@@ -453,7 +514,10 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
         "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
         "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
         "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
-        "diaper": "紙おむつ",
+        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビーケア用品",
+        "baby_sleep": "スリーパー" if "スリーパー" in text else "ガーゼケット" if "ガーゼケット" in text else "ナイトライト" if "ナイトライト" in text else "ベビー寝具",
+        "soothing_plush": "プラネタリウムぬいぐるみ" if "プラネタリウム" in text else "寝かしつけぬいぐるみ",
+        "diaper": "おむつ替えシート" if "おむつ替えシート" in text else "おむつポーチ" if "おむつポーチ" in text else "おむつストッカー" if "おむつストッカー" in text else "紙おむつ",
         "sound_blocks": "音が鳴る積み木",
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",
@@ -468,9 +532,12 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
 def recommendation_checkpoints(product_type: str) -> str:
     return {
         "wipes": "個数・収納場所・1個あたり価格",
-        "swaddle": "サイズ・素材・着せ方",
-        "nursing_support": "対応する哺乳瓶・固定方法・洗濯方法",
+        "swaddle": "サイズ・素材",
+        "nursing_support": "本体サイズ・カバーのお手入れ",
         "baby_bedding": "サイズ・素材・洗濯方法",
+        "baby_care": "対象月齢・成分・使う部位",
+        "baby_sleep": "サイズ・素材・洗濯方法",
+        "soothing_plush": "対象年齢",
         "diaper": "サイズ・枚数・1枚あたり価格",
         "formula": "容量・個数・賞味期限",
         "sound_blocks": "対象年齢・パーツサイズ・名入れ内容",
