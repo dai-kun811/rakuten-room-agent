@@ -108,7 +108,22 @@ CONFIRMATION_REPEAT_MARKERS = [
     "比べ",
 ]
 
-MARKETING_REQUIRED_TYPES = {"nursing_support", "swaddle", "baby_care", "baby_sleep", "soothing_plush"}
+WEAK_ROOM_COPY_PHRASES = [
+    "確認したい",
+    "確かめておきたい",
+    "チェックしたい",
+    "見ておきたい",
+    "比較したい",
+    "検討したい",
+    "時間を作れ",
+    "動きを試しやすく",
+    "使い分けられます",
+    "変えられます",
+    "続けやすいです",
+    "同じ道具でも",
+]
+
+MARKETING_REQUIRED_TYPES = {"nursing_support", "swaddle", "baby_care", "baby_sleep", "soothing_plush", "baby_walker_toy"}
 
 FORBIDDEN_MARKETING_ENDINGS = [
     "確認したいです",
@@ -138,6 +153,9 @@ CONCRETE_BENEFIT_ENDINGS = [
     "準備しやすくなるスワドルです",
     "整えられるアイテムです",
     "シンプルにできる一枚です",
+    "増やせるおもちゃです",
+    "増やせるアイテムです",
+    "遊びやすい知育おもちゃです",
 ]
 
 TYPE_KEYWORDS = {
@@ -151,13 +169,14 @@ TYPE_KEYWORDS = {
     "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ", "おむつ替え", "おむつポーチ", "おむつストッカー", "おむつ替えシート"],
     "formula": ["粉ミルク", "液体ミルク", "フォローアップミルク"],
     "sound_blocks": ["音が鳴る積み木", "音の鳴る積み木", "音入り積み木"],
-    "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "マグネット"],
+    "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "磁気ブロック", "マグビルド", "マグネット"],
+    "baby_walker_toy": ["手押し車", "ファーストウォーカー", "ベビーウォーカー", "押し車", "カタカタ", "つかまり立ち", "歩行練習"],
     "activity_cube": ["アクティビティキューブ", "ルーピング", "型はめ"],
     "ring_toy": ["リングテン", "ring10", "リング玩具", "紐通し"],
     "kids_camera": ["キッズカメラ", "子ども用カメラ"],
     "sleep_light": ["ホワイトノイズ", "授乳ライト", "寝かしつけライト"],
     "stroller_storage": ["ベビーカーバッグ", "ベビーカー用バッグ", "ベビーカー収納"],
-    "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき"],
+    "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき", "ウッドブロック", "スタッキングブロック"],
 }
 
 PROHIBITED_BY_TYPE = {
@@ -173,6 +192,7 @@ PROHIBITED_BY_TYPE = {
     "sound_blocks": ["マグネット", "紐通し", "ルーピング"],
     "wooden_blocks": ["音が鳴る", "マグネット", "ルーピング"],
     "magnetic_blocks": ["木製つみき", "音が鳴る", "紐通し", "ルーピング"],
+    "baby_walker_toy": ["マグネットブロック", "歩けるようになる", "成長が早まる", "必ず", "絶対", "万能", "完璧"],
     "activity_cube": ["マグネットブロック", "リングテン", "音が鳴る積み木", "木製つみき"],
     "ring_toy": ["マグネットブロック", "ルーピング", "キッズカメラ"],
     "kids_camera": ["出産祝い", "赤ちゃんの毎日", "消耗品", "ストック"],
@@ -193,6 +213,7 @@ CHECKPOINTS = {
     "sound_blocks": ["対象年齢", "パーツサイズ", "収納場所", "名入れの有無"],
     "wooden_blocks": ["対象年齢", "パーツサイズ", "個数", "収納場所"],
     "magnetic_blocks": ["対象年齢", "パーツサイズ", "パーツ数", "収納場所"],
+    "baby_walker_toy": ["対象年齢", "本体サイズ", "重さ", "遊ぶ場所"],
     "activity_cube": ["対象年齢", "本体サイズ", "置き場所", "遊びの種類"],
     "ring_toy": ["対象年齢", "パーツ数", "パーツサイズ", "収納場所"],
     "kids_camera": ["対象年齢", "転送方法", "充電方式", "SDカード", "ゲーム機能"],
@@ -213,6 +234,7 @@ HASHTAGS = {
     "sound_blocks": ["#積み木", "#音の鳴るおもちゃ", "#手先遊び", "#1歳プレゼント", BRAND_TAG],
     "wooden_blocks": ["#木製積み木", "#積み木遊び", "#手先遊び", "#おうち遊び", BRAND_TAG],
     "magnetic_blocks": ["#マグネットブロック", "#立体遊び", "#創造遊び", "#おうち遊び", BRAND_TAG],
+    "baby_walker_toy": ["#手押し車", "#つかまり立ち期", "#おうち遊び", "#室内遊び", BRAND_TAG],
     "activity_cube": ["#アクティビティキューブ", "#型はめ", "#手先遊び", "#1歳おもちゃ", BRAND_TAG],
     "ring_toy": ["#紐通し", "#リング遊び", "#指先遊び", "#木のおもちゃ", BRAND_TAG],
     "kids_camera": ["#キッズカメラ", "#スマホ転送", "#子ども目線", "#誕生日プレゼント", BRAND_TAG],
@@ -232,8 +254,9 @@ SCENE_DETAILS = {
     "diaper": "交換場所ごとの残りを見えるようにすると、次に開けるパックも決めやすくなります",
     "formula": "未開封分を同じ場所へまとめると、次の買い足し時期も家族で共有しやすくなります",
     "sound_blocks": "振った音を聞いてから積むなど、12ピースの使い方を変えられます",
-    "wooden_blocks": "積む・並べる・形を作る遊びへ使い分けられます",
-    "magnetic_blocks": "48ピースを平面に並べたり立体へ組んだり、作る形を変えられます",
+    "wooden_blocks": "シンプルな遊びを親子で広げやすいです",
+    "magnetic_blocks": "48ピースを平面に並べたり立体にしたりして遊べます",
+    "baby_walker_toy": "リビングで押して進む遊びを楽しめます",
     "activity_cube": "遊ぶ面を一つずつ変えると、子どもが選んだ動きを親も見守りやすくなります",
     "ring_toy": "色や数の言葉を添えながら並べると、親子で同じ動きを共有しやすくなります",
     "kids_camera": "撮った後に一枚選ぶ時間を作ると、その日に気になった景色も聞きやすくなります",
@@ -255,7 +278,7 @@ FEATURE_MARKERS = {
     "sound": ["音が鳴る", "音の鳴る"],
     "wood": ["木製", "木のおもちゃ"],
     "name_option": ["名入れ"],
-    "magnetic": ["マグネット", "磁石"],
+    "magnetic": ["マグネット", "磁石", "磁気ブロック", "マグビルド"],
     "shape_sorter": ["型はめ"],
     "looping": ["ルーピング"],
     "ring": ["リング"],
@@ -309,6 +332,8 @@ FEATURE_MARKERS = {
     "night_light": ["ライト", "ナイトライト"],
     "washable": ["丸洗い"],
     "battery_power": ["電池", "乾電池"],
+    "walker_toy": ["手押し車", "ファーストウォーカー", "ベビーウォーカー", "押し車", "カタカタ"],
+    "standing_support_play": ["つかまり立ち", "歩行練習"],
 }
 
 TITLE_SCENE_RULES = {
@@ -487,7 +512,7 @@ PATTERNS = {
     "wipes": _patterns(
         "wipes",
         ["最後の1個で焦りたくない", "おむつ替えの在庫を整えたい", "食後にも使う分を備えたい", "外出分まで切らしたくない", "買い足す回数を減らしたい", "置ける量から備えたい", "残り少ない日に慌てない", "消耗品の補充をまとめたい"],
-        ["おしりふきが残り少ないと、忙しい日に買い足す時間まで気になりますよね。", "おむつ替えが続く時期は、手元の残り枚数を何度も確認しがちです。", "食後の手口ふきにも使う家庭では、想像より早く減ることがありますよね。", "外出用と家用を分けると、どちらかの補充を忘れやすくなります。", "育児の消耗品は、必要な日に限って切らしたくないものです。"],
+        ["ふき取り用品が残り少ないと、忙しい日に買い足す時間まで気になりますよね。", "おむつ替えが続く時期は、手元の残り枚数を何度も確認しがちです。", "食後の手口ふきにも使う家庭では、想像より早く減ることがありますよね。", "外出用と家用を分けると、どちらかの補充を忘れやすくなります。", "育児の消耗品は、必要な日に限って切らしたくないものです。"],
         ["{feature}なら、おむつ替えや食後に使う分をまとめて管理できます。", "{feature}を家と外出用に分けて置けば、必要な場所から取り出せます。", "{feature}なので、毎日の使用量を見ながら補充時期を決められます。", "{feature}を収納場所に合わせて備えると、残量を把握しやすくなります。", "{feature}なら、買い足す単位を先に決めておけます。"],
         ["補充のタイミングを家族で共有しやすくなり、買い忘れへの焦りを減らせます。", "使う場所ごとに分けておくと、おむつ替えの途中で探す手間を抑えられます。", "一度に届く量が分かれば、次に買う時期も組み立てやすくなります。", "食後とおむつ替えの両方で使う家庭でも、在庫の見通しを立てやすいです。", "残り少ない日に慌てて選ばず、普段の使用量に合わせて備えられます。"],
         ["{checks}を見て、家に置きやすい量か確認したいです。", "{checks}を比べて、使い切れる単位を選びたいです。", "{checks}を確認し、収納を圧迫しないか考えたいです。", "{checks}を見ながら、家用と外出用の配分を決めたいです。", "{checks}を確かめて、次の補充まで無理のないセットを選びたいです。"],
@@ -505,10 +530,10 @@ PATTERNS = {
     "formula": _patterns(
         "formula",
         ["最後のミルクで焦りたくない", "夜間授乳の残量を整えたい", "ミルクの買い忘れを減らす", "使い切れる量から備えたい", "授乳回数に合う量を選びたい", "外出用も含めて管理したい", "賞味期限まで見て備えたい", "収納できるミルクを選びたい"],
-        ["ミルクの残りが少ない夜は、次の授乳分が足りるか気になりますよね。", "夜間授乳が続く時期は、残量確認と買い足しが後回しになりがちです。", "ミルクは毎日の使用量が変わると、備える個数にも迷います。", "まとめて買いたい一方で、賞味期限までに使い切れるかも確認したいです。", "外出用を取り分ける家庭では、家に残る量を見失いやすくなります。"],
+        ["ミルクの残りが少ない夜は、次の授乳分が足りるか気になりますよね。", "夜間授乳が続く時期は、残量確認と買い足しが後回しになりがちです。", "ミルクは毎日の使用量が変わると、備える個数にも迷います。", "まとめて買いたい一方で、賞味期限までに使い切れる量か気になりますよね。", "外出用を取り分ける家庭では、家に残る量を見失いやすくなります。"],
         ["{feature}なら、授乳回数を目安に残量を管理できます。", "{feature}を夜間用と日中用に分けると、次に開ける分を把握できます。", "{feature}なので、買い足す時期を授乳のペースに合わせられます。", "{feature}を収納場所へまとめれば、未開封の残りを確認しやすくなります。", "{feature}なら、外出用を用意した後の残量も見通せます。"],
         ["次の授乳分を気にして慌てず、家族とも残量を共有しやすくなります。", "開封前の個数が分かれば、夜に足りない不安を減らせます。", "授乳ペースに合う量なら、買い過ぎを避けながら備えられます。", "置き場所を決めると、次に使う分を迷わず取り出せます。", "外出分と家用を分けても、補充のタイミングを決めやすくなります。"],
-        ["{checks}を見て、飲む量に合うセットか確認したいです。", "{checks}を比べて、期限内に使い切れる個数を選びたいです。", "{checks}を確認し、夜間に取り出しやすい量か考えたいです。", "{checks}を見ながら、家用と外出用の配分を決めたいです。", "{checks}を確かめて、収納できる範囲で備えたいです。"],
+        ["容量と賞味期限が合えば、夜に足りない不安を減らして備えられるセットです。", "期限内に使い切れる個数なら、買い足しの回数と在庫切れの不安を減らせるセットです。", "夜間に取り出しやすい量なら、眠い時間の授乳準備を短くしやすいセットです。", "家用と外出用の配分を決めやすく、補充のタイミングも家族で共有しやすいセットです。", "収納できる範囲で備えられる量なら、最後の1缶で焦る回数を減らせるセットです。"],
         [("ミルク",), ("夜間授乳",), ("ミルク",), ("量",), ("授乳",), ("外出",), ("賞味期限",), ("ミルク",)],
     ),
     "swaddle": _patterns(
@@ -591,44 +616,44 @@ def _toy_patterns(
     }
     problem_offset, scene_offset, benefit_offset, closing_offset = offsets[product_type]
     titles = [
-        f"{title_terms[0]}遊びを楽しむ時間に",
-        f"{title_terms[1]}遊びから広げる",
-        f"{label}で手先遊びを",
-        f"親子で{title_terms[0]}を試したい",
-        f"{label}で{title_terms[1]}を試したい",
-        f"今の成長に合う{label}を",
+        f"{title_terms[0]}遊びを親子で",
+        f"{title_terms[1]}遊びを広げたい",
+        f"{label}でおうち時間を",
+        f"雨の日の{title_terms[0]}遊びに",
+        f"{label}をギフトにも",
+        f"雨の日の{label}遊びに",
         f"{label}の遊び方を増やしたい",
-        f"雨の日にも{title_terms[0]}を楽しむ",
+        f"雨の日にも{title_terms[0]}遊びを",
     ]
     problems = [
-        f"{label}は、今の成長に合う遊び方があるか気になりますよね。",
-        f"家遊びに{label}を選ぶなら、具体的に何をして遊べるか比べたいです。",
-        f"{title_terms[0]}を楽しむおもちゃは、最初の遊び方が分かりやすいか迷います。",
-        f"長く置く{label}ほど、遊びを変えられるか確認したいですよね。",
-        f"親子で{title_terms[1]}を試すなら、大人が遊び方を見せながら取り組めるかも気になります。",
-        f"雨の日に{label}で遊ぶなら、同じ動きだけで終わらない工夫が欲しいです。",
+        f"家の中で過ごす時間が長い日は、子どもが手を動かして遊べるものがあるとうれしいですよね。",
+        f"雨の日や夕方の家遊びは、親子で一緒に手を動かせるおもちゃがあるとうれしいですよね。",
+        f"{title_terms[0]}遊びのおもちゃは、親子で一緒に楽しめるものがあると助かります。",
+        f"長く使うおもちゃなら、成長に合わせて遊び方が広がるものを選びたいですよね。",
+        f"親子で{title_terms[1]}遊びをするなら、大人も隣で声をかけやすいものがうれしいです。",
+        f"雨の日に{label}で遊ぶなら、家の中でも飽きにくい遊び方があると助かります。",
     ]
     scenes = [
-        f"{{feature}}で、{action_phrase}遊びを家の中で試せます。",
-        f"{{feature}}を使い、{scene_phrase}遊びへ切り替えられます。",
-        f"{{feature}}なら、親が見本を見せながら{action_phrase}動きを試せます。",
-        f"{{feature}}を机や床に出し、{scene_phrase}時間を作れます。",
-        f"{{feature}}なので、子どもの反応に合わせて{action_phrase}遊びを選べます。",
-        f"雨の日に{{feature}}を広げ、{scene_phrase}時間を作れます。",
+        f"{{feature}}なら、{action_phrase}遊びを親子で楽しめます。",
+        f"{{feature}}は、{scene_phrase}遊びがしやすく、おうち時間にも出しやすいです。",
+        f"{{feature}}なら、親が隣で声をかけながら{action_phrase}遊びを楽しめます。",
+        f"{{feature}}があると、{scene_phrase}遊びを家の中でも始めやすいです。",
+        f"{{feature}}なので、子どもの反応に合わせて{action_phrase}遊びを楽しめます。",
+        f"雨の日に{{feature}}があると、{scene_phrase}遊びで親子の時間を過ごせます。",
     ]
     benefits = [
-        f"{benefit_phrase}きっかけを作りやすく、親も隣で言葉を添えられます。",
-        f"遊び方を一つずつ見せることで、{benefit_phrase}動きを試しやすくなります。",
-        f"子どもの選び方を見ながら、{benefit_phrase}場面を親子で共有できます。",
-        f"同じ道具でも動かし方を変えられ、{benefit_phrase}遊びを続けやすいです。",
-        f"同じパーツでも置き方を変えられ、{benefit_phrase}遊びを続けられます。",
+        f"{benefit_phrase}きっかけになり、親子で会話しながら遊べます。",
+        f"{benefit_phrase}楽しさがあり、家遊びの時間が少し豊かになります。",
+        f"子どもの選び方を見ながら、{benefit_phrase}遊びを一緒に楽しめます。",
+        f"{benefit_phrase}楽しさがあり、おうち時間の遊び方が広がります。",
+        f"{benefit_phrase}面白さがあり、親子で手を動かして遊べます。",
     ]
     closings = [
-        "{checks}を見て、今の月齢で扱いやすい条件か商品ページで確かめておきたいです。",
-        "{checks}を比べ、家の遊ぶ場所へ無理なく置けるか見ておきたいです。",
-        "{checks}を確認して、最初に試す遊びを決めやすい候補です。",
-        "{checks}まで含めて、本体やパーツを出し入れしやすいか確かめておきたいです。",
-        "{checks}を手がかりに、今の遊びへ取り入れやすいか商品ページで見比べられます。",
+        "親子で一緒に手を動かせるので、雨の日のおうち時間に遊び方を増やせるおもちゃです。",
+        "出しっぱなしでも部屋になじむデザインなら、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "ピース数があるタイプなら遊び方の幅も広がるので、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "パーツをまとめて扱いやすいタイプなら、遊んだ後の片づけまで親子で進めやすいです。",
+        "遊ぶ場所に合うサイズなら、家でも出しやすく、誕生日ギフトにも選びやすいです。",
     ]
     required = [
         (title_terms[0],),
@@ -659,11 +684,22 @@ def _toy_patterns(
 PATTERNS.update(
     {
         "sound_blocks": _toy_patterns("sound_blocks", "音が鳴る積み木", ["音", "積む"], "振る・積む・並べる", "音や形に触れる", "手先を動かす"),
-        "wooden_blocks": _toy_patterns("wooden_blocks", "木製積み木", ["積む", "形"], "積む・並べる・形を作る", "組み方を変える", "形を考える"),
-        "magnetic_blocks": _toy_patterns("magnetic_blocks", "マグネットブロック", ["組み立て", "立体"], "平面から立体へ組み立てる", "形を組み替える", "組み合わせを考える"),
+        "wooden_blocks": _toy_patterns("wooden_blocks", "木製積み木", ["積む", "形"], "積む・並べる・形を作る", "積んだり並べたりする", "形を考える"),
+        "magnetic_blocks": _toy_patterns("magnetic_blocks", "マグネットブロック", ["組み立て", "立体"], "平面にも立体にも広げる", "色や形を組み合わせる", "組み合わせを考える"),
         "activity_cube": _toy_patterns("activity_cube", "アクティビティキューブ", ["型はめ", "ルーピング"], "型はめやルーピングを切り替える", "複数の遊びを選ぶ", "指先を使う"),
         "ring_toy": _toy_patterns("ring_toy", "リング玩具", ["リング", "紐通し"], "積む・並べる・紐へ通す", "色分けや数遊びを試す", "指先を使う"),
     }
+)
+
+PATTERNS["baby_walker_toy"] = _patterns(
+    "baby_walker_toy",
+    ["つかまり立ち期の遊びに", "押して遊べる室内おもちゃ", "リビング遊びの相棒に", "ギフトにも選びやすい手押し車", "歩き始め期のおもちゃに", "カタカタ遊びを楽しみたい", "室内で押して遊べるものを", "長く遊べる室内おもちゃに"],
+    ["つかまり立ちや歩き始めの時期は、家の中でも体を使って遊べるものが欲しくなりますよね。", "押して遊ぶおもちゃを選ぶなら、リビングに置いてもかわいいものがうれしいです。", "誕生日や出産祝いで選ぶなら、遊ぶ姿がぱっと浮かぶおもちゃが選びやすいですよね。", "カタカタ押して遊ぶ姿は、親がそばで見守りながら一緒に楽しみたい場面です。", "歩き始め期のおもちゃは、今の遊びに楽しく取り入れやすいものがうれしいです。"],
+    ["{feature}なら、押して進む楽しさをリビング遊びに足せます。", "{feature}は、部屋に出しても遊ぶ姿を想像しやすいおもちゃです。", "{feature}なら、押して遊ぶ楽しさと見た目のかわいさを両方楽しめます。", "{feature}があると、親が近くで見守りながら一緒に遊べます。", "{feature}なら、体を使う室内遊びのバリエーションが増えます。"],
+    ["押して遊ぶおもちゃがあると、おうち時間の遊び方を増やせます。", "リビングで出しやすいものなら、雨の日や外に出にくい日も遊びを切り替えやすいです。", "見た目と遊び方が分かりやすいので、はじめてのおもちゃやギフトにも選びやすいです。", "親がそばで見守りながら、子どもが押して遊ぶ姿を楽しめるおもちゃです。", "今の月齢の遊びとして、家の中でも体を使う時間を増やせます。"],
+    ["本体サイズと重さが扱いやすければ、リビングで押して遊ぶ姿を親子で楽しめるおもちゃです。", "おうち時間に体を使えるので、雨の日や外に出にくい日の遊びが広がるアイテムです。", "部屋に置いた時の見た目までかわいいと、誕生日や出産祝いのギフトにも選びやすいおもちゃです。", "本体サイズが部屋に合えば、室内で出し入れしやすい遊び道具になります。", "今の月齢に合うものなら、押して進む楽しさを親子で味わえるおもちゃです。"],
+    [("つかまり立ち",), ("押して",), ("リビング",), ("ギフト",), ("歩き始め",), ("カタカタ",), ("室内",), ("木のおもちゃ",)],
+    ("歩けるようになる", "成長が早まる", "必ず", "絶対", "万能", "完璧"),
 )
 
 PATTERNS.update(
@@ -671,20 +707,20 @@ PATTERNS.update(
         "kids_camera": _patterns(
             "kids_camera",
             ["子ども目線を写真に残したい", "ゲームなしで写真遊びを", "外出先を子どもが撮る", "旅行の景色を一緒に残す", "撮った写真を親子で見る", "スマホへ移せるカメラを", "子ども用カメラを選びたい", "誕生日に写真のきっかけを"],
-            ["子ども用カメラは、撮ることに集中できる機能か気になりますよね。", "外出先で持たせるなら、撮った後の扱い方まで確認したいです。", "旅行の思い出は、大人とは違う子ども目線でも残してみたいですよね。", "キッズカメラは、家庭で写真を移す方法が合うか迷います。", "誕生日の贈り物なら、遊ぶ場面が具体的に浮かぶものを選びたいです。"],
-            ["{feature}なら、外出先で子ども自身が気になった景色を撮れます。", "{feature}を使い、撮った写真を帰宅後に親子で見返せます。", "{feature}なので、旅行や散歩で写真遊びを始められます。", "{feature}なら、旅行で撮った写真の保存や移動を家庭の方法に合わせられます。", "{feature}を持たせ、子どもが選んだ被写体を一緒に見られます。"],
+            ["子ども用カメラは、撮ることに集中できる機能か気になりますよね。", "外出先で持たせるなら、撮った後も家庭で扱いやすいものがうれしいです。", "旅行の思い出は、大人とは違う子ども目線でも残してみたいですよね。", "キッズカメラは、家庭で写真を移す方法が合うか迷います。", "誕生日の贈り物なら、遊ぶ場面が具体的に浮かぶものを選びたいです。"],
+            ["{feature}なら、外出先で子ども自身が気になった景色を撮れます。", "{feature}を使い、撮った写真を帰宅後に親子で見返せます。", "{feature}なら、旅行や散歩で写真遊びを始められます。", "{feature}なら、旅行で撮った写真の保存や移動を家庭の方法に合わせられます。", "{feature}を持たせ、子どもが選んだ被写体を一緒に見られます。"],
             ["何を撮ったか聞く時間ができ、子どもの見ていた景色を知るきっかけになります。", "帰宅後に写真を選ぶことで、外出の出来事を親子で振り返れます。", "大人が構図を決めず、子ども自身が残したいものを選べます。", "保存方法が家庭に合えば、撮ったままにせず写真を整理しやすいです。", "誕生日後も散歩や旅行へ持ち出すなど、使う場面を増やせます。"],
-            ["{checks}を見て、家庭で扱いやすい仕様か確認したいです。", "{checks}を比べて、外出先で使う流れに合うか見たいです。", "{checks}を確認し、撮影後の保存方法まで考えたいです。", "{checks}を見ながら、持ち歩きやすいサイズか確かめたいです。", "{checks}を確かめて、写真を見返しやすい一台を選びたいです。"],
+            ["撮った写真を親子で見返せるので、散歩や旅行の思い出を子ども目線でも残しやすいカメラです。", "外出先で撮って帰宅後に見返せるので、親子でその日の出来事を話しやすいカメラです。", "ゲームなしで写真に集中できるなら、散歩や旅行に持ち出しやすいカメラです。", "保存や転送が家庭に合えば、撮った写真を親子で見返しやすいカメラです。", "子どもが選んだ景色を残せるので、外出後の会話が広がりやすいカメラです。"],
             [("子ども目線",), ("ゲームなし",), ("外出",), ("旅行",), ("写真",), ("スマホ",), ("カメラ",), ("写真",)],
             ("消耗品", "ストック"),
         ),
         "sleep_light": _patterns(
             "sleep_light",
             ["夜の授乳環境を整えたい", "寝室の音と灯りをまとめる", "おむつ替えの手元を照らす", "寝かしつけ前の準備を短く", "ホワイトノイズを寝室に", "授乳ライトを夜の手元に", "コードレスで置き場所を選ぶ", "夜の育児動線を整えたい"],
-            ["夜の授乳は、部屋を明るくし過ぎず手元を見たいですよね。", "寝かしつけ前は、音と灯りを別々に準備するのが手間になることがあります。", "夜のおむつ替えでは、必要な場所だけ照らせるかが気になります。", "寝室で使う機器は、電源と置き場所が夜の動線に合うか確認したいです。", "ホワイトノイズを寝室で使うなら、家庭に合う音量へ調整できるか気になります。"],
+            ["夜の授乳は、部屋を明るくし過ぎず手元を見たいですよね。", "寝かしつけ前は、音と灯りを別々に準備するのが手間になることがあります。", "夜のおむつ替えでは、必要な場所だけ照らせるかが気になります。", "寝室で使う機器は、電源と置き場所が夜の動線に合うか気になります。", "ホワイトノイズを寝室で使うなら、家庭に合う音量へ調整できるとうれしいです。"],
             ["{feature}なら、夜の授乳やおむつ替えで使う音と灯りを整えられます。", "{feature}を寝室へ置き、寝かしつけ前の準備を一か所にまとめられます。", "{feature}なので、夜に移動する場所へ合わせて設置できます。", "{feature}を使い、手元を見たい場面と音を流す場面を分けられます。", "{feature}なら、寝室の環境に合わせて使う機能を選べます。"],
             ["必要な機能を一台にまとめると、夜に探す物を減らしやすくなります。", "手元の準備が整っていると、授乳や交換の動きを始めやすいです。", "置き場所を決めておけば、暗い時間にも操作する位置を迷いにくいです。", "音と灯りを場面で使い分けることで、夜の育児動線を組み立てられます。", "家庭に合う設定を選べれば、夜に必要な機能を迷わず選びやすくなります。"],
-            ["{checks}を見て、寝室に置きやすい仕様か確認したいです。", "{checks}を比べて、夜の動線に合うものを選びたいです。", "{checks}を確認し、授乳と交換の両方で使えるか考えたいです。", "{checks}を見ながら、操作しやすい設置場所を決めたいです。", "{checks}を確かめて、必要な機能に絞って選びたいです。"],
+            ["音と灯りを一台にまとめられるので、夜に探す物を減らしやすいアイテムです。", "寝室に置く物を増やしすぎず、夜のお世話の準備を整えやすいアイテムです。", "必要な場所だけ照らしやすいので、夜のおむつ替えの手元を整えやすいアイテムです。", "操作する場所を決めやすいので、暗い時間の動きを短くしやすいアイテムです。", "音と灯りをまとめて用意できるので、寝る前の準備を短くしやすいアイテムです。"],
             [("授乳",), ("音", "灯り"), ("おむつ替え",), ("寝かしつけ",), ("ホワイトノイズ",), ("授乳ライト",), ("コードレス",), ("夜",)],
             ("必ず寝る", "泣き止む"),
         ),
@@ -781,6 +817,15 @@ def short_label_for(product_type: str, text: str) -> str:
         ),
         "formula": "ミルク",
         "sound_blocks": "音が鳴る積み木",
+        "baby_walker_toy": (
+            "ファーストウォーカー"
+            if "ファーストウォーカー" in text
+            else "ベビーウォーカー"
+            if "ベビーウォーカー" in text
+            else "つかまり立ちおもちゃ"
+            if "つかまり立ち" in text and not any(value in text for value in ["手押し車", "押し車", "カタカタ"])
+            else "手押し車"
+        ),
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",
         "activity_cube": "アクティビティキューブ",
@@ -827,6 +872,7 @@ def extract_attributes(product: Product) -> ProductAttributes:
         "sound_blocks": [("振る", ["振る"]), ("積む", ["積み木"]), ("並べる", ["並べる"])],
         "wooden_blocks": [("積む", ["積み木"]), ("並べる", ["並べる"]), ("形を作る", ["形"])],
         "magnetic_blocks": [("組み立て", ["組み立て"]), ("平面遊び", ["平面"]), ("立体遊び", ["立体"])],
+        "baby_walker_toy": [("つかまり立ち期", ["つかまり立ち"]), ("押して遊ぶ", ["押し車", "手押し車", "カタカタ"]), ("リビング遊び", ["リビング", "室内"])],
         "activity_cube": [("型はめ", ["型はめ"]), ("ルーピング", ["ルーピング"]), ("手先遊び", ["手先"])],
         "ring_toy": [("積む", ["積む"]), ("並べる", ["並べる"]), ("紐通し", ["紐通し"])],
         "kids_camera": [("写真を撮る", ["写真", "撮影"]), ("外出", ["外出"]), ("旅行", ["旅行"])],
@@ -1026,6 +1072,12 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         quantity_text = f"{quantity}の" if quantity else ""
         name_option = "名入れ対応で、" if "name_option" in features else ""
         return f"{name_option}{quantity_text}音が鳴る{material}積み木"
+    if attributes.product_type == "baby_walker_toy":
+        if "standing_support_play" in features:
+            return f"つかまり立ち期にも押して遊べる{attributes.short_product_label}"
+        if "wood" in features:
+            return f"木製の{attributes.short_product_label}"
+        return attributes.short_product_label
     if attributes.product_type == "wooden_blocks":
         if "storage_bag" in features and quantity:
             return f"{quantity}で収納袋付きの木製積み木"
@@ -1196,6 +1248,14 @@ def hashtags_for(
         add("#組み立て遊び")
         add("#おうち遊び")
         add("#創造遊び")
+    elif product_type == "baby_walker_toy":
+        add("#手押し車", "手押し車" in attributes.short_product_label or "手押し車" in attributes.source_product_text)
+        add("#ファーストウォーカー", "ファーストウォーカー" in attributes.short_product_label or "ファーストウォーカー" in attributes.source_product_text)
+        add("#ベビーウォーカー", "ベビーウォーカー" in attributes.short_product_label or "ベビーウォーカー" in attributes.source_product_text)
+        add("#つかまり立ち期", "つかまり立ち" in attributes.source_product_text or "つかまり立ち" in combined)
+        add("#おうち遊び")
+        add("#室内遊び")
+        add("#ベビーおもちゃ")
     elif product_type == "activity_cube":
         add("#アクティビティキューブ")
         add("#型はめ", "shape_sorter" in features)
@@ -1249,6 +1309,7 @@ def hashtags_for(
         "sound_blocks": ["#手先遊び", "#おうち遊び"],
         "wooden_blocks": ["#積み木遊び", "#おうち遊び"],
         "magnetic_blocks": ["#組み立て遊び", "#おうち遊び"],
+        "baby_walker_toy": ["#おうち遊び", "#室内遊び", "#ベビーおもちゃ"],
         "activity_cube": ["#手先遊び", "#おうち遊び"],
         "ring_toy": ["#指先遊び", "#おうち遊び"],
         "kids_camera": ["#子ども目線", "#写真遊び"],
@@ -1423,7 +1484,7 @@ def uses_marketing_copy(attributes: ProductAttributes) -> bool:
         )
     if attributes.product_type == "diaper":
         return bool(features & {"diaper_sheet", "diaper_pouch", "diaper_storage"})
-    if attributes.product_type in {"baby_care", "baby_sleep"}:
+    if attributes.product_type in {"baby_care", "baby_sleep", "baby_walker_toy"}:
         return bool(features)
     return attributes.product_type in {"swaddle", "soothing_plush"}
 
@@ -1531,6 +1592,17 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
             closing = "今の月齢に合うサイズと素材を選べば、夜に用意する布ものを減らし、寝る前に着せる物で迷う時間を減らせる一枚です。"
         return title, problem + scene + closing
 
+    if attributes.product_type == "baby_walker_toy":
+        if "standing_support_play" in features:
+            title = "つかまり立ち期の遊びに"
+            problem = "つかまり立ちや歩き始めの時期は、家の中でも体を使って遊べるものが欲しくなりますよね。"
+        else:
+            title = "押して遊べる室内おもちゃ"
+            problem = "外に出にくい日でも、リビングで体を動かして遊べるおもちゃがあるとうれしいですよね。"
+        scene = f"{feature}なら、押して進む楽しさがあり、リビング遊びのバリエーションが増えます。"
+        closing = "親がそばで見守りながら一緒に遊べて、見た目のかわいさもあるとギフト感があり、雨の日や外に出にくい日の室内遊びを増やせるおもちゃです。"
+        return title, problem + scene + closing
+
     if attributes.product_type == "soothing_plush":
         has_projector = bool(features & {"projector", "star_projection"})
         title = "寝る前の準備を一つに"
@@ -1583,6 +1655,8 @@ def purchase_check_phrase(attributes: ProductAttributes) -> str:
         checks = ["サイズ", "素材"]
     elif attributes.product_type == "soothing_plush":
         checks = ["対象年齢"]
+    elif attributes.product_type == "baby_walker_toy":
+        checks = ["対象年齢", "本体サイズ"]
     return "・".join(checks[:2])
 
 
@@ -1617,6 +1691,8 @@ def marketing_feature_phrase(attributes: ProductAttributes) -> str:
     if attributes.product_type == "baby_care":
         return confirmed_feature_phrase(attributes)
     if attributes.product_type == "baby_sleep":
+        return confirmed_feature_phrase(attributes)
+    if attributes.product_type == "baby_walker_toy":
         return confirmed_feature_phrase(attributes)
     if attributes.product_type == "soothing_plush":
         labels = []
@@ -1684,7 +1760,7 @@ def ensure_sentence(value: str) -> str:
 
 def expanded_three_sentence_closing(product_type: str, checks: str) -> str:
     return {
-        "wipes": f"{checks}を見て、普段の使用量と収納場所に無理がなく、次の補充まで使い切れるセットか見ておきたいです。",
+        "wipes": "普段の使用量と収納場所に合う量なら、次の補充までふき取り用品を探して焦る回数を減らせるセットです。",
         "swaddle": f"{checks}を見て、今の月齢や洗濯ペースに合い、夜の支度へ無理なく入れられるか確認しておきたいです。",
         "nursing_support": f"{checks}を手がかりに、授乳時の補助として普段の置き場所に合うか判断したいです。",
         "baby_bedding": f"{checks}を確認し、寝室やリビングの置き場所に合い、洗い替えまで用意しやすいか比べたいです。",
@@ -1692,14 +1768,15 @@ def expanded_three_sentence_closing(product_type: str, checks: str) -> str:
         "baby_sleep": f"{checks}を見て、今の月齢や季節に合い、夜に用意する布ものを減らせるか確認したいです。",
         "soothing_plush": f"{checks}を手がかりに、寝る前の時間に使う音と光が家庭に合うか判断したいです。",
         "diaper": f"{checks}を比べ、収納場所も想像しながら、サイズアウト前に使い切れる量を選びたいです。",
-        "formula": f"{checks}を見て、授乳ペースと置き場所に合い、期限内に使い切れる個数か確認しておきたいです。",
+        "formula": "容量と賞味期限が家庭の授乳ペースに合えば、夜に足りない不安と買い足しに焦る回数をまとめて減らせるセットです。",
         "sound_blocks": f"{checks}を比べ、遊ぶ場所と片づけ方の両方に無理がなく、今の月齢で扱いやすいか見ておきたいです。",
-        "wooden_blocks": f"{checks}を見て、遊ぶ場所と収納方法に合い、今の月齢から取り入れやすいか確かめる候補です。",
-        "magnetic_blocks": f"{checks}を確認し、作りたい形に足りる内容か、手持ちの遊び方と合わせて比べたいです。",
+        "wooden_blocks": "出しっぱなしでも部屋になじみやすく、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "magnetic_blocks": "雨の日のおうち時間に、親子で一緒に遊びやすい知育おもちゃです。",
+        "baby_walker_toy": "リビングで出しやすいサイズなら、親がそばで見守りながらおうち時間の遊び方を増やせるおもちゃです。",
         "activity_cube": f"{checks}を見て、家の置き場所に収まり、今の月齢で試せる遊びがあるか確認しておきたいです。",
         "ring_toy": f"{checks}を比べ、出し入れや片づけまで含めて、今の月齢で扱いやすいか確かめておきたいです。",
-        "kids_camera": f"{checks}を見て、外出時に持ち歩きやすく、撮影後も家庭で扱える仕様か確認したいです。",
-        "sleep_light": f"{checks}を見て、夜の動線に置きやすく、必要な音と灯りを使い分けられるか見比べたいです。",
+        "kids_camera": "撮った写真を親子で見返せるので、散歩や旅行の思い出を子ども目線でも残しやすいカメラです。",
+        "sleep_light": "音と灯りを一台にまとめられるので、夜のお世話で探す物を減らしやすいアイテムです。",
         "stroller_storage": f"{checks}を比べ、普段持つ荷物が無理なく収まり、取り出しやすい位置へ付けられるかまでが購入前の判断材料です。",
     }[product_type]
 
@@ -1776,6 +1853,8 @@ def validate_post(
         errors.append("duplicate_short_label: 短縮商品名が重複")
     if any(term in combined for term in BANNED_EXPRESSIONS):
         errors.append("禁止表現を使用")
+    if any(term in post.body for term in WEAK_ROOM_COPY_PHRASES):
+        errors.append("marketing_weak_cta: 投稿文が確認・比較中心の弱い表現を含む")
     if "です、" in post.body or "ます、" in post.body:
         errors.append("不自然な文接続を使用")
     if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in NOISE_PATTERNS):
@@ -1924,6 +2003,7 @@ def has_reader_pain(product_type: str, body: str) -> bool:
         "baby_sleep": ["夜", "布団", "着せる", "寝冷え", "灯り"],
         "diaper": ["おむつ替え", "外出", "交換", "探す", "敷く物"],
         "soothing_plush": ["寝る前", "投影", "メロディー", "スマホ", "ライト"],
+        "baby_walker_toy": ["つかまり立ち", "歩き始め", "押して", "体を使って"],
     }[product_type]
     return sum(1 for value in required if value in body) >= 2
 
@@ -1936,6 +2016,7 @@ def has_daily_scene(product_type: str, body: str) -> bool:
         "baby_sleep": ["夜", "寝る前", "夜中", "夜のお世話"],
         "diaper": ["外出先", "おむつ替え", "家の中", "交換前"],
         "soothing_plush": ["寝る前", "寝室", "絵本", "声かけ"],
+        "baby_walker_toy": ["家の中", "リビング", "室内", "おうち時間"],
     }[product_type]
     return any(value in body for value in required)
 
@@ -1948,6 +2029,7 @@ def has_life_change(product_type: str, body: str) -> bool:
         "baby_sleep": ["布ものを減らせる", "探す時間を減らせる", "迷う時間を減らせる", "一つ決めやすく"],
         "diaper": ["探す手間を減らせる", "探す時間を減らせる", "まとめやすく", "決めやすく"],
         "soothing_plush": ["一つにまとめられる", "用意する物を減らせる", "手間を減らせる", "一つ決められる", "一つに決められる", "片づける物を減らせる"],
+        "baby_walker_toy": ["遊び方を増やせる", "室内遊びを増やせます", "押して遊ぶ時間", "遊びを増やせる"],
     }[product_type]
     return any(value in body for value in required)
 
@@ -1969,6 +2051,7 @@ def classification_consistency_errors(
         "baby_sleep": TYPE_KEYWORDS["baby_sleep"],
         "baby_bedding": TYPE_KEYWORDS["baby_bedding"],
         "soothing_plush": TYPE_KEYWORDS["soothing_plush"],
+        "baby_walker_toy": TYPE_KEYWORDS["baby_walker_toy"],
     }
     for expected_type, keywords in conflict_types.items():
         if expected_type == attributes.product_type:
@@ -1985,6 +2068,9 @@ def classification_consistency_errors(
         "baby_sleep": TYPE_KEYWORDS["diaper"] + TYPE_KEYWORDS["nursing_support"],
         "soothing_plush": TYPE_KEYWORDS["diaper"] + TYPE_KEYWORDS["nursing_support"],
         "diaper": TYPE_KEYWORDS["swaddle"] + TYPE_KEYWORDS["nursing_support"] + TYPE_KEYWORDS["baby_bedding"] + TYPE_KEYWORDS["baby_care"] + TYPE_KEYWORDS["baby_sleep"],
+        "wooden_blocks": TYPE_KEYWORDS["baby_walker_toy"] + TYPE_KEYWORDS["magnetic_blocks"] + ["ままごと", "パズル", "楽器"],
+        "magnetic_blocks": TYPE_KEYWORDS["wooden_blocks"] + TYPE_KEYWORDS["baby_walker_toy"],
+        "baby_walker_toy": TYPE_KEYWORDS["wooden_blocks"] + TYPE_KEYWORDS["magnetic_blocks"],
     }.get(attributes.product_type, [])
     if any(term in generated_text for term in content_forbidden):
         errors.append("content_type_mismatch: タイトル・本文・タグに別商品タイプの表現が混入")
@@ -2124,6 +2210,10 @@ def tag_evidence_errors(
         "#スリーパー": "sleeper" in features,
         "#プラネタリウム": "projector" in features or "star_projection" in features,
         "#おやすみぬいぐるみ": "plush" in features,
+        "#手押し車": "walker_toy" in features,
+        "#ファーストウォーカー": "walker_toy" in features or "ファーストウォーカー" in attributes.source_product_text,
+        "#ベビーウォーカー": "walker_toy" in features or "ベビーウォーカー" in attributes.source_product_text,
+        "#つかまり立ち期": "standing_support_play" in features,
     }
     for tag in post.hashtags:
         if tag in evidence_rules and not evidence_rules[tag]:
@@ -2164,6 +2254,7 @@ def recommendation_reason_errors(
         "sound_blocks": ["積み木", "音"],
         "wooden_blocks": ["木製積み木"],
         "magnetic_blocks": ["マグネットブロック"],
+        "baby_walker_toy": [attributes.short_product_label],
         "activity_cube": ["アクティビティキューブ"],
         "ring_toy": ["リング", "紐通し"],
         "kids_camera": ["キッズカメラ"],
@@ -2185,8 +2276,9 @@ def recommendation_reason_errors(
         "soothing_plush": ["紙おむつ", "授乳クッション", "スワドル"],
         "formula": ["パーツ", "ベビーカーバッグ"],
         "sound_blocks": ["消耗品", "ストック需要"],
-        "wooden_blocks": ["消耗品", "ストック需要"],
-        "magnetic_blocks": ["消耗品", "ストック需要"],
+        "wooden_blocks": ["消耗品", "ストック需要", "手押し車", "ファーストウォーカー", "ベビーウォーカー"],
+        "magnetic_blocks": ["消耗品", "ストック需要", "手押し車", "ファーストウォーカー", "ベビーウォーカー"],
+        "baby_walker_toy": ["消耗品", "ストック需要", "積み木", "マグネットブロック", "歩けるようになる", "成長が早まる"],
         "activity_cube": ["消耗品", "ストック需要"],
         "ring_toy": ["消耗品", "ストック需要"],
     }.get(attributes.product_type, [])

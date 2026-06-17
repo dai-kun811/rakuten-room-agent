@@ -376,6 +376,7 @@ def build_recommendation_reason(
         "sound_blocks": "音や形に触れる家遊びを取り入れたい家庭",
         "wooden_blocks": "積む・並べる遊びを家で楽しみたい家庭",
         "magnetic_blocks": "平面から立体へ組み立てる遊びを楽しみたい家庭",
+        "baby_walker_toy": "つかまり立ち期や歩き始め期の室内遊びを増やしたい家庭",
         "activity_cube": "型はめやルーピングを一台で試したい家庭",
         "ring_toy": "紐通しやリング遊びで指先を使いたい家庭",
         "kids_camera": "散歩や旅行を子ども目線で残したい家庭",
@@ -399,6 +400,8 @@ def build_recommendation_reason(
         if "心音" in text:
             return f"{scene}に合い、{feature}ため、絵本後に使う音と投影を一つの商品にまとめられる。"
         return f"{scene}に合い、{feature}ため、寝る前に用意して片づける物を減らせる。"
+    if product_type == "baby_walker_toy":
+        return f"{scene}に合い、{feature}ため、本体サイズと遊ぶ場所が合えば家の中で押して遊ぶ時間を作りやすい。"
     return f"{scene}に合い、{feature}一方、{checks}は購入前に確認したい。"
 
 
@@ -480,6 +483,10 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
     if product_type == "magnetic_blocks":
         quantity_text = f"{quantity}の" if quantity else ""
         return f"{quantity_text}マグネットブロックで平面と立体を組み替えられる"
+    if product_type == "baby_walker_toy":
+        if "つかまり立ち" in text or "歩行練習" in text:
+            return f"{room_product_label_from_text(product_type, text)}として押す動きの遊びを室内に増やせる"
+        return f"{room_product_label_from_text(product_type, text)}としてリビングで押して遊ぶ時間を作りやすい"
     if product_type == "activity_cube":
         return "型はめとルーピングを備えたアクティビティキューブで遊びを切り替えられる"
     if product_type == "ring_toy":
@@ -521,6 +528,7 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
         "sound_blocks": "音が鳴る積み木",
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",
+        "baby_walker_toy": "ファーストウォーカー" if "ファーストウォーカー" in text else "ベビーウォーカー" if "ベビーウォーカー" in text else "つかまり立ちおもちゃ" if "つかまり立ち" in text and not any(value in text for value in ["手押し車", "押し車", "カタカタ"]) else "手押し車",
         "activity_cube": "アクティビティキューブ",
         "ring_toy": "リング玩具",
         "kids_camera": "キッズカメラ",
@@ -543,6 +551,7 @@ def recommendation_checkpoints(product_type: str) -> str:
         "sound_blocks": "対象年齢・パーツサイズ・名入れ内容",
         "wooden_blocks": "対象年齢・パーツサイズ・収納方法",
         "magnetic_blocks": "対象年齢・パーツサイズ・パーツ数",
+        "baby_walker_toy": "対象年齢・本体サイズ・遊ぶ場所",
         "activity_cube": "対象年齢・本体サイズ・置き場所",
         "ring_toy": "対象年齢・パーツ数・パーツサイズ",
         "kids_camera": "対象年齢・転送方法・充電方式",

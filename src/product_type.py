@@ -28,13 +28,14 @@ ROOM_PRODUCT_TYPE_KEYWORDS = {
     "diaper": ["紙おむつ", "紙オムツ", "おむつ", "オムツ", "パンツタイプ", "テープタイプ", "新生児用おむつ", "おむつ替え", "おむつポーチ", "おむつストッカー", "おむつ替えシート"],
     "formula": ["粉ミルク", "液体ミルク", "フォローアップミルク"],
     "sound_blocks": ["音が鳴る積み木", "音の鳴る積み木", "音入り積み木"],
-    "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "マグネット"],
+    "magnetic_blocks": ["マグネットブロック", "磁石ブロック", "磁気ブロック", "マグビルド", "マグネット"],
+    "baby_walker_toy": ["手押し車", "ファーストウォーカー", "ベビーウォーカー", "押し車", "カタカタ", "つかまり立ち", "歩行練習"],
     "activity_cube": ["アクティビティキューブ", "ルーピング", "型はめ"],
     "ring_toy": ["リングテン", "ring10", "リング玩具", "紐通し"],
     "kids_camera": ["キッズカメラ", "子ども用カメラ"],
     "sleep_light": ["ホワイトノイズ", "授乳ライト", "寝かしつけライト"],
     "stroller_storage": ["ベビーカーバッグ", "ベビーカー用バッグ", "ベビーカー収納"],
-    "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき"],
+    "wooden_blocks": ["木製積み木", "木の積み木", "積み木", "つみき", "ウッドブロック", "スタッキングブロック"],
 }
 
 DIAPER_RELATED_ACCESSORIES = [
@@ -58,6 +59,7 @@ ROOM_PRODUCT_TYPE_PRIORITY = [
     "diaper",
     "sound_blocks",
     "magnetic_blocks",
+    "baby_walker_toy",
     "activity_cube",
     "ring_toy",
     "kids_camera",
@@ -145,6 +147,7 @@ def room_product_label(product: Product, product_type: str | None = None) -> str
         "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
         "soothing_plush": "プラネタリウムぬいぐるみ" if "プラネタリウム" in text else "寝かしつけぬいぐるみ",
         "sound_blocks": "音が鳴る積み木",
+        "baby_walker_toy": "手押し車",
         "wooden_blocks": "木製積み木",
         "magnetic_blocks": "マグネットブロック",
         "activity_cube": "アクティビティキューブ",

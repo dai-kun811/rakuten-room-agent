@@ -77,6 +77,10 @@ def product_for(product_type: str, *, suffix: str = "") -> Product:
             "マグネットブロック 48ピース",
             "マグネットブロック 48ピース 3歳 平面 立体",
         ),
+        "baby_walker_toy": (
+            "木製 手押し車 ファーストウォーカー",
+            "木製 手押し車 ファーストウォーカー つかまり立ち リビング",
+        ),
         "activity_cube": (
             "アクティビティキューブ 型はめ ルーピング",
             "アクティビティキューブ 型はめ ルーピング 1歳",
@@ -154,6 +158,18 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             ("寝かしつけぬいぐるみ プラネタリウム メロディー", "soothing_plush"),
             ("プラネタリウム付きぬいぐるみ オルゴール", "soothing_plush"),
             ("投影機能付きベビートイ 音楽 ライト", "soothing_plush"),
+            ("木製 手押し車", "baby_walker_toy"),
+            ("ファーストウォーカー", "baby_walker_toy"),
+            ("ベビーウォーカー", "baby_walker_toy"),
+            ("カタカタ 押し車", "baby_walker_toy"),
+            ("つかまり立ち おもちゃ", "baby_walker_toy"),
+            ("木製積み木", "wooden_blocks"),
+            ("つみき", "wooden_blocks"),
+            ("ウッドブロック", "wooden_blocks"),
+            ("スタッキングブロック", "wooden_blocks"),
+            ("マグネットブロック", "magnetic_blocks"),
+            ("磁石ブロック", "magnetic_blocks"),
+            ("マグビルド 磁気ブロック", "magnetic_blocks"),
         ]
         for name, expected in cases:
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
@@ -166,10 +182,77 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             "抱っこ布団",
             "ベビー保湿剤 ベビーローション",
             "ベビー スリーパー ガーゼ",
+            "木製手押し車",
+            "木製ままごと",
+            "木製パズル",
+            "木製楽器",
         ]
         for name in cases:
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertNotEqual(classify_product_type(product), "diaper", name)
+
+    def test_wooden_toy_non_blocks_do_not_become_wooden_blocks(self) -> None:
+        cases = [
+            ("木製手押し車", "baby_walker_toy"),
+            ("木製ままごと", "unknown"),
+            ("木製パズル", "unknown"),
+            ("木製楽器", "unknown"),
+        ]
+        for name, expected in cases:
+            product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
+            self.assertEqual(classify_product_type(product), expected, name)
+
+    def test_baby_walker_toy_posts_are_not_blocks_or_walking_claims(self) -> None:
+        cases = [
+            "木製 手押し車",
+            "ファーストウォーカー",
+            "ベビーウォーカー",
+            "カタカタ 押し車",
+            "つかまり立ち おもちゃ",
+        ]
+        forbidden = ["積み木", "歩けるようになる", "成長が早まる", "必ず", "絶対", "万能", "完璧"]
+        for name in cases:
+            product = replace(
+                product_for("baby_walker_toy"),
+                name=name,
+                caption=f"{name} 木製 リビング つかまり立ち",
+                catchcopy=f"{name} 木製 リビング つかまり立ち",
+                url=f"https://example.com/baby-walker/{name}",
+            )
+            generated = FixedRulePostGenerator().generate(
+                score_product(product, date(2026, 6, 16)),
+                context=GenerationContext(),
+            )
+            self.assertEqual(generated.attributes.product_type, "baby_walker_toy")
+            self.assertEqual(generated.status, "ready", generated.quality_errors)
+            self.assertFalse(any(term in generated.body for term in forbidden), generated.body)
+
+    def test_block_posts_do_not_end_with_weak_room_copy(self) -> None:
+        weak_phrases = [
+            "確認したい",
+            "確かめておきたい",
+            "チェックしたい",
+            "見ておきたい",
+            "比較したい",
+            "検討したい",
+            "時間を作れ",
+            "動きを試しやすく",
+            "使い分けられます",
+            "変えられます",
+            "続けやすいです",
+            "同じ道具でも",
+        ]
+        for product_type in ["wooden_blocks", "magnetic_blocks", "baby_walker_toy"]:
+            generated = generate(product_type)
+            self.assertEqual(generated.status, "ready", generated.quality_errors)
+            self.assertFalse(any(phrase in generated.body for phrase in weak_phrases), generated.body)
+
+    def test_weak_room_copy_is_rejected(self) -> None:
+        generated = generate("magnetic_blocks")
+        changed = replace(generated, body=generated.body + "対象年齢を確認したいです。")
+        self.assertTrue(
+            any("marketing_weak_cta" in error for error in validate_post(changed, changed.attributes)),
+        )
 
     def test_normal_run_never_calls_openai(self) -> None:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "secret-value"}):
