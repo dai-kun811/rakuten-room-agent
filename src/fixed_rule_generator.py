@@ -108,6 +108,11 @@ CONFIRMATION_REPEAT_MARKERS = [
     "比べ",
 ]
 
+QUANTITY_MENTION_PATTERN = re.compile(
+    r"\d+(?:\.\d+)?\s*(?:個セット|枚|個|本|缶|袋|箱|ピース|パーツ|ポケット|ml|mL|g|kg)",
+    flags=re.IGNORECASE,
+)
+
 WEAK_ROOM_COPY_PHRASES = [
     "確認したい",
     "確かめておきたい",
@@ -255,11 +260,11 @@ SCENE_DETAILS = {
     "formula": "未開封分を同じ場所へまとめると、次の買い足し時期も家族で共有しやすくなります",
     "sound_blocks": "振った音を聞いてから積むなど、12ピースの使い方を変えられます",
     "wooden_blocks": "シンプルな遊びを親子で広げやすいです",
-    "magnetic_blocks": "48ピースを平面に並べたり立体にしたりして遊べます",
+    "magnetic_blocks": "平面に並べたり立体にしたり、形を変えながら遊べます",
     "baby_walker_toy": "リビングで押して進む遊びを楽しめます",
     "activity_cube": "遊ぶ面を一つずつ変えると、子どもが選んだ動きを親も見守りやすくなります",
     "ring_toy": "色や数の言葉を添えながら並べると、親子で同じ動きを共有しやすくなります",
-    "kids_camera": "撮った後に一枚選ぶ時間を作ると、その日に気になった景色も聞きやすくなります",
+    "kids_camera": "子どもが撮った景色を見ると、外出先で何に目が向いたか話しやすくなります",
     "sleep_light": "授乳時は灯り、寝室ではホワイトノイズと、必要な機能を使い分けられます",
     "stroller_storage": "ポケットごとに小物を分けると、必要な物の位置を決めやすくなります",
 }
@@ -706,11 +711,11 @@ PATTERNS.update(
     {
         "kids_camera": _patterns(
             "kids_camera",
-            ["子ども目線を写真に残したい", "ゲームなしで写真遊びを", "外出先を子どもが撮る", "旅行の景色を一緒に残す", "撮った写真を親子で見る", "スマホへ移せるカメラを", "子ども用カメラを選びたい", "誕生日に写真のきっかけを"],
+            ["子ども目線を写真に残したい", "ゲームなしで写真遊びを", "外出先を子どもが撮る", "旅行の景色を一緒に残す", "撮った写真を親子で見る", "スマホへ移せるカメラを", "子ども用カメラを選びたい", "写真遊びのきっかけに"],
             ["子ども用カメラは、撮ることに集中できる機能か気になりますよね。", "外出先で持たせるなら、撮った後も家庭で扱いやすいものがうれしいです。", "旅行の思い出は、大人とは違う子ども目線でも残してみたいですよね。", "キッズカメラは、家庭で写真を移す方法が合うか迷います。", "誕生日の贈り物なら、遊ぶ場面が具体的に浮かぶものを選びたいです。"],
-            ["{feature}なら、外出先で子ども自身が気になった景色を撮れます。", "{feature}を使い、撮った写真を帰宅後に親子で見返せます。", "{feature}なら、旅行や散歩で写真遊びを始められます。", "{feature}なら、旅行で撮った写真の保存や移動を家庭の方法に合わせられます。", "{feature}を持たせ、子どもが選んだ被写体を一緒に見られます。"],
-            ["何を撮ったか聞く時間ができ、子どもの見ていた景色を知るきっかけになります。", "帰宅後に写真を選ぶことで、外出の出来事を親子で振り返れます。", "大人が構図を決めず、子ども自身が残したいものを選べます。", "保存方法が家庭に合えば、撮ったままにせず写真を整理しやすいです。", "誕生日後も散歩や旅行へ持ち出すなど、使う場面を増やせます。"],
-            ["撮った写真を親子で見返せるので、散歩や旅行の思い出を子ども目線でも残しやすいカメラです。", "外出先で撮って帰宅後に見返せるので、親子でその日の出来事を話しやすいカメラです。", "ゲームなしで写真に集中できるなら、散歩や旅行に持ち出しやすいカメラです。", "保存や転送が家庭に合えば、撮った写真を親子で見返しやすいカメラです。", "子どもが選んだ景色を残せるので、外出後の会話が広がりやすいカメラです。"],
+            ["{feature}なら、外出先で子ども自身が気になった景色を撮れます。", "{feature}なら、写真を撮る遊びに集中しやすく、家庭でも扱いやすいです。", "{feature}なら、旅行や散歩で写真遊びを始められます。", "{feature}なら、撮った写真の保存や移動を家庭の方法に合わせられます。", "{feature}を持たせると、子どもが選んだ被写体を会話のきっかけにできます。"],
+            ["何を撮ったか聞く時間ができ、子どもの見ていた景色を知るきっかけになります。", "大人とは違う目線の写真が残り、散歩や旅行の思い出を増やせます。", "ゲームなしなら、撮ることに気持ちを向けやすいです。", "スマホへ移せると、家族に共有する写真も選びやすくなります。", "子どもの気になった景色を残せるので、外出後の話題が増えます。"],
+            ["写真を撮る楽しみが外出のきっかけになり、子ども目線の思い出を残しやすいカメラです。", "ゲームなしで写真に向き合えるなら、散歩や旅行へ持ち出しやすいカメラです。", "撮った写真を残せるので、子ども目線の思い出を増やせるカメラです。", "子どもが見つけた景色を残せるので、外出後の会話が増えるカメラです。", "撮る楽しみと残す手軽さがあり、親子の外出に持たせやすいカメラです。"],
             [("子ども目線",), ("ゲームなし",), ("外出",), ("旅行",), ("写真",), ("スマホ",), ("カメラ",), ("写真",)],
             ("消耗品", "ストック"),
         ),
@@ -1895,6 +1900,9 @@ def validate_post(
         errors.append("duplicate_phrase: 確認系表現が同一投稿内で3回以上")
     if has_semantic_repetition(sentences):
         errors.append("duplicate_phrase: 同一ベネフィットの意味重複")
+    errors.extend(quantity_consistency_errors(post, attributes))
+    if has_duplicate_benefit_repetition(sentences):
+        errors.append("duplicate_phrase: 同じベネフィットを言い換えて繰り返している")
     errors.extend(marketing_quality_errors(post, attributes, sentences))
     if context is not None:
         errors.extend(duplicate_errors(post, context))
@@ -2102,6 +2110,62 @@ def body_pressure_claim_is_unsafe(text: str) -> bool:
 
 def confirmation_repeat_count(text: str) -> int:
     return sum(text.count(marker) for marker in CONFIRMATION_REPEAT_MARKERS)
+
+
+def quantity_mentions(text: str) -> list[str]:
+    mentions = []
+    for match in QUANTITY_MENTION_PATTERN.finditer(text):
+        following = text[match.end() : match.end() + 3]
+        if following.startswith("あたり"):
+            continue
+        mentions.append(re.sub(r"\s+", "", match.group(0)))
+    return mentions
+
+
+def quantity_consistency_errors(post: GeneratedPost, attributes: ProductAttributes) -> list[str]:
+    body_quantities = list(dict.fromkeys(quantity_mentions(post.body)))
+    if not body_quantities:
+        return []
+
+    source_quantities = {
+        re.sub(r"\s+", "", quantity)
+        for quantity in attributes.confirmed_quantity_features
+    }
+    errors: list[str] = []
+    unsupported = [quantity for quantity in body_quantities if quantity not in source_quantities]
+    if unsupported:
+        errors.append(
+            "unsupported_quantity_claim: 商品情報にない数量を本文で使用: "
+            + ",".join(unsupported)
+        )
+
+    count_quantities = [
+        quantity
+        for quantity in body_quantities
+        if re.search(r"(?:個セット|個|ピース|パーツ)$", quantity)
+    ]
+    count_numbers = {
+        re.match(r"\d+(?:\.\d+)?", quantity).group(0)
+        for quantity in count_quantities
+        if re.match(r"\d+(?:\.\d+)?", quantity)
+    }
+    if len(count_numbers) >= 2:
+        errors.append("quantity_conflict: 同じ商品本文内で異なる個数・ピース数が混在")
+    return errors
+
+
+def has_duplicate_benefit_repetition(sentences: list[str]) -> bool:
+    groups = [
+        (2, ("帰宅後", "見返", "振り返", "写真を選ぶ")),
+        (3, ("家の中", "おうち時間", "室内遊び")),
+        (2, ("遊び方が広が", "遊び方を増や", "遊び方が増", "遊びが広が", "遊びを増や")),
+        (2, ("使いやす", "扱いやす", "始めやす")),
+    ]
+    for threshold, markers in groups:
+        count = sum(1 for sentence in sentences if any(marker in sentence for marker in markers))
+        if count >= threshold:
+            return True
+    return False
 
 
 def has_semantic_repetition(sentences: list[str]) -> bool:

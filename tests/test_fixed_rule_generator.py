@@ -257,6 +257,59 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             any("marketing_weak_cta" in error for error in validate_post(changed, changed.attributes)),
         )
 
+    def test_magnetic_blocks_do_not_mix_conflicting_quantities(self) -> None:
+        generated = generate("magnetic_blocks")
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("48ピース", generated.body)
+        self.assertNotIn("50個", generated.body)
+
+    def test_unconfirmed_quantity_in_body_is_rejected(self) -> None:
+        generated = generate("magnetic_blocks")
+        changed = replace(generated, body=generated.body + "50個でも遊べます。")
+
+        self.assertTrue(
+            any("unsupported_quantity_claim" in error for error in validate_post(changed, changed.attributes)),
+        )
+
+    def test_conflicting_block_counts_are_rejected(self) -> None:
+        generated = generate("magnetic_blocks")
+        attributes = replace(
+            generated.attributes,
+            confirmed_quantity_features=("48ピース", "50個"),
+        )
+        changed = replace(
+            generated,
+            body=generated.body + "50個のパーツとしても扱えます。",
+            attributes=attributes,
+        )
+
+        self.assertTrue(
+            any("quantity_conflict" in error for error in validate_post(changed, attributes)),
+        )
+
+    def test_kids_camera_copy_does_not_repeat_return_home_review_benefit(self) -> None:
+        generated = generate("kids_camera")
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertLessEqual(generated.body.count("帰宅後"), 1, generated.body)
+        self.assertLessEqual(generated.body.count("見返"), 1, generated.body)
+
+    def test_duplicate_benefit_repetition_is_rejected(self) -> None:
+        generated = generate("kids_camera")
+        changed = replace(
+            generated,
+            body=(
+                "外出先で子どもが写真を撮れるキッズカメラです。"
+                "撮った写真を帰宅後に親子で見返せます。"
+                "帰宅後に写真を選ぶことで、外出の出来事を親子で振り返れます。"
+            ),
+        )
+
+        self.assertTrue(
+            any("duplicate_phrase" in error for error in validate_post(changed, changed.attributes)),
+        )
+
     def test_normal_run_never_calls_openai(self) -> None:
         with patch.dict(os.environ, {"OPENAI_API_KEY": "secret-value"}):
             with patch("urllib.request.urlopen") as urlopen:
