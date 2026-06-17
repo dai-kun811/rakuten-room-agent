@@ -225,6 +225,9 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             )
             self.assertEqual(generated.attributes.product_type, "baby_walker_toy")
             self.assertEqual(generated.status, "ready", generated.quality_errors)
+            self.assertGreaterEqual(len(generated.body), 160, generated.body)
+            self.assertLessEqual(len(generated.body), 220, generated.body)
+            self.assertLessEqual(len(split_sentences(generated.body)), 3, generated.body)
             self.assertFalse(any(term in generated.body for term in forbidden), generated.body)
 
     def test_block_posts_do_not_end_with_weak_room_copy(self) -> None:

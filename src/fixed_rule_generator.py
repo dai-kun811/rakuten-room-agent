@@ -1595,12 +1595,12 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
     if attributes.product_type == "baby_walker_toy":
         if "standing_support_play" in features:
             title = "つかまり立ち期の遊びに"
-            problem = "つかまり立ちや歩き始めの時期は、家の中でも体を使って遊べるものが欲しくなりますよね。"
+            problem = "つかまり立ちや歩き始めの時期は、外に出にくい日でも家の中で体を使って遊べるものがあるとうれしいですよね。"
         else:
             title = "押して遊べる室内おもちゃ"
-            problem = "外に出にくい日でも、リビングで体を動かして遊べるおもちゃがあるとうれしいですよね。"
-        scene = f"{feature}なら、押して進む楽しさがあり、リビング遊びのバリエーションが増えます。"
-        closing = "親がそばで見守りながら一緒に遊べて、見た目のかわいさもあるとギフト感があり、雨の日や外に出にくい日の室内遊びを増やせるおもちゃです。"
+            problem = "歩き始め前後の雨の日や夕方は、リビングでも親の近くで体を使って遊べるおもちゃがひとつでもあるとうれしいですよね。"
+        scene = f"{feature}なら、押して進む楽しさがあり、親がそばで声をかけながら見守れて、リビングで一緒に遊びやすいです。"
+        closing = "外に出にくい日も親子で体を動かして遊べるので、いつもの家遊びに変化が出て、室内遊びを増やせるおもちゃです。"
         return title, problem + scene + closing
 
     if attributes.product_type == "soothing_plush":
