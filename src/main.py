@@ -299,19 +299,21 @@ def diversify_products(
     )
     selected: list[ScoredProduct] = []
     selected_types: Counter[str] = Counter()
-    for item in ranked:
-        product_type = classify_product_type(item.product)
-        if selected_types[product_type] >= 2:
-            continue
-        selected.append(item)
-        selected_types[product_type] += 1
-        if len(selected) >= limit:
-            return selected
-    for item in ranked:
-        if item not in selected:
+
+    def add_with_type_limit(max_per_type: int) -> None:
+        for item in ranked:
+            if len(selected) >= limit:
+                return
+            if item in selected:
+                continue
+            product_type = classify_product_type(item.product)
+            if selected_types[product_type] >= max_per_type:
+                continue
             selected.append(item)
-        if len(selected) >= limit:
-            break
+            selected_types[product_type] += 1
+
+    add_with_type_limit(1)
+    add_with_type_limit(2)
     return selected
 
 
