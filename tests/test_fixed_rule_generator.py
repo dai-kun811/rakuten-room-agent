@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fixed_rule_generator import (
+    BANNED_INTENTION_PHRASES,
     FixedRulePostGenerator,
     GenerationContext,
     HASHTAGS,
@@ -434,6 +435,16 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             if expected_type == "baby_sleep":
                 self.assertTrue(any(term in external for term in ["夜", "寝冷え", "布もの", "灯り"]))
 
+    def test_ready_posts_do_not_use_intention_phrases(self) -> None:
+        for product_type in HASHTAGS:
+            generated = generate(product_type)
+            if generated.status != "ready":
+                continue
+            combined = f"{generated.title}{generated.body}"
+            self.assertFalse(
+                any(phrase in combined for phrase in BANNED_INTENTION_PHRASES),
+                (product_type, generated.body),
+            )
     def test_previous_action_run_fixture_generates_at_least_three_ready_posts(self) -> None:
         fixture_path = Path(__file__).parent / "fixtures" / "room_run_27583525520_products.json"
         items = json.loads(fixture_path.read_text(encoding="utf-8"))

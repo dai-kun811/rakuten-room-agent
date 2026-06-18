@@ -113,6 +113,20 @@ QUANTITY_MENTION_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+BANNED_INTENTION_PHRASES = [
+    "考えたいです",
+    "決めたいです",
+    "選びたいです",
+    "見ておきたいです",
+    "確認したいです",
+    "判断したいです",
+    "候補へ入れておきたいです",
+    "比べたいです",
+    "確かめたいです",
+    "読んでおきたいです",
+    "押さえたいです",
+    "把握しておきたいです",
+]
 WEAK_ROOM_COPY_PHRASES = [
     "確認したい",
     "確かめておきたい",
@@ -1451,6 +1465,8 @@ def build_candidate(
         )
     title = adapt_wipes_context(title, attributes)
     body = adapt_wipes_context(body, attributes)
+    title = remove_intention_phrases(title)
+    body = remove_intention_phrases(body)
     marketing_text = marketing_title_body(attributes, pattern)
     if marketing_text is not None:
         title, body = marketing_text
@@ -1735,6 +1751,25 @@ def adapt_wipes_context(text: str, attributes: ProductAttributes) -> str:
     return text
 
 
+def remove_intention_phrases(text: str) -> str:
+    replacements = [
+        ("候補へ入れておきたいです", "候補にできます"),
+        ("見ておきたいです", "見落としを減らせます"),
+        ("確認したいです", "確認できます"),
+        ("判断したいです", "判断しやすくなります"),
+        ("考えたいです", "判断しやすくなります"),
+        ("決めたいです", "決めやすくなります"),
+        ("選びたいです", "選べます"),
+        ("比べたいです", "比べやすくなります"),
+        ("確かめたいです", "確かめやすくなります"),
+        ("読んでおきたいです", "読み進めやすくなります"),
+        ("押さえたいです", "押さえやすくなります"),
+        ("把握しておきたいです", "把握しやすくなります"),
+    ]
+    for before, after in replacements:
+        text = text.replace(before, after)
+    return text
+
 def merge_sentences(left: str, right: str) -> str:
     left_clause = left.rstrip("。")
     right_clause = right.strip()
@@ -1858,6 +1893,8 @@ def validate_post(
         errors.append("duplicate_short_label: 短縮商品名が重複")
     if any(term in combined for term in BANNED_EXPRESSIONS):
         errors.append("禁止表現を使用")
+    if any(term in combined for term in BANNED_INTENTION_PHRASES):
+        errors.append("marketing_weak_cta: 投稿文に一人称の検討・確認表現を使用")
     if any(term in post.body for term in WEAK_ROOM_COPY_PHRASES):
         errors.append("marketing_weak_cta: 投稿文が確認・比較中心の弱い表現を含む")
     if "です、" in post.body or "ます、" in post.body:
