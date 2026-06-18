@@ -1531,7 +1531,7 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
                 f"{feature}でも、用途の説明が不足している場合は自動投稿には回せません。"
             )
             closing = (
-                "人間が対象月齢や使える場面を確認してから、投稿可否を判断する仮文章です。"
+                "エージェント側で対象月齢や使える場面の根拠を確認してから、投稿可否を判断する仮文章です。"
             )
         return title, problem + scene + closing
 

@@ -7,7 +7,7 @@
 - 投稿候補の出力先は `ROOM_Posts_v2` です。ここには原則 `status=ready` の行だけを追記します。
 - `status=needs_review` とERROR行は `ROOM_Posts_Review` へ追記します。既存の旧シートは参照のみで、追記・上書きしません。
 - `ready` は商品タイプ、短縮名、タイトル根拠、本文、ハッシュタグ、確認済み特徴、おすすめ理由、重複・類似チェックを通過した行です。
-- `needs_review` は商品タイプ不明、分類キーワード矛盾、未確認特徴、本文・タグ・おすすめ理由の型不一致、品質条件未達などがある行です。自動投稿候補として扱わず、人間が確認してください。
+- `needs_review` は商品タイプ不明、分類キーワード矛盾、未確認特徴、本文・タグ・おすすめ理由の型不一致、品質条件未達などがある行です。自動投稿候補として扱わず、エージェント側の改善対象として扱います。
 - `swaddle`、`nursing_support`、`baby_bedding` は `diaper` より先に分類します。おくるみ、スワドル、授乳サポート、抱っこ布団などを紙おむつとして扱わないためです。
 - 手動実行後はActions artifact `room-generation-report` を確認してください。`reports/room_generation_report.json`、`.csv`、`.md` に、生成タイトル、投稿文、ハッシュタグ、34列相当、書き込み先シート、品質理由が出ます。
 - artifactにはAPIキー、Google認証情報、Spreadsheet ID、Authorizationヘッダー、Cookie、GitHub Secrets、環境変数の値を含めません。
@@ -45,7 +45,7 @@
 9. 問題があれば別patternで最大5回再生成
 10. `ready`または`needs_review`としてSheetsへ追記
 
-`needs_review`は自動投稿候補として扱わず、人間の確認対象にしてください。
+`needs_review`は自動投稿候補として扱わず、エージェント側で原因を特定して改善する対象にしてください。
 
 ## 必須設定
 

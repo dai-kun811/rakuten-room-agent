@@ -385,7 +385,7 @@ def build_recommendation_reason(
     }.get(product_type, "使う場面が具体的な家庭")
     checks = recommendation_checkpoints(product_type)
     if product_type == "nursing_support" and "多機能" in text and "授乳クッション" in text:
-        return "授乳クッションとしての具体用途が不足しており、人間が対象月齢・使える場面・手入れ方法を確認する必要がある。"
+        return "授乳クッションとしての具体用途が不足しており、エージェント側で対象月齢・使える場面・手入れ方法の根拠確認が必要である。"
     if product_type == "nursing_support" and "ハンズフリー" in text:
         return f"授乳中に哺乳瓶を支える手間を減らしたい家庭に合い、{feature}ため、使える哺乳瓶サイズと対象月齢を選べば授乳中に手で支え続ける手間を減らせる。"
     if product_type == "nursing_support":
@@ -425,7 +425,7 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
         return f"{room_product_label_from_text(product_type, text)}のサイズや素材を夜支度に合わせやすい"
     if product_type == "nursing_support":
         if "多機能" in text and "授乳クッション" in text:
-            return "多機能の具体用途を人間が確認する必要がある授乳クッションである"
+            return "多機能の具体用途をエージェント側で根拠確認する必要がある授乳クッションである"
         if "ハンズフリー" in text:
             return "ハンズフリー授乳をサポートするアイテムで補助を一つに決めやすい"
         if "Cカーブ" in text and "授乳クッション" in text:
