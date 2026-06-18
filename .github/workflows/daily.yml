@@ -2,9 +2,9 @@ name: Daily Rakuten ROOM Agent
 
 on:
   schedule:
-    # 07:17 JST = 22:17 UTC on the previous day.
-    # Avoid minute 0 because GitHub Actions scheduled runs can be delayed or dropped at peak load.
-    - cron: "17 22 * * *"
+    # 07:00 JST = 22:00 UTC on the previous day.
+    # User-facing schedule is daily at 07:00 JST.
+    - cron: "0 22 * * *"
   workflow_dispatch:
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           SHEET_NAME: ${{ vars.SHEET_NAME || 'Sheet1' }}
-          OUTPUT_SHEET_NAME: ${{ vars.OUTPUT_SHEET_NAME || 'ROOM_Posts_v2' }}
+          OUTPUT_SHEET_NAME: ${{ vars.OUTPUT_SHEET_NAME || '最新版_ROOM投稿_2026-06-19以降' }}
           GENERATION_MODE: fallback
           ENABLE_RELAXED_FALLBACK: ${{ vars.ENABLE_RELAXED_FALLBACK || 'true' }}
           STRICT_MIN_REVIEW_COUNT: ${{ vars.STRICT_MIN_REVIEW_COUNT || '100' }}

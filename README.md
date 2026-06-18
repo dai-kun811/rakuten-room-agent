@@ -4,14 +4,14 @@
 
 - 通常運用は固定ルール生成のみです。OpenAI API、LLM、Structured Outputsは呼び出しません。
 - `GENERATION_MODE` 未設定時も固定ルール生成になり、通常実行のOpenAI API呼び出しは0回です。
-- 投稿候補の出力先は `ROOM_Posts_v2` です。ここには原則 `status=ready` の行だけを追記します。
+- 投稿候補の出力先は `最新版_ROOM投稿_2026-06-19以降` です。ここには本日分以降の `status=ready` 行だけを毎朝追記します。
 - `status=needs_review` とERROR行は `ROOM_Posts_Review` へ追記します。既存の旧シートは参照のみで、追記・上書きしません。
 - `ready` は商品タイプ、短縮名、タイトル根拠、本文、ハッシュタグ、確認済み特徴、おすすめ理由、重複・類似チェックを通過した行です。
 - `needs_review` は商品タイプ不明、分類キーワード矛盾、未確認特徴、本文・タグ・おすすめ理由の型不一致、品質条件未達などがある行です。自動投稿候補として扱わず、エージェント側の改善対象として扱います。
 - `swaddle`、`nursing_support`、`baby_bedding` は `diaper` より先に分類します。おくるみ、スワドル、授乳サポート、抱っこ布団などを紙おむつとして扱わないためです。
 - 手動実行後はActions artifact `room-generation-report` を確認してください。`reports/room_generation_report.json`、`.csv`、`.md` に、生成タイトル、投稿文、ハッシュタグ、34列相当、書き込み先シート、品質理由が出ます。
 - artifactにはAPIキー、Google認証情報、Spreadsheet ID、Authorizationヘッダー、Cookie、GitHub Secrets、環境変数の値を含めません。
-- GitHub Actionsの日次実行は既存どおり `17 22 * * *` UTC、つまり日本時間07:17です。手動実行は `Daily Rakuten ROOM Agent` の `workflow_dispatch` で行います。
+- GitHub Actionsの日次実行は `0 22 * * *` UTC、つまり日本時間07:00です。手動実行は `Daily Rakuten ROOM Agent` の `workflow_dispatch` で行います。
 
 楽天市場商品検索APIから育児商品を取得し、最大5商品を選定して、楽天ROOM向け投稿候補をGoogleスプレッドシートへ追記します。
 
@@ -69,7 +69,7 @@
 | 名前 | 既定値 | 用途 |
 |---|---|---|
 | `SHEET_NAME` | `Sheet1` | 既存URLの参照元 |
-| `OUTPUT_SHEET_NAME` | `ROOM_Posts_v2` | 34列形式の出力先 |
+| `OUTPUT_SHEET_NAME` | `最新版_ROOM投稿_2026-06-19以降` | 34列形式の最新版出力先 |
 | `ENABLE_RELAXED_FALLBACK` | `true` | 商品選定条件の段階緩和 |
 
 `OPENAI_API_KEY`と`OPENAI_MODEL`は通常運用に不要です。GitHubに残っていても

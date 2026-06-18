@@ -52,7 +52,7 @@ def main() -> int:
         service_account_json = get_required_env("GOOGLE_SERVICE_ACCOUNT_JSON")
         spreadsheet_id = get_required_env("SPREADSHEET_ID")
         source_sheet_name = os.getenv("SHEET_NAME", "Sheet1")
-        output_sheet_name = os.getenv("OUTPUT_SHEET_NAME", "ROOM_Posts_v2")
+        output_sheet_name = os.getenv("OUTPUT_SHEET_NAME", "最新版_ROOM投稿_2026-06-19以降")
         review_sheet_name = os.getenv("REVIEW_SHEET_NAME", DEFAULT_REVIEW_SHEET_NAME)
 
         now = datetime.now(JST)
