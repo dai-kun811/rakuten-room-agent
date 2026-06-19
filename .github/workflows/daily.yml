@@ -21,10 +21,8 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: rakuten-room/requirements.txt
 
       - name: Install dependencies
-        working-directory: rakuten-room
         run: python -m pip install -r requirements.txt
 
       - name: Select products and append to Google Sheets
@@ -48,7 +46,6 @@ jobs:
           DEBUG_MIN_REVIEW_COUNT: ${{ vars.DEBUG_MIN_REVIEW_COUNT || '0' }}
           DEBUG_MIN_REVIEW_AVERAGE: ${{ vars.DEBUG_MIN_REVIEW_AVERAGE || '0' }}
           DEBUG_MIN_TOTAL_SCORE: ${{ vars.DEBUG_MIN_TOTAL_SCORE || '0' }}
-        working-directory: rakuten-room
         run: python src/main.py
 
       - name: Upload generation report
@@ -56,5 +53,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: room-generation-report
-          path: rakuten-room/reports/room_generation_report.*
+          path: reports/room_generation_report.*
           if-no-files-found: ignore
