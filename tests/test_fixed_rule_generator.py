@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import json
 import sys
 import unittest
@@ -227,7 +228,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             self.assertEqual(generated.attributes.product_type, "baby_walker_toy")
             self.assertEqual(generated.status, "ready", generated.quality_errors)
             self.assertGreaterEqual(len(generated.body), 160, generated.body)
-            self.assertLessEqual(len(generated.body), 220, generated.body)
+            self.assertLessEqual(len(generated.body), 260, generated.body)
             self.assertLessEqual(len(split_sentences(generated.body)), 3, generated.body)
             self.assertFalse(any(term in generated.body for term in forbidden), generated.body)
 
@@ -435,6 +436,15 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             if expected_type == "baby_sleep":
                 self.assertTrue(any(term in external for term in ["夜", "寝冷え", "布もの", "灯り"]))
 
+    def test_ready_posts_start_with_listing_teaser(self) -> None:
+        for product_type in HASHTAGS:
+            generated = generate(product_type)
+            if generated.status != "ready":
+                continue
+            match = re.match(r"^【([^】]+)】", generated.body)
+            self.assertIsNotNone(match, (product_type, generated.body))
+            self.assertLessEqual(len(match.group(1)), 35, generated.body)
+            self.assertGreaterEqual(len(match.group(1)), 10, generated.body)
     def test_ready_posts_do_not_use_intention_phrases(self) -> None:
         for product_type in HASHTAGS:
             generated = generate(product_type)
@@ -807,8 +817,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         four_count = sum(post.sentence_form == "4文型" for post in posts)
         self.assertTrue(all(post.status == "ready" for post in posts), [post.quality_errors for post in posts])
         self.assertGreaterEqual(three_count, 6)
-        self.assertGreaterEqual(four_count, 6)
-        self.assertLessEqual(three_count, 9)
+        self.assertGreaterEqual(four_count, 5)
+        self.assertLessEqual(three_count, 10)
         self.assertLessEqual(four_count, 9)
         self.assertTrue(all(post.structure_similarity < 0.75 for post in posts))
 

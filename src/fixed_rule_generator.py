@@ -1470,6 +1470,9 @@ def build_candidate(
     marketing_text = marketing_title_body(attributes, pattern)
     if marketing_text is not None:
         title, body = marketing_text
+        title = remove_intention_phrases(title)
+        body = remove_intention_phrases(body)
+    body = add_listing_teaser(body, attributes)
     analysis = build_analysis(scored, attributes, pattern.pattern_id)
     post = GeneratedPost(
         title=title,
@@ -1770,6 +1773,40 @@ def remove_intention_phrases(text: str) -> str:
         text = text.replace(before, after)
     return text
 
+def listing_teaser(attributes: ProductAttributes) -> str:
+    if attributes.product_type == "wipes" and attributes.short_product_label == "手口ふき":
+        return "【食後にも使える 手口ふきストック】"
+    teasers = {
+        "wipes": "買い忘れ対策に おしりふきストック",
+        "swaddle": "夜支度を整える おくるみ",
+        "nursing_support": "授乳まわりを整える クッション",
+        "baby_bedding": "洗い替えも見える ねんね寝具",
+        "baby_care": "毎日のケアに ベビー用品",
+        "baby_sleep": "夜のお世話に ベビー寝具",
+        "soothing_plush": "寝る前時間に 音と光のぬいぐるみ",
+        "diaper": "外出準備にも おむつまわり",
+        "formula": "夜の授乳準備に ミルクストック",
+        "sound_blocks": "音も楽しめる 木製つみき",
+        "wooden_blocks": "はじめて遊びに 木製つみき",
+        "magnetic_blocks": "形づくりが広がる 磁石ブロック",
+        "baby_walker_toy": "つかまり立ち期の室内遊び",
+        "activity_cube": "1台で遊べる 知育キューブ",
+        "ring_toy": "手先遊びが広がる リング玩具",
+        "kids_camera": "子ども目線を残す キッズカメラ",
+        "sleep_light": "夜のお世話に 音と灯り",
+        "stroller_storage": "外出荷物をまとめる ベビーカーバッグ",
+    }
+    return f"【{teasers.get(attributes.product_type, attributes.short_product_label)}】"
+
+
+def add_listing_teaser(body: str, attributes: ProductAttributes) -> str:
+    if body.startswith("【"):
+        return body
+    return f"{listing_teaser(attributes)}{body}"
+
+def strip_listing_teaser(text: str) -> str:
+    return re.sub(r"^【[^】]{1,40}】", "", text)
+
 def merge_sentences(left: str, right: str) -> str:
     left_clause = left.rstrip("。")
     right_clause = right.strip()
@@ -1899,28 +1936,32 @@ def validate_post(
         errors.append("marketing_weak_cta: 投稿文が確認・比較中心の弱い表現を含む")
     if "です、" in post.body or "ます、" in post.body:
         errors.append("不自然な文接続を使用")
-    if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in NOISE_PATTERNS):
+    noise_check_text = f"{post.title}{strip_listing_teaser(post.body)}"
+    if any(re.search(pattern, noise_check_text, flags=re.IGNORECASE) for pattern in NOISE_PATTERNS):
         errors.append("商品名ノイズが残っている")
+    if not re.match(r"^【[^】]{10,35}】", post.body):
+        errors.append("listing_teaser_missing: 投稿文冒頭の一覧見出しがない")
     if combined.startswith(("、", "!", "！", "<", "＜")) or post.body.startswith(("、", "!", "！", "<", "＜")):
         errors.append("文頭が読点または記号")
     sentences = split_sentences(post.body)
+    body_for_claims = strip_listing_teaser(post.body)
     if len(sentences) not in {3, 4}:
         errors.append("本文が3〜4文ではない")
-    if not 150 <= len(post.body) <= 220:
-        errors.append("本文が150〜220文字の目安から大きく外れる")
+    if not 150 <= len(post.body) <= 260:
+        errors.append("本文が150〜260文字の目安から大きく外れる")
     if len(attributes.purchase_checkpoints) > 3:
         errors.append("purchase_checkpoint_mismatch: 購入前確認点が4つ以上")
         errors.append("購入前確認点が4つ以上")
     if not any(
-        marker in post.body
+        marker in body_for_claims
         for feature in attributes.confirmed_features
         for marker in FEATURE_MARKERS.get(feature, [])
-    ) and not any(quantity in post.body for quantity in attributes.confirmed_quantity_features):
+    ) and not any(quantity in body_for_claims for quantity in attributes.confirmed_quantity_features):
         errors.append("confirmed_feature_missing: 商品固有の確認済み特徴がない")
     used_features = {
         feature
         for feature, markers in FEATURE_MARKERS.items()
-        if any(marker in post.body for marker in markers)
+        if any(marker in body_for_claims for marker in markers)
     }
     unconfirmed = used_features - set(attributes.confirmed_features)
     if unconfirmed:
