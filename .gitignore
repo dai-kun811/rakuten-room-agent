@@ -1,7 +1,7 @@
 __pycache__/
 *.py[cod]
 *.json
-!tests/fixtures/*.json
+!rakuten-room/tests/fixtures/*.json
 .pytest_cache/
 .venv/
 venv/

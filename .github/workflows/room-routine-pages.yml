@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "room-routine/**"
+      - "rakuten-room/room-routine/**"
       - ".github/workflows/room-routine-pages.yml"
   workflow_dispatch:
 
@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p _site
-          cp -R room-routine/. _site/
+          cp -R rakuten-room/room-routine/. _site/
           rm -f _site/server.mjs _site/start-phone-server.cmd _site/start-phone-server.ps1
           touch _site/.nojekyll
 

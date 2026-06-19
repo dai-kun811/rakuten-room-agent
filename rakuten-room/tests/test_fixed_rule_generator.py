@@ -343,7 +343,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
     def test_workflow_does_not_receive_openai_settings(self) -> None:
         workflow = (
-            Path(__file__).resolve().parents[1] / ".github" / "workflows" / "daily.yml"
+            Path(__file__).resolve().parents[2] / ".github" / "workflows" / "daily.yml"
         ).read_text(encoding="utf-8")
         self.assertNotIn("OPENAI_API_KEY", workflow)
         self.assertNotIn("OPENAI_MODEL", workflow)
