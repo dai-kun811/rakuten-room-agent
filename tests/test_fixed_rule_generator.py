@@ -235,11 +235,15 @@ class FixedRuleGeneratorTest(unittest.TestCase):
     def test_block_posts_do_not_end_with_weak_room_copy(self) -> None:
         weak_phrases = [
             "確認したい",
+            "確認しておきたい",
             "確かめておきたい",
             "チェックしたい",
             "見ておきたい",
+            "比べたい",
             "比較したい",
             "検討したい",
+            "判断したい",
+            "選びたい",
             "時間を作れ",
             "動きを試しやすく",
             "使い分けられます",
@@ -247,7 +251,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             "続けやすいです",
             "同じ道具でも",
         ]
-        for product_type in ["wooden_blocks", "magnetic_blocks", "baby_walker_toy"]:
+        for product_type in ["wooden_blocks", "magnetic_blocks", "baby_walker_toy", "activity_cube", "sound_blocks", "ring_toy"]:
             generated = generate(product_type)
             self.assertEqual(generated.status, "ready", generated.quality_errors)
             self.assertFalse(any(phrase in generated.body for phrase in weak_phrases), generated.body)
@@ -258,6 +262,23 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertTrue(
             any("marketing_weak_cta" in error for error in validate_post(changed, changed.attributes)),
         )
+
+        activity_cube = generate("activity_cube")
+        changed = replace(
+            activity_cube,
+            body=activity_cube.body
+            + "対象年齢・本体サイズ・置き場所を見て、家の置き場所に収まり、今の月齢で試せる遊びがあるか確認しておきたいです。",
+        )
+        self.assertTrue(
+            any("marketing_weak_cta" in error for error in validate_post(changed, changed.attributes)),
+        )
+
+    def test_activity_cube_copy_pushes_life_change_not_checking(self) -> None:
+        generated = generate("activity_cube")
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("遊び方を増やせる", generated.body)
+        for weak_phrase in ["確認しておきたい", "見ておきたい", "比べたい", "判断したい", "選びたい"]:
+            self.assertNotIn(weak_phrase, generated.body)
 
     def test_magnetic_blocks_do_not_mix_conflicting_quantities(self) -> None:
         generated = generate("magnetic_blocks")
