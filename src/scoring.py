@@ -350,7 +350,7 @@ def build_recommendation_reason(
 ) -> str:
     del total_score, seasonal_score, room_score
     product_type = classify_room_product_type(product)
-    text = product.text
+    text = product.identity_text
     label = room_product_label(product, product_type) or product_reason_anchor(product)
     quantity = first_quantity(text)
     feature = (
@@ -446,7 +446,7 @@ def recommendation_feature(product_type: str, text: str, quantity: str) -> str:
         if "爪" in text:
             return "赤ちゃんの爪まわりに使うケア用品で必要な時に手に取りやすい"
         if "鼻" in text:
-            return "鼻まわりのケアに使うアイテムで支度をそろえやすい"
+            return f"{room_product_label_from_text(product_type, text)}で鼻まわりのケア用品をそろえやすい"
         if "体温計" in text:
             return "毎日の体調確認に使う体温計で使う物を一つに決めやすい"
         return "ベビーケア用品で毎日のケアに使う物を決めやすい"
@@ -521,7 +521,7 @@ def room_product_label_from_text(product_type: str, text: str) -> str:
         "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
         "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
         "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
-        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビーケア用品",
+        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビー爪切り" if "爪" in text else "鼻吸い器用ノズル" if "鼻" in text and "ノズル" in text else "鼻吸い器" if "鼻" in text else "ベビー体温計" if "体温計" in text else "ベビーケア用品",
         "baby_sleep": "スリーパー" if "スリーパー" in text else "ガーゼケット" if "ガーゼケット" in text else "ナイトライト" if "ナイトライト" in text else "ベビー寝具",
         "soothing_plush": "プラネタリウムぬいぐるみ" if "プラネタリウム" in text else "寝かしつけぬいぐるみ",
         "diaper": "おむつ替えシート" if "おむつ替えシート" in text else "おむつポーチ" if "おむつポーチ" in text else "おむつストッカー" if "おむつストッカー" in text else "紙おむつ",

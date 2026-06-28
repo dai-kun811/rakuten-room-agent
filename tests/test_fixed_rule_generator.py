@@ -193,6 +193,46 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertNotEqual(classify_product_type(product), "diaper", name)
 
+    def test_caption_cross_sell_terms_do_not_override_product_identity(self) -> None:
+        bookshelf = Product(
+            category="絵本",
+            name="幅73cm 絵本ラック 本棚 おもちゃ収納",
+            url="https://example.com/bookshelf",
+            price=6599,
+            review_count=192,
+            review_average=4.64,
+            caption="紙おむつ オムツ おむつ替え まとめ買い",
+            catchcopy="子ども部屋の絵本収納",
+            shop_name="家具店",
+            image_url="https://example.com/bookshelf.jpg",
+        )
+        self.assertEqual(classify_product_type(bookshelf), "unknown")
+
+    def test_caption_cross_sell_terms_do_not_pollute_baby_care_features(self) -> None:
+        nozzle = Product(
+            category="育児家電",
+            name="鼻水吸引用 透明ロングシリコンノズル ベビースマイル用",
+            url="https://example.com/nozzle",
+            price=700,
+            review_count=2119,
+            review_average=4.36,
+            caption="爪切り 体温計も取り扱っています",
+            catchcopy="鼻水吸引器用 交換ノズル",
+            shop_name="ベビー用品店",
+            image_url="https://example.com/nozzle.jpg",
+        )
+        attributes = extract_attributes(nozzle)
+        self.assertEqual(attributes.product_type, "baby_care")
+        self.assertEqual(attributes.short_product_label, "鼻吸い器用ノズル")
+        self.assertIn("nasal_aspirator", attributes.confirmed_features)
+        self.assertNotIn("nail_care", attributes.confirmed_features)
+        self.assertNotIn("thermometer", attributes.confirmed_features)
+        generated = FixedRulePostGenerator().generate(
+            score_product(nozzle, date(2026, 6, 28)),
+            context=GenerationContext(),
+        )
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+
     def test_wooden_toy_non_blocks_do_not_become_wooden_blocks(self) -> None:
         cases = [
             ("木製手押し車", "baby_walker_toy"),

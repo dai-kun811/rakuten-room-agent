@@ -117,7 +117,7 @@ def contains_any(text: str, words: list[str]) -> bool:
 
 
 def classify_room_product_type(product: Product) -> str:
-    text = product.text
+    text = product.identity_text
     if "ベビーカー" in text and ("バッグ" in text or "収納" in text):
         return "stroller_storage"
     if ("積み木" in text or "つみき" in text) and (
@@ -134,7 +134,7 @@ def classify_room_product_type(product: Product) -> str:
 
 def room_product_label(product: Product, product_type: str | None = None) -> str:
     product_type = product_type or classify_room_product_type(product)
-    text = product.text
+    text = product.identity_text
     if product_type == "wipes":
         return "手口ふき" if contains_any(text, ["手口ふき", "手口拭き"]) else "おしりふき"
     return {
@@ -142,7 +142,7 @@ def room_product_label(product: Product, product_type: str | None = None) -> str
         "formula": "粉ミルク" if "粉ミルク" in text else "液体ミルク" if "液体ミルク" in text else "ミルク",
         "swaddle": "スワドル" if "スワドル" in text else "おくるみ",
         "nursing_support": "ハンズフリー授乳サポート" if "ハンズフリー" in text else "授乳サポート",
-        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビーケア用品",
+        "baby_care": "ベビー保湿剤" if "保湿" in text or "ローション" in text or "クリーム" in text else "ベビー爪切り" if "爪" in text else "鼻吸い器用ノズル" if "鼻" in text and "ノズル" in text else "鼻吸い器" if "鼻" in text else "ベビー体温計" if "体温計" in text else "ベビーケア用品",
         "baby_sleep": "スリーパー" if "スリーパー" in text else "ガーゼケット" if "ガーゼケット" in text else "ナイトライト" if "ナイトライト" in text else "ベビー寝具",
         "baby_bedding": "抱っこ布団" if "抱っこ布団" in text else "ねんねクッション" if "ねんねクッション" in text else "ベビー布団",
         "soothing_plush": "プラネタリウムぬいぐるみ" if "プラネタリウム" in text else "寝かしつけぬいぐるみ",

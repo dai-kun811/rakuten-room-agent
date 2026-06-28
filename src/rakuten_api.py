@@ -39,6 +39,18 @@ class Product:
     search_keyword: str = ""
 
     @property
+    def identity_text(self) -> str:
+        """Product-owned text suitable for identity and type decisions.
+
+        Rakuten captions can contain SEO terms for adjacent products. Keep them
+        available in ``text`` for scoring, but do not let them define what the
+        listed item is.
+        """
+        return " ".join(
+            [self.category, self.name, self.catchcopy]
+        ).lower()
+
+    @property
     def text(self) -> str:
         return " ".join(
             [self.category, self.name, self.caption, self.catchcopy, self.shop_name]

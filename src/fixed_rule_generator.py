@@ -778,7 +778,7 @@ def clean_product_name(product: Product) -> tuple[str, str, list[str]]:
     if len(cleaned) < 2 or cleaned.endswith(("…", "...", "・", "-", "／", "/")):
         errors.append("short_name_unresolved: 商品名を安全に短縮できない")
     product_type = classify_product_type(product)
-    short_label = short_label_for(product_type, product.text)
+    short_label = short_label_for(product_type, product.identity_text)
     if product_type == "unknown" or not short_label:
         errors.append("short_name_unresolved: 商品タイプまたは短縮名を確定できない")
     return cleaned, short_label, errors
@@ -813,6 +813,8 @@ def short_label_for(product_type: str, text: str) -> str:
             if any(keyword in text for keyword in ["保湿", "ローション", "クリーム"])
             else "ベビー爪切り"
             if "爪" in text
+            else "鼻吸い器用ノズル"
+            if "鼻" in text and "ノズル" in text
             else "鼻吸い器"
             if "鼻" in text
             else "ベビー体温計"
@@ -863,7 +865,7 @@ def short_label_for(product_type: str, text: str) -> str:
 def extract_attributes(product: Product) -> ProductAttributes:
     normalized, short_label, errors = clean_product_name(product)
     product_type = classify_product_type(product)
-    text = product.text
+    text = product.identity_text
     classification_keywords = matched_type_keywords(product_type, text)
     confirmed: list[str] = []
     for feature, markers in FEATURE_MARKERS.items():
@@ -876,7 +878,7 @@ def extract_attributes(product: Product) -> ProductAttributes:
             match.group(0)
             for match in re.finditer(
                 r"\d+(?:\.\d+)?\s*(?:枚|個|本|缶|袋|箱|ピース|パーツ|ポケット|ml|mL|g|kg)",
-                product.text,
+                product.identity_text,
                 flags=re.IGNORECASE,
             )
         )
@@ -954,6 +956,8 @@ def matched_type_keywords(product_type: str, text: str) -> list[str]:
 
 
 def select_checkpoints(product_type: str, text: str) -> list[str]:
+    if product_type == "baby_care" and any(keyword in text for keyword in ["鼻吸い", "鼻水吸引"]):
+        return ["対応機種", "ノズルの長さ", "お手入れ方法"]
     if product_type == "soothing_plush":
         preferred = ["対象年齢"]
         if any(keyword in text for keyword in ["投影", "プラネタリウム", "プロジェクター"]):
@@ -1056,7 +1060,7 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         if "nail_care" in features:
             return "赤ちゃんの爪まわりに使うケア用品"
         if "nasal_aspirator" in features:
-            return "鼻まわりのケアに使うアイテム"
+            return attributes.short_product_label
         if "thermometer" in features:
             return "毎日の体調確認に使う体温計"
         return attributes.short_product_label
@@ -1597,8 +1601,8 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
         elif "nasal_aspirator" in features:
             title = "鼻まわりのケアを後回しにしない"
             problem = "鼻まわりのケアが必要な時に、使う物が決まっていないと支度だけで手間取りますよね。"
-            scene = f"{feature}なら、鼻まわりのケアに使うアイテムを一つに決めやすくなります。"
-            closing = "対象月齢やお手入れ方法を見て選べば、ケア前に迷う時間を減らせるアイテムです。"
+            scene = f"{feature}なら、鼻水吸引に使うノズルを一つに決めやすく、必要な時に取り出しやすくなります。"
+            closing = "対応機種やノズルの長さ、お手入れ方法を見て選べば、鼻まわりのケア前に部品を探す手間を減らせるアイテムです。"
         else:
             title = "お風呂上がりのケアを迷わない"
             problem = "お風呂上がりは着替えや片づけも重なり、赤ちゃんを待たせながら保湿に使う物を探す時間があると慌ただしいですよね。"
