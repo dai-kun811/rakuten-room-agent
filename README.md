@@ -44,6 +44,8 @@
 8. 商品タイプ、属性、文章、タグ、重複をハードチェック
 9. 問題があれば別patternで最大5回再生成
 10. `ready`または`needs_review`としてSheetsへ追記
+11. `ROOM_AUTO_POST=true`の場合、`ready`だけを楽天ROOMへブラウザ投稿
+12. 投稿前に`ROOM_Post_Log`へURLを予約し、同じ商品を二重投稿しない
 
 `needs_review`は自動投稿候補として扱わず、エージェント側で原因を特定して改善する対象にしてください。
 
@@ -63,6 +65,7 @@
 |---|---|
 | `RAKUTEN_ACCESS_KEY` | 楽天最新版APIのアクセスキー |
 | `RAKUTEN_REFERER` | 楽天アプリ設定と一致するReferer |
+| `ROOM_AUTH_STATE_B64` | 楽天ROOMへログイン済みのPlaywright認証状態（Base64） |
 
 ### GitHub Variables
 
@@ -71,9 +74,48 @@
 | `SHEET_NAME` | `Sheet1` | 既存URLの参照元 |
 | `OUTPUT_SHEET_NAME` | `最新版_ROOM投稿_2026-06-19以降` | 34列形式の最新版出力先 |
 | `ENABLE_RELAXED_FALLBACK` | `true` | 商品選定条件の段階緩和 |
+| `ROOM_AUTO_POST` | `false` | `true`で`ready`投稿の完全自動投稿を有効化 |
+| `ROOM_POST_LOG_SHEET_NAME` | `ROOM_Post_Log` | 投稿予約・成功・失敗を記録するシート |
 
 `OPENAI_API_KEY`と`OPENAI_MODEL`は通常運用に不要です。GitHubに残っていても
 workflowからプロセスへ渡さないため、APIは呼ばれません。
+
+## 楽天ROOMへの完全自動投稿
+
+自動投稿は、品質ゲートを通過した`ready`行だけを対象にします。`needs_review`は投稿しません。
+GitHub Actionsの同時実行を禁止し、投稿前に正規化URLを`ROOM_Post_Log`へ`reserved`として
+記録します。ブラウザ操作が失敗した場合も同じURLを自動再投稿しないため、外部投稿の
+重複を避けられます。失敗行を再試行する場合は、原因を確認してから対象URLのログ行を
+手動で削除してください。
+
+### 初回ログイン設定
+
+認証状態には楽天アカウントの操作権限が含まれます。ファイル内容を画面・ログへ表示せず、
+リポジトリへ追加しないでください。
+
+```powershell
+& 'C:\Program Files\LibreOffice\program\python.exe' -m pip install -r requirements.txt
+& 'C:\Program Files\LibreOffice\program\python.exe' -m playwright install chromium
+& 'C:\Program Files\LibreOffice\program\python.exe' src\room_auth_setup.py
+```
+
+開いたブラウザで楽天ROOMへログインすると、次の2ファイルがユーザーディレクトリ配下へ
+保存されます。
+
+```text
+%USERPROFILE%\.rakuten-room\storage-state.json
+%USERPROFILE%\.rakuten-room\storage-state.b64
+```
+
+`storage-state.b64`の内容をGitHub Actions Secret `ROOM_AUTH_STATE_B64`へ登録した後、
+GitHub Actions Variable `ROOM_AUTO_POST`を`true`にします。認証期限が切れた場合は同じ手順で
+Secretを更新してください。
+
+### 投稿結果
+
+- `ROOM_Post_Log`: `reserved`、`posted`、`failed`を追記
+- `reports/room_post_report.json`: 実行ID、URL、投稿結果のみを保存
+- 認証Cookie、パスワード、Secret値はレポートやログへ出力しない
 
 ## 商品属性モデル
 

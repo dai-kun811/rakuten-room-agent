@@ -38,6 +38,21 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(client.read_values("Sheet1!A1:A1"), [["header"]])
         request.execute.assert_called_once_with(num_retries=GOOGLE_READ_RETRIES)
 
+    def test_room_post_log_returns_reserved_urls(self) -> None:
+        client = SheetsClient.__new__(SheetsClient)
+        client.read_values = MagicMock(
+            return_value=[
+                ["日時", "実行ID", "正規化URL", "状態", "詳細", "商品名"],
+                ["2026-06-28", "run1", "https://item.rakuten.co.jp/shop/item/?x=1", "reserved"],
+                ["2026-06-28", "run1", "", "failed"],
+            ]
+        )
+
+        self.assertEqual(
+            client.read_reserved_room_urls("ROOM_Post_Log"),
+            {"https://item.rakuten.co.jp/shop/item"},
+        )
+
     def test_row_matches_requested_columns(self) -> None:
         scored = score_product(
             Product(

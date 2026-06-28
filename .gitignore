@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.json
+*.b64
 !tests/fixtures/*.json
 .pytest_cache/
 .venv/

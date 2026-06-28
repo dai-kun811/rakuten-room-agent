@@ -10,6 +10,7 @@
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-06-28: `ready`行をPlaywrightで楽天ROOMへ投稿する完全自動投稿を実装。`ROOM_Post_Log`への事前予約で二重投稿を防ぎ、認証状態は`ROOM_AUTH_STATE_B64` Secretだけで渡す。初回は`room_auth_setup.py`で手動ログインが必要。
 - 2026-06-28: 楽天の商品説明欄に混在する関連商品語で商品タイプと特徴が汚染される問題を修正。分類・固定ルール生成の根拠を商品名・カテゴリ・キャッチコピーへ限定し、鼻水吸引器用ノズルの専用文面、ホワイトノイズ機の優先分類、オムツ用ゴミ箱の除外と回帰テストを追加。Google Sheets の読み取りタイムアウトには3回まで再試行する。
 - 2026-06-23: 本拠地統合に伴い `C:\Projects\rakuten-room` → `C:\Users\daiku\ai-company\projects\rakuten-room` へ移設。
 - Codex向け `AGENTS.md` を新設（会社ルール・運用ガイド・移設情報）。
