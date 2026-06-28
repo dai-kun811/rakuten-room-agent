@@ -9,6 +9,7 @@ from scoring import ScoredProduct
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_REVIEW_SHEET_NAME = "ROOM_Posts_Review"
+GOOGLE_READ_RETRIES = 3
 
 SHEET_HEADERS = [
     "日付",
@@ -104,7 +105,7 @@ class SheetsClient:
         metadata = (
             self.service.spreadsheets()
             .get(spreadsheetId=self.spreadsheet_id, fields="sheets.properties.title")
-            .execute()
+            .execute(num_retries=GOOGLE_READ_RETRIES)
         )
         titles = {
             sheet.get("properties", {}).get("title", "")
@@ -213,7 +214,7 @@ class SheetsClient:
             self.service.spreadsheets()
             .values()
             .get(spreadsheetId=self.spreadsheet_id, range=range_name)
-            .execute()
+            .execute(num_retries=GOOGLE_READ_RETRIES)
         )
         return response.get("values", [])
 

@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -10,7 +11,9 @@ from rakuten_api import Product
 from fixed_rule_generator import FixedRulePostGenerator, GenerationContext
 from scoring import score_product
 from sheets import (
+    GOOGLE_READ_RETRIES,
     SHEET_HEADERS,
+    SheetsClient,
     error_row,
     normalize_product_url,
     scored_product_to_row,
@@ -19,6 +22,22 @@ from sheets import (
 
 
 class SheetsTest(unittest.TestCase):
+    def test_read_values_retries_transient_google_timeouts(self) -> None:
+        request = MagicMock()
+        request.execute.return_value = {"values": [["header"]]}
+        values_resource = MagicMock()
+        values_resource.get.return_value = request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        self.assertEqual(client.read_values("Sheet1!A1:A1"), [["header"]])
+        request.execute.assert_called_once_with(num_retries=GOOGLE_READ_RETRIES)
+
     def test_row_matches_requested_columns(self) -> None:
         scored = score_product(
             Product(
