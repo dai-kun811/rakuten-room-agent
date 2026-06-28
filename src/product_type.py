@@ -118,6 +118,12 @@ def contains_any(text: str, words: list[str]) -> bool:
 
 def classify_room_product_type(product: Product) -> str:
     text = product.identity_text
+    if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
+        text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
+    ):
+        return "sleep_light"
+    if contains_any(text, ["ゴミ箱", "ごみ箱", "ダストボックス", "おむつ入れ", "オムツ入れ"]):
+        return "unknown"
     if "ベビーカー" in text and ("バッグ" in text or "収納" in text):
         return "stroller_storage"
     if ("積み木" in text or "つみき" in text) and (

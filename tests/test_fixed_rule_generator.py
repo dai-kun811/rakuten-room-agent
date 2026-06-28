@@ -233,6 +233,23 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         )
         self.assertEqual(generated.status, "ready", generated.quality_errors)
 
+    def test_specific_sleep_light_beats_generic_baby_sleep_terms(self) -> None:
+        product = replace(
+            product_for("sleep_light"),
+            name="ホワイトノイズマシン ベッドライト 授乳ライト",
+            catchcopy="ナイトライト コードレス タイマー付き",
+        )
+        self.assertEqual(classify_product_type(product), "sleep_light")
+
+    def test_diaper_compatible_trash_bin_is_not_paper_diaper(self) -> None:
+        product = replace(
+            product_for("diaper"),
+            name="ふた付き ゴミ箱 ダストボックス オムツ入れ 収納ボックス",
+            caption="おもちゃ箱 洗濯カゴ オムツ入れ",
+            catchcopy="ふた付きバケツ 10L",
+        )
+        self.assertEqual(classify_product_type(product), "unknown")
+
     def test_wooden_toy_non_blocks_do_not_become_wooden_blocks(self) -> None:
         cases = [
             ("木製手押し車", "baby_walker_toy"),
