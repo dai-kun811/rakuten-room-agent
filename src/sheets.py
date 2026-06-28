@@ -9,17 +9,7 @@ from scoring import ScoredProduct
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_REVIEW_SHEET_NAME = "ROOM_Posts_Review"
-DEFAULT_ROOM_POST_LOG_SHEET_NAME = "ROOM_Post_Log"
 GOOGLE_READ_RETRIES = 3
-
-ROOM_POST_LOG_HEADERS = [
-    "日時",
-    "実行ID",
-    "正規化URL",
-    "状態",
-    "詳細",
-    "商品名",
-]
 
 SHEET_HEADERS = [
     "日付",
@@ -110,17 +100,6 @@ class SheetsClient:
                 "既存データを保護するため上書きしません。OUTPUT_SHEET_NAME に新しいシート名を指定してください。"
             )
         self.update_row(f"{sheet_name}!A1:AH1", SHEET_HEADERS)
-
-    def ensure_room_post_log(self, sheet_name: str) -> None:
-        self.ensure_sheet_exists(sheet_name)
-        values = self.read_values(f"{sheet_name}!A1:F1")
-        if values and values[0] == ROOM_POST_LOG_HEADERS:
-            return
-        if values and any(cell for cell in values[0]):
-            raise RuntimeError(
-                f"投稿ログシート {sheet_name} に別形式のヘッダーがあります。"
-            )
-        self.update_row(f"{sheet_name}!A1:F1", ROOM_POST_LOG_HEADERS)
 
     def ensure_sheet_exists(self, sheet_name: str) -> None:
         metadata = (
@@ -238,36 +217,6 @@ class SheetsClient:
             .execute(num_retries=GOOGLE_READ_RETRIES)
         )
         return response.get("values", [])
-
-    def read_reserved_room_urls(self, sheet_name: str) -> set[str]:
-        values = self.read_values(f"{sheet_name}!A:F")
-        if not values:
-            return set()
-        url_index = header_index(values[0], "正規化URL")
-        if url_index is None:
-            return set()
-        return {
-            normalize_product_url(str(row[url_index]).strip())
-            for row in values[1:]
-            if len(row) > url_index and str(row[url_index]).strip().startswith("http")
-        }
-
-    def append_room_post_event(
-        self,
-        sheet_name: str,
-        *,
-        executed_at: str,
-        run_id: str,
-        normalized_url: str,
-        status: str,
-        detail: str,
-        product_name: str,
-    ) -> None:
-        self.append_rows(
-            sheet_name,
-            [[executed_at, run_id, normalized_url, status, detail[:500], product_name]],
-        )
-
 
 def scored_product_to_row(
     item: ScoredProduct,

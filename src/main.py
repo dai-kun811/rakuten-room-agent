@@ -19,11 +19,6 @@ from fixed_rule_generator import (
 )
 from generation_report import GenerationReportItem, write_generation_reports
 from rakuten_api import Product, RakutenApiClient, rotating_categories
-from room_poster import (
-    RoomPostResult,
-    post_ready_items,
-    write_room_post_report,
-)
 from scoring import (
     ScoredProduct,
     build_selection_tiers_from_env,
@@ -33,7 +28,6 @@ from scoring import (
 )
 from sheets import (
     DEFAULT_REVIEW_SHEET_NAME,
-    DEFAULT_ROOM_POST_LOG_SHEET_NAME,
     SheetsClient,
     normalize_product_url,
     scored_product_to_row,
@@ -249,28 +243,6 @@ def main() -> int:
             review_sheet_name,
             len(review_rows),
         )
-        post_results: list[RoomPostResult] = []
-        if env_flag("ROOM_AUTO_POST"):
-            post_results = post_ready_items(
-                report_items,
-                sheets_client=sheets_client,
-                run_id=run_id,
-                executed_at=now,
-                log_sheet_name=os.getenv(
-                    "ROOM_POST_LOG_SHEET_NAME",
-                    DEFAULT_ROOM_POST_LOG_SHEET_NAME,
-                ),
-                auth_state_b64=get_required_env("ROOM_AUTH_STATE_B64"),
-                headless=env_flag("ROOM_HEADLESS", default=True),
-            )
-            write_room_post_report(
-                Path("reports"),
-                run_id=run_id,
-                executed_at=now,
-                results=post_results,
-            )
-            if any(result.status == "failed" for result in post_results):
-                return 1
         return 0
     except Exception:
         LOGGER.exception("処理中にエラーが発生しました run_id=%s", run_id)
@@ -360,11 +332,6 @@ def get_required_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"必須の環境変数が設定されていません: {name}")
     return value
-
-
-def env_flag(name: str, *, default: bool = False) -> bool:
-    fallback = "true" if default else "false"
-    return os.getenv(name, fallback).strip().lower() in {"1", "true", "yes", "on"}
 
 
 if __name__ == "__main__":

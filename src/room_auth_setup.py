@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 from pathlib import Path
 
@@ -39,14 +38,8 @@ def main() -> int:
         context.close()
         browser.close()
 
-    encoded_path = output.with_suffix(".b64")
-    encoded_path.write_text(
-        base64.b64encode(output.read_bytes()).decode("ascii"),
-        encoding="ascii",
-    )
     print(f"認証状態を保存しました: {output}")
-    print(f"GitHub Secret登録用ファイル: {encoded_path}")
-    print("両ファイルは機密情報です。リポジトリへ追加しないでください。")
+    print("このファイルは機密情報です。リポジトリへ追加しないでください。")
     return 0
 
 

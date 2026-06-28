@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import base64
-import binascii
-import json
-import logging
 import re
-from dataclasses import asdict, dataclass
-from datetime import datetime
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, Iterable
-
-from sheets import normalize_product_url
-
-
-LOGGER = logging.getLogger("rakuten-room-agent")
 
 
 class RoomPostError(RuntimeError):
@@ -47,114 +36,12 @@ SUBMIT_SELECTORS = (
 SUCCESS_PATTERN = re.compile(r"投稿しました|投稿が完了|投稿完了")
 
 
-def decode_storage_state(encoded: str) -> dict[str, Any]:
-    if not encoded or not encoded.strip():
-        raise RoomPostError("ROOM_AUTH_STATE_B64 が未設定です。")
-    try:
-        raw = base64.b64decode(encoded.strip(), validate=True)
-        state = json.loads(raw.decode("utf-8"))
-    except (ValueError, binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise RoomPostError("ROOM_AUTH_STATE_B64 の形式が不正です。") from exc
-    if not isinstance(state, dict) or not isinstance(state.get("cookies"), list):
-        raise RoomPostError("ROOM_AUTH_STATE_B64 に有効なブラウザ認証状態がありません。")
-    return state
-
-
 def build_room_comment(body: str, hashtags: Iterable[str]) -> str:
     clean_body = body.strip()
     clean_tags = " ".join(tag.strip() for tag in hashtags if tag.strip())
     if not clean_body:
         raise RoomPostError("投稿本文が空です。")
     return f"{clean_body}\n\n{clean_tags}" if clean_tags else clean_body
-
-
-def post_ready_items(
-    report_items: list[Any],
-    *,
-    sheets_client: Any,
-    run_id: str,
-    executed_at: datetime,
-    log_sheet_name: str,
-    auth_state_b64: str,
-    headless: bool,
-) -> list[RoomPostResult]:
-    ready_items = [item for item in report_items if item.generated.status == "ready"]
-    if not ready_items:
-        LOGGER.info("ROOM自動投稿対象なし run_id=%s", run_id)
-        return []
-
-    sheets_client.ensure_room_post_log(log_sheet_name)
-    reserved_urls = sheets_client.read_reserved_room_urls(log_sheet_name)
-    poster = RoomPoster(decode_storage_state(auth_state_b64), headless=headless)
-    results: list[RoomPostResult] = []
-    timestamp = executed_at.isoformat()
-
-    for item in ready_items:
-        product = item.scored.product
-        normalized_url = normalize_product_url(product.url)
-        if normalized_url in reserved_urls:
-            LOGGER.info("ROOM自動投稿スキップ run_id=%s url=%s reason=reserved", run_id, normalized_url)
-            results.append(
-                RoomPostResult(
-                    product_url=normalized_url,
-                    status="skipped",
-                    detail="投稿ログに予約済みURLがあります。",
-                )
-            )
-            continue
-
-        sheets_client.append_room_post_event(
-            log_sheet_name,
-            executed_at=timestamp,
-            run_id=run_id,
-            normalized_url=normalized_url,
-            status="reserved",
-            detail="投稿前予約",
-            product_name=product.name,
-        )
-        reserved_urls.add(normalized_url)
-        try:
-            comment = build_room_comment(item.generated.body, item.generated.hashtags)
-            poster.post(product.url, comment)
-            sheets_client.append_room_post_event(
-                log_sheet_name,
-                executed_at=timestamp,
-                run_id=run_id,
-                normalized_url=normalized_url,
-                status="posted",
-                detail="ROOM投稿完了",
-                product_name=product.name,
-            )
-            LOGGER.info("ROOM自動投稿完了 run_id=%s url=%s", run_id, normalized_url)
-            results.append(RoomPostResult(product_url=normalized_url, status="posted"))
-        except Exception as exc:
-            detail = str(exc) if isinstance(exc, RoomPostError) else type(exc).__name__
-            try:
-                sheets_client.append_room_post_event(
-                    log_sheet_name,
-                    executed_at=timestamp,
-                    run_id=run_id,
-                    normalized_url=normalized_url,
-                    status="failed",
-                    detail=detail,
-                    product_name=product.name,
-                )
-            except Exception:
-                LOGGER.error("ROOM投稿失敗ログの追記にも失敗しました run_id=%s url=%s", run_id, normalized_url)
-            LOGGER.error(
-                "ROOM自動投稿失敗 run_id=%s url=%s error=%s",
-                run_id,
-                normalized_url,
-                detail,
-            )
-            results.append(
-                RoomPostResult(
-                    product_url=normalized_url,
-                    status="failed",
-                    detail=detail,
-                )
-            )
-    return results
 
 
 class RoomPoster:
@@ -241,24 +128,3 @@ class RoomPoster:
             raise
         except Exception:
             return
-
-
-def write_room_post_report(
-    output_dir: Path,
-    *,
-    run_id: str,
-    executed_at: datetime,
-    results: list[RoomPostResult],
-) -> Path:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "room_post_report.json"
-    payload = {
-        "run_id": run_id,
-        "executed_at": executed_at.isoformat(),
-        "posted": sum(result.status == "posted" for result in results),
-        "failed": sum(result.status == "failed" for result in results),
-        "skipped": sum(result.status == "skipped" for result in results),
-        "results": [asdict(result) for result in results],
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
