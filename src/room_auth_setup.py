@@ -1,45 +1,68 @@
 from __future__ import annotations
 
 import argparse
-import json
+import os
+import subprocess
 from pathlib import Path
+
+
+ROOM_URL = "https://room.rakuten.co.jp/"
+
+
+def find_chrome() -> Path:
+    candidates = (
+        Path(os.environ.get("PROGRAMFILES", ""))
+        / "Google"
+        / "Chrome"
+        / "Application"
+        / "chrome.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", ""))
+        / "Google"
+        / "Chrome"
+        / "Application"
+        / "chrome.exe",
+        Path(os.environ.get("LOCALAPPDATA", ""))
+        / "Google"
+        / "Chrome"
+        / "Application"
+        / "chrome.exe",
+    )
+    chrome = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if chrome is None:
+        raise RuntimeError("Google Chromeが見つかりません。")
+    return chrome
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="楽天ROOMへ手動ログインし、Playwright認証状態をローカル保存します。"
+        description="通常のGoogle Chromeで楽天ROOMへ手動ログインします。"
     )
     parser.add_argument(
-        "--output",
-        default=str(Path.home() / ".rakuten-room" / "storage-state.json"),
+        "--profile-dir",
+        default=str(Path.home() / ".rakuten-room" / "chrome-profile"),
     )
     args = parser.parse_args()
-    output = Path(args.output).expanduser().resolve()
-    output.parent.mkdir(parents=True, exist_ok=True)
+    profile_dir = Path(args.profile_dir).expanduser().resolve()
+    profile_dir.mkdir(parents=True, exist_ok=True)
 
-    from playwright.sync_api import sync_playwright
+    print("開いた通常のChromeで楽天ROOMへログインしてください。")
+    print("my ROOMが表示されたら、この専用Chromeをすべて閉じてください。")
+    subprocess.run(
+        [
+            str(find_chrome()),
+            f"--user-data-dir={profile_dir}",
+            "--no-first-run",
+            ROOM_URL,
+        ],
+        check=True,
+    )
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=False)
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto("https://room.rakuten.co.jp/", wait_until="domcontentloaded")
-        print("開いたブラウザで楽天ROOMへログインしてください。")
-        input("my ROOMが表示されたら Enter を押してください: ")
-        if "login" in page.url.lower() or "signin" in page.url.lower():
-            raise RuntimeError("ログイン完了を確認できません。認証状態は保存しません。")
-        state = context.storage_state()
-        if not state.get("cookies"):
-            raise RuntimeError("ログインCookieを確認できません。認証状態は保存しません。")
-        output.write_text(
-            json.dumps(state, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        context.close()
-        browser.close()
+    if not (profile_dir / "Default" / "Cookies").exists():
+        raise RuntimeError("Chromeプロファイルを確認できません。")
 
-    print(f"認証状態を保存しました: {output}")
-    print("このファイルは機密情報です。リポジトリへ追加しないでください。")
+    print(f"ブラウザプロファイルを保存しました: {profile_dir}")
+    print("投稿なしの認証確認には room_auth_probe.py を実行してください。")
+    print("このフォルダは機密情報です。リポジトリへ追加しないでください。")
     return 0
 
 

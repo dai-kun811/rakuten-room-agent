@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable
 
 
@@ -17,6 +18,7 @@ class RoomPostResult:
 
 
 ROOM_TRIGGER_SELECTORS = (
+    '[irc="RoomShareButton"] a[href*="room.rakuten.co.jp/mix"]',
     '[irc="RoomShareButton"]',
     'a[href*="room.rakuten.co.jp"][href*="post"]',
     'a[href*="room.rakuten.co.jp"][href*="collect"]',
@@ -29,6 +31,7 @@ COMMENT_SELECTORS = (
     'textarea',
 )
 SUBMIT_SELECTORS = (
+    'button:has-text("完了")',
     'button:has-text("投稿する")',
     'input[type="submit"][value*="投稿"]',
     'button[type="submit"]:has-text("投稿")',
@@ -47,12 +50,12 @@ def build_room_comment(body: str, hashtags: Iterable[str]) -> str:
 class RoomPoster:
     def __init__(
         self,
-        storage_state: dict[str, Any],
         *,
+        user_data_dir: Path | str,
         headless: bool = True,
         timeout_ms: int = 30_000,
     ) -> None:
-        self.storage_state = storage_state
+        self.user_data_dir = Path(user_data_dir).expanduser().resolve()
         self.headless = headless
         self.timeout_ms = timeout_ms
 
@@ -61,8 +64,12 @@ class RoomPoster:
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=self.headless)
-            context = browser.new_context(storage_state=self.storage_state)
+            self.user_data_dir.mkdir(parents=True, exist_ok=True)
+            context = playwright.chromium.launch_persistent_context(
+                str(self.user_data_dir),
+                channel="chrome",
+                headless=self.headless,
+            )
             page = context.new_page()
             page.set_default_timeout(self.timeout_ms)
             try:
@@ -72,10 +79,19 @@ class RoomPoster:
                 if trigger is None:
                     raise RoomPostError("楽天商品ページにROOM投稿ボタンが見つかりません。")
 
-                pages_before = len(context.pages)
-                trigger.click()
-                page.wait_for_timeout(1_000)
-                target = context.pages[-1] if len(context.pages) > pages_before else page
+                trigger_href = trigger.get_attribute("href")
+                if trigger_href:
+                    page.goto(trigger_href, wait_until="domcontentloaded")
+                    target = page
+                else:
+                    pages_before = len(context.pages)
+                    trigger.click(force=True)
+                    page.wait_for_timeout(1_000)
+                    target = (
+                        context.pages[-1]
+                        if len(context.pages) > pages_before
+                        else page
+                    )
                 target.set_default_timeout(self.timeout_ms)
                 target.wait_for_load_state("domcontentloaded")
                 self._assert_authenticated(target)
@@ -102,7 +118,6 @@ class RoomPoster:
                 return RoomPostResult(product_url=product_url, status="posted")
             finally:
                 context.close()
-                browser.close()
 
     @staticmethod
     def _first_visible(page: Any, selectors: Iterable[str]) -> Any | None:

@@ -21,7 +21,7 @@ DEFAULT_GIT = Path(
     r"C:\Users\daiku\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd\git.exe"
 )
 STATE_DIR = Path.home() / ".rakuten-room"
-AUTH_STATE_PATH = STATE_DIR / "storage-state.json"
+PROFILE_DIR = STATE_DIR / "chrome-profile"
 LEDGER_PATH = STATE_DIR / "post-ledger.jsonl"
 LOG_PATH = STATE_DIR / "worker.log"
 
@@ -155,12 +155,11 @@ def configure_logging() -> None:
 def main() -> int:
     configure_logging()
     logger = logging.getLogger("local-room-worker")
-    if not AUTH_STATE_PATH.exists():
-        logger.error("ROOM authentication state is missing.")
+    if not PROFILE_DIR.exists():
+        logger.error("ROOM browser profile is missing.")
         return 1
 
     try:
-        storage_state = json.loads(AUTH_STATE_PATH.read_text(encoding="utf-8"))
         token = github_token()
         import requests
 
@@ -186,7 +185,7 @@ def main() -> int:
         if not candidates:
             return 0
 
-        poster = RoomPoster(storage_state, headless=True)
+        poster = RoomPoster(user_data_dir=PROFILE_DIR, headless=True)
         failures = 0
         for item in candidates:
             normalized_url = normalize_product_url(item["product_url"])
