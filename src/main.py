@@ -36,6 +36,8 @@ from sheets import (
 
 JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
+TARGET_READY_POSTS = 5
+
 
 
 def main() -> int:
@@ -147,8 +149,13 @@ def main() -> int:
         tiers = build_selection_tiers_from_env()
         filter_counts = count_filter_results(deduped_products, tiers)
         LOGGER.info("選定条件別の候補数 run_id=%s counts=%s", run_id, filter_counts)
-        candidates = select_products(deduped_products, today, tiers, limit=15)
-        selected_products = diversify_products(candidates, recent_history, limit=5)
+        candidates = select_products(
+            deduped_products,
+            today,
+            tiers,
+            limit=len(deduped_products),
+        )
+        selected_products = diversify_products(candidates, recent_history, limit=len(candidates))
         if not selected_products:
             top_products = score_all_products(deduped_products, today)[:3]
             details = [
@@ -177,12 +184,13 @@ def main() -> int:
         ready_rows: list[list[object]] = []
         review_rows: list[list[object]] = []
         report_items: list[GenerationReportItem] = []
-        for item in selected_products:
-            generated = generator.generate(
-                item,
-                context=context,
-                season="",
-            )
+        generation_results = generate_until_ready(
+            selected_products,
+            generator=generator,
+            context=context,
+            target_ready=TARGET_READY_POSTS,
+        )
+        for item, generated in generation_results:
             LOGGER.info(
                 "投稿生成結果 run_id=%s product=%s score=%s demand=%s type=%s axis=%s pattern=%s quality=%s rewrites=%s status=%s generation_mode=%s quality_errors=%s",
                 run_id,
@@ -221,6 +229,15 @@ def main() -> int:
                     write_sheet=write_sheet,
                     duplicate_result=generated.duplicate_result,
                 )
+            )
+        if len(ready_rows) < TARGET_READY_POSTS:
+            LOGGER.warning(
+                "投稿目標未達 run_id=%s target_ready=%s ready_rows=%s reviewed_candidates=%s total_candidates=%s",
+                run_id,
+                TARGET_READY_POSTS,
+                len(ready_rows),
+                len(generation_results),
+                len(selected_products),
             )
 
         write_generation_reports(
@@ -314,7 +331,35 @@ def diversify_products(
 
     add_with_type_limit(1)
     add_with_type_limit(2)
+    for item in ranked:
+        if len(selected) >= limit:
+            break
+        if item not in selected:
+            selected.append(item)
     return selected
+
+
+def generate_until_ready(
+    candidates: list[ScoredProduct],
+    *,
+    generator: FixedRulePostGenerator,
+    context: GenerationContext,
+    target_ready: int,
+):
+    results = []
+    ready_count = 0
+    for item in candidates:
+        generated = generator.generate(
+            item,
+            context=context,
+            season="",
+        )
+        results.append((item, generated))
+        if generated.status == "ready":
+            ready_count += 1
+            if ready_count >= target_ready:
+                break
+    return results
 
 
 def normalize_product_name(name: str) -> str:
