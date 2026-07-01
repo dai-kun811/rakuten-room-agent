@@ -38,6 +38,33 @@ class LocalRoomWorkerTest(unittest.TestCase):
                 {"https://item.rakuten.co.jp/shop/item"},
             )
 
+    def test_retry_failed_details_only_reopens_matching_failure(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.jsonl"
+            events = [
+                {"normalized_url": "https://example.com/retry", "status": "reserved"},
+                {
+                    "normalized_url": "https://example.com/retry",
+                    "status": "failed",
+                    "detail": "ModuleNotFoundError",
+                },
+                {
+                    "normalized_url": "https://example.com/keep",
+                    "status": "failed",
+                    "detail": "投稿後の完了表示を確認できませんでした。",
+                },
+            ]
+            path.write_text(
+                "".join(json.dumps(event, ensure_ascii=False) + "\n" for event in events),
+                encoding="utf-8",
+            )
+
+            reserved = load_reserved_urls(
+                path,
+                retry_failed_details={"ModuleNotFoundError"},
+            )
+            self.assertEqual(reserved, {"https://example.com/keep"})
+
     def test_ledger_event_is_json_without_auth_material(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "ledger.jsonl"

@@ -95,6 +95,7 @@ class RoomPoster:
                 target.set_default_timeout(self.timeout_ms)
                 target.wait_for_load_state("domcontentloaded")
                 self._assert_authenticated(target)
+                self._wait_for_item_name(target)
 
                 textarea = self._first_visible(target, COMMENT_SELECTORS)
                 if textarea is None:
@@ -105,7 +106,19 @@ class RoomPoster:
                 if submit is None:
                     raise RoomPostError("ROOM投稿画面に投稿ボタンが見つかりません。")
                 form_url = target.url
-                submit.click()
+                response = None
+                try:
+                    with target.expect_response(
+                        lambda item: "api/collect" in item.url
+                        and item.request.method == "POST",
+                        timeout=self.timeout_ms,
+                    ) as response_info:
+                        submit.click()
+                    response = response_info.value
+                except PlaywrightTimeoutError:
+                    pass
+                if response is not None and self._response_confirms_post(response):
+                    return RoomPostResult(product_url=product_url, status="posted")
 
                 try:
                     target.get_by_text(SUCCESS_PATTERN).first.wait_for(state="visible")
@@ -113,7 +126,7 @@ class RoomPoster:
                     if target.is_closed():
                         return RoomPostResult(product_url=product_url, status="posted")
                     textarea_still_visible = self._first_visible(target, COMMENT_SELECTORS) is not None
-                    if target.url == form_url or textarea_still_visible:
+                    if target.url == form_url and textarea_still_visible:
                         raise RoomPostError("投稿後の完了表示を確認できませんでした。")
                 return RoomPostResult(product_url=product_url, status="posted")
             finally:
@@ -129,6 +142,43 @@ class RoomPoster:
             except Exception:
                 continue
         return None
+
+    @staticmethod
+    def _response_confirms_post(response: Any) -> bool:
+        if response.status != 200:
+            return False
+        try:
+            payload = response.json()
+        except Exception:
+            return False
+        return isinstance(payload, dict) and payload.get("status") == "success"
+
+    def _wait_for_item_name(self, page: Any) -> None:
+        try:
+            page.wait_for_function(
+                """
+                () => {
+                    const model = document.querySelector('[ng-model="item.name"]');
+                    if (model && typeof model.value === 'string' && model.value.trim()) {
+                        return true;
+                    }
+                    if (!window.angular) return false;
+                    for (const element of document.querySelectorAll('[ng-controller], [ng-app], form, body')) {
+                        try {
+                            const wrapped = window.angular.element(element);
+                            const scope = wrapped.scope?.() || wrapped.isolateScope?.();
+                            if (scope?.item?.name && String(scope.item.name).trim()) return true;
+                        } catch (_) {
+                            continue;
+                        }
+                    }
+                    return false;
+                }
+                """,
+                timeout=self.timeout_ms,
+            )
+        except Exception as exc:
+            raise RoomPostError("ROOM投稿画面の商品名読み込みを確認できませんでした。") from exc
 
     @staticmethod
     def _assert_authenticated(page: Any) -> None:

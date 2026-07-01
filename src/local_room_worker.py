@@ -118,10 +118,14 @@ def ready_items(report: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def load_reserved_urls(path: Path = LEDGER_PATH) -> set[str]:
+def load_reserved_urls(
+    path: Path = LEDGER_PATH,
+    *,
+    retry_failed_details: set[str] | None = None,
+) -> set[str]:
     if not path.exists():
         return set()
-    reserved: set[str] = set()
+    latest_events: dict[str, tuple[str, str]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -131,8 +135,16 @@ def load_reserved_urls(path: Path = LEDGER_PATH) -> set[str]:
             continue
         url = normalize_product_url(str(event.get("normalized_url", "")))
         if url:
-            reserved.add(url)
-    return reserved
+            latest_events[url] = (
+                str(event.get("status", "")),
+                str(event.get("detail", "")),
+            )
+    retry_failed_details = retry_failed_details or set()
+    return {
+        url
+        for url, (status, detail) in latest_events.items()
+        if not (status == "failed" and detail in retry_failed_details)
+    }
 
 
 def append_ledger_event(event: dict[str, Any], path: Path = LEDGER_PATH) -> None:
@@ -169,7 +181,12 @@ def main() -> int:
                 headers=github_headers(token),
             )
         items = ready_items(report)
-        reserved_urls = load_reserved_urls()
+        retry_failed_details = {
+            detail.strip()
+            for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
+            if detail.strip()
+        }
+        reserved_urls = load_reserved_urls(retry_failed_details=retry_failed_details)
         candidates = [
             item
             for item in items
