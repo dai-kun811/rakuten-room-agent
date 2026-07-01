@@ -119,6 +119,11 @@ CATEGORY_KEYWORDS = {
     "寝かしつけ用品": ["寝かしつけ グッズ", "授乳ライト ホワイトノイズ"],
     "ベビー用消耗品": ["おしりふき まとめ買い", "おむつ まとめ買い"],
 }
+CORE_POSTABLE_CATEGORIES = (
+    "知育玩具",
+    "寝かしつけ用品",
+    "ベビー用消耗品",
+)
 
 
 class RakutenApiClient:
@@ -399,11 +404,23 @@ class RakutenApiClient:
 
 
 def rotating_categories(target_date: date, category_limit: int) -> list[tuple[str, list[str]]]:
-    categories = list(CATEGORY_KEYWORDS.items())
-    if not categories or category_limit <= 0:
+    if not CATEGORY_KEYWORDS or category_limit <= 0:
         return []
-    start = ((target_date.toordinal() - 1) * category_limit) % len(categories)
-    return [
-        categories[(start + offset) % len(categories)]
-        for offset in range(min(category_limit, len(categories)))
+    core = [
+        (name, CATEGORY_KEYWORDS[name])
+        for name in CORE_POSTABLE_CATEGORIES
+        if name in CATEGORY_KEYWORDS
+    ][:category_limit]
+    rotating = [
+        item
+        for item in CATEGORY_KEYWORDS.items()
+        if item[0] not in CORE_POSTABLE_CATEGORIES
+    ]
+    remaining_limit = min(category_limit - len(core), len(rotating))
+    if remaining_limit <= 0:
+        return core
+    start = ((target_date.toordinal() - 1) * remaining_limit) % len(rotating)
+    return core + [
+        rotating[(start + offset) % len(rotating)]
+        for offset in range(remaining_limit)
     ]

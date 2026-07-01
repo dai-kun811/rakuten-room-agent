@@ -184,9 +184,13 @@ class RakutenApiTest(unittest.TestCase):
         first = [name for name, _ in rotating_categories(date(2026, 6, 13), 5)]
         second = [name for name, _ in rotating_categories(date(2026, 6, 14), 5)]
 
+        required = {"知育玩具", "寝かしつけ用品", "ベビー用消耗品"}
         self.assertEqual(len(first), 5)
         self.assertEqual(len(second), 5)
         self.assertNotEqual(first, second)
+        self.assertTrue(required.issubset(first), first)
+        self.assertTrue(required.issubset(second), second)
+        self.assertNotEqual(first[3:], second[3:])
 
     def test_429_retries_three_times_then_succeeds(self) -> None:
         session = FakeSession(
