@@ -17,10 +17,12 @@ from sheets import normalize_product_url
 
 JST_OFFSET = "+09:00"
 REPO_API = "https://api.github.com/repos/dai-kun811/rakuten-room-agent"
+DEFAULT_POST_WINDOWS = "morning:8-11,noon:11-16,evening:17-22"
 DEFAULT_GIT = Path(
     r"C:\Users\daiku\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd\git.exe"
 )
-STATE_DIR = Path.home() / ".rakuten-room"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+STATE_DIR = PROJECT_ROOT / ".local" / "room-worker"
 PROFILE_DIR = STATE_DIR / "chrome-profile"
 LEDGER_PATH = STATE_DIR / "post-ledger.jsonl"
 LOG_PATH = STATE_DIR / "worker.log"
@@ -118,6 +120,64 @@ def ready_items(report: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def parse_post_windows(value: str | None = None) -> list[tuple[str, int, int]]:
+    windows: list[tuple[str, int, int]] = []
+    for raw_window in (value or DEFAULT_POST_WINDOWS).split(","):
+        label, separator, hours = raw_window.strip().partition(":")
+        start_text, dash, end_text = hours.partition("-")
+        if not label or not separator or not dash:
+            raise ValueError(f"Invalid ROOM post window: {raw_window}")
+        start = int(start_text)
+        end = int(end_text)
+        if not (0 <= start < end <= 24):
+            raise ValueError(f"Invalid ROOM post hours: {raw_window}")
+        windows.append((label, start, end))
+    return windows
+
+
+def current_post_slot(
+    now: datetime | None = None,
+    *,
+    windows: list[tuple[str, int, int]] | None = None,
+) -> str:
+    local_now = now or datetime.now().astimezone()
+    for label, start, end in windows or parse_post_windows(
+        os.getenv("ROOM_POST_WINDOWS")
+    ):
+        if start <= local_now.hour < end:
+            return f"{local_now.date().isoformat()}:{label}"
+    return ""
+
+
+def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bool:
+    raw_timestamp = str(run.get("run_started_at") or run.get("created_at") or "")
+    if not raw_timestamp:
+        return False
+    try:
+        run_time = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    local_now = now or datetime.now().astimezone()
+    return run_time.astimezone(local_now.tzinfo).date() == local_now.date()
+
+
+def load_claimed_post_slots(path: Path = LEDGER_PATH) -> set[str]:
+    if not path.exists():
+        return set()
+    claimed: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        slot = str(event.get("post_slot", "")).strip()
+        if slot and event.get("status") in {"reserved", "posted", "failed"}:
+            claimed.add(slot)
+    return claimed
+
+
 def load_reserved_urls(
     path: Path = LEDGER_PATH,
     *,
@@ -202,9 +262,20 @@ def main() -> int:
         if not candidates:
             return 0
 
+        slot = current_post_slot()
+        if not slot:
+            logger.info("Outside configured ROOM post windows; no post attempted.")
+            return 0
+        if not actions_run_is_today(run):
+            logger.info("Latest successful workflow is not from today; no post attempted.")
+            return 0
+        if slot in load_claimed_post_slots():
+            logger.info("ROOM post slot already claimed slot=%s", slot)
+            return 0
+
         poster = RoomPoster(user_data_dir=PROFILE_DIR, headless=True)
         failures = 0
-        for item in candidates:
+        for item in candidates[:1]:
             normalized_url = normalize_product_url(item["product_url"])
             base_event = {
                 "timestamp": datetime.now().astimezone().isoformat(),
@@ -212,6 +283,7 @@ def main() -> int:
                 "report_run_id": report.get("run_id", ""),
                 "normalized_url": normalized_url,
                 "product_name": str(item.get("product_name", ""))[:200],
+                "post_slot": slot,
             }
             append_ledger_event({**base_event, "status": "reserved"})
             try:

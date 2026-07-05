@@ -83,14 +83,14 @@ Windowsのローカルワーカー`src/local_room_worker.py`が最新の成功�
 通過した`ready`だけを楽天ROOMへ投稿します。認証状態はPC内だけに保存し、GitHub Secretsへは
 送信しません。`needs_review`は投稿しません。
 
-投稿前に正規化URLを`%USERPROFILE%\.rakuten-room\post-ledger.jsonl`へ`reserved`として記録します。
+投稿前に正規化URLを`.local\room-worker\post-ledger.jsonl`へ`reserved`として記録します。
 ブラウザ操作が失敗した場合も同じURLを自動再投稿しないため、外部投稿の重複を避けられます。
 再試行する場合は原因を確認してから、対象URLの台帳行を手動で削除してください。
 
 ### 初回ログイン設定
 
 専用ブラウザプロファイルには楽天アカウントの操作権限が含まれます。内容を画面・ログへ
-表示せず、リポジトリへ追加しないでください。
+表示せず、Git管理対象外の`.local\room-worker`から移動しないでください。
 
 ```powershell
 python -m pip install -r requirements-room-poster.txt
@@ -100,10 +100,10 @@ python src\room_auth_setup.py
 自動制御されたブラウザでは楽天SSOが完了しないため、このコマンドは通常のGoogle Chromeを
 専用プロファイルで開きます。楽天ROOMへ手動ログインし、my ROOMが表示されたら専用Chromeを
 すべて閉じてください。Cookie・ローカルストレージ・IndexedDBを含む専用プロファイルが
-ユーザーディレクトリ配下へ保存されます。
+プロジェクト内のGit管理対象外領域へ保存されます。
 
 ```text
-%USERPROFILE%\.rakuten-room\chrome-profile\
+C:\Users\daiku\ai-company\projects\rakuten-room\.local\room-worker\chrome-profile\
 ```
 
 認証期限が切れた場合は同じ手順で専用プロファイルへ再ログインしてください。
@@ -114,14 +114,40 @@ python src\room_auth_setup.py
 python src\local_room_worker.py
 ```
 
-Windowsタスクスケジューラから1時間ごとに実行します。GitHub Actionsが遅延した場合も、
-新しい成功成果物が公開された後の次回実行で投稿されます。PCが起動しており、登録ユーザーの
-環境でタスクを実行できることが必要です。
+Windowsタスクスケジューラから朝・昼・晩に実行します。各時間帯は1件だけを投稿し、
+`post-ledger.jsonl`の`post_slot`で同じ時間帯の二重投稿を防ぎます。当日のGitHub Actions成功成果物
+だけを使うため、前日の未投稿候補を誤って投稿しません。PCが起動しており、登録ユーザーの環境で
+タスクを実行できることが必要です。既定時間帯は朝8:00〜10:59、昼11:00〜15:59、晩17:00〜21:59です。
+
+### フォロー・いいねを含む日次ルーティン
+
+`src/room_engagement_worker.py`はルーティン画面の候補を上から処理し、フォローといいねを各50件まで
+実行します。候補が不足した場合は画面に登録済みの公開検索から次の候補を補充します。操作結果は
+`engagement-ledger.jsonl`へ記録し、ルーティン画面の専用Chromeプロファイル内の進捗も更新します。
+ログイン画面や画像認証が表示された場合は、無理に続行せず停止します。
+
+実操作なしの確認:
+
+```powershell
+python src\room_engagement_worker.py
+```
+
+実操作あり:
+
+```powershell
+python src\room_engagement_worker.py --apply
+```
+
+タスク登録後の既定時刻は、フォロー・いいねが5:10、投稿が8:15・12:15・18:15です。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-room-daily-routine.ps1
+```
 
 ### 投稿結果
 
-- `%USERPROFILE%\.rakuten-room\post-ledger.jsonl`: `reserved`、`posted`、`failed`を追記
-- `%USERPROFILE%\.rakuten-room\worker.log`: 実行ID、URL、投稿結果のみを記録
+- `.local\room-worker\post-ledger.jsonl`: `reserved`、`posted`、`failed`を追記
+- `.local\room-worker\worker.log`: 実行ID、URL、投稿結果のみを記録
 - 認証Cookie、パスワード、トークンは台帳やログへ出力しない
 
 ## 商品属性モデル

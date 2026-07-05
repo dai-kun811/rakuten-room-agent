@@ -12,6 +12,14 @@ from room_poster import (
 )
 
 
+DEFAULT_PROFILE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / ".local"
+    / "room-worker"
+    / "chrome-profile"
+)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Verify the local Rakuten ROOM session without posting."
@@ -19,7 +27,7 @@ def main() -> int:
     parser.add_argument("product_url")
     parser.add_argument(
         "--profile-dir",
-        default=str(Path.home() / ".rakuten-room" / "chrome-profile"),
+        default=str(DEFAULT_PROFILE_DIR),
     )
     args = parser.parse_args()
 
