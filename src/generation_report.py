@@ -33,6 +33,7 @@ class GenerationReportItem:
     row: list[object]
     write_sheet: str
     duplicate_result: str
+    post_slot: str = ""
 
 
 def write_generation_reports(
@@ -45,6 +46,7 @@ def write_generation_reports(
     review_sheet_name: str,
     fetch_report: FetchReport | None,
     items: list[GenerationReportItem],
+    required_post_slots: tuple[str, ...] = (),
 ) -> list[Path]:
     report_dir.mkdir(parents=True, exist_ok=True)
     payload = build_report_payload(
@@ -55,6 +57,7 @@ def write_generation_reports(
         review_sheet_name=review_sheet_name,
         fetch_report=fetch_report,
         items=items,
+        required_post_slots=required_post_slots,
     )
     ensure_no_secret_fields(payload)
     json_path = report_dir / f"{REPORT_BASENAME}.json"
@@ -78,7 +81,13 @@ def build_report_payload(
     review_sheet_name: str,
     fetch_report: FetchReport | None,
     items: list[GenerationReportItem],
+    required_post_slots: tuple[str, ...] = (),
 ) -> dict[str, Any]:
+    ready_slots = [
+        item.post_slot
+        for item in items
+        if item.generated.status == "ready" and item.post_slot
+    ]
     return {
         "run_id": run_id,
         "executed_at": executed_at.isoformat(),
@@ -89,6 +98,11 @@ def build_report_payload(
         "sheet_columns": SHEET_HEADERS,
         "sheet_column_count": len(SHEET_HEADERS),
         "rakuten_fetch": fetch_summary(fetch_report),
+        "required_post_slots": list(required_post_slots),
+        "ready_slots": ready_slots,
+        "missing_post_slots": [
+            slot for slot in required_post_slots if slot not in ready_slots
+        ],
         "items": [report_item(item) for item in items],
     }
 
@@ -122,6 +136,7 @@ def report_item(item: GenerationReportItem) -> dict[str, Any]:
         "body": generated.body,
         "hashtags": generated.hashtags,
         "status": generated.status,
+        "post_slot": item.post_slot,
         "review_reasons": generated.quality_errors,
         "generation_mode": generated.generation_mode,
         "quality": {
@@ -206,6 +221,7 @@ def write_csv_report(path: Path, items: list[dict[str, Any]]) -> None:
         "body",
         "hashtags",
         "status",
+        "post_slot",
         "review_reasons",
         "generation_mode",
         "write_sheet",
@@ -235,6 +251,9 @@ def write_markdown_report(path: Path, payload: dict[str, Any]) -> None:
         f"- output_sheet_name: `{payload['output_sheet_name']}`",
         f"- review_sheet_name: `{payload['review_sheet_name']}`",
         f"- sheet_column_count: `{payload['sheet_column_count']}`",
+        f"- required_post_slots: `{', '.join(payload['required_post_slots'])}`",
+        f"- ready_slots: `{', '.join(payload['ready_slots'])}`",
+        f"- missing_post_slots: `{', '.join(payload['missing_post_slots'])}`",
         "",
     ]
     for index, item in enumerate(payload["items"], start=1):
@@ -246,6 +265,7 @@ def write_markdown_report(path: Path, payload: dict[str, Any]) -> None:
                 f"- product_type: `{item['product_type']}`",
                 f"- classification_keywords: `{', '.join(item['classification_keywords'])}`",
                 f"- status: `{item['status']}`",
+                f"- post_slot: `{item['post_slot']}`",
                 f"- write_sheet: `{item['write_sheet']}`",
                 f"- duplicate_result: `{item['duplicate_result']}`",
                 f"- review_reasons: `{', '.join(item['review_reasons'])}`",

@@ -112,11 +112,16 @@ def fetch_latest_generation_report(
     raise RuntimeError("room-generation-report artifact was not found.")
 
 
-def ready_items(report: dict[str, Any]) -> list[dict[str, Any]]:
+def ready_items(
+    report: dict[str, Any],
+    *,
+    post_slot: str | None = None,
+) -> list[dict[str, Any]]:
     return [
         item
         for item in report.get("items", [])
         if item.get("status") == "ready" and item.get("product_url") and item.get("body")
+        and (post_slot is None or item.get("post_slot") == post_slot)
     ]
 
 
@@ -231,6 +236,12 @@ def main() -> int:
         logger.error("ROOM browser profile is missing.")
         return 1
 
+    slot = current_post_slot()
+    if not slot:
+        logger.info("Outside configured ROOM post windows; no post attempted.")
+        return 0
+    slot_label = slot.rsplit(":", 1)[-1]
+
     try:
         token = github_token()
         import requests
@@ -240,7 +251,8 @@ def main() -> int:
                 session,
                 headers=github_headers(token),
             )
-        items = ready_items(report)
+        all_ready_items = ready_items(report)
+        items = ready_items(report, post_slot=slot_label)
         retry_failed_details = {
             detail.strip()
             for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
@@ -256,16 +268,13 @@ def main() -> int:
             "Latest run=%s report_run_id=%s ready=%s new=%s",
             run["id"],
             report.get("run_id", ""),
-            len(items),
+            len(all_ready_items),
             len(candidates),
         )
         if not candidates:
+            logger.info("No unposted ready item assigned to slot=%s", slot_label)
             return 0
 
-        slot = current_post_slot()
-        if not slot:
-            logger.info("Outside configured ROOM post windows; no post attempted.")
-            return 0
         if not actions_run_is_today(run):
             logger.info("Latest successful workflow is not from today; no post attempted.")
             return 0

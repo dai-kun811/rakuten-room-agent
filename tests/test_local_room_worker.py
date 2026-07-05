@@ -67,6 +67,34 @@ class LocalRoomWorkerTest(unittest.TestCase):
         }
         self.assertEqual([item["product_url"] for item in ready_items(report)], ["https://example.com/a"])
 
+    def test_ready_items_selects_only_the_assigned_post_slot(self) -> None:
+        report = {
+            "items": [
+                {
+                    "status": "ready",
+                    "post_slot": "morning",
+                    "product_url": "https://example.com/morning",
+                    "body": "朝",
+                },
+                {
+                    "status": "ready",
+                    "post_slot": "noon",
+                    "product_url": "https://example.com/noon",
+                    "body": "昼",
+                },
+                {
+                    "status": "ready",
+                    "product_url": "https://example.com/unassigned",
+                    "body": "未割当",
+                },
+            ]
+        }
+
+        self.assertEqual(
+            [item["product_url"] for item in ready_items(report, post_slot="noon")],
+            ["https://example.com/noon"],
+        )
+
     def test_ledger_reserves_url_before_posting(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "ledger.jsonl"

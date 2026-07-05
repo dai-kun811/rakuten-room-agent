@@ -167,12 +167,17 @@ class SheetsTest(unittest.TestCase):
                     row=row,
                     write_sheet="ROOM_Posts_v2",
                     duplicate_result="重複なし",
+                    post_slot="morning",
                 )
             ],
+            required_post_slots=("morning", "noon", "evening"),
         )
 
         ensure_no_secret_fields(payload)
         self.assertEqual(payload["sheet_column_count"], 34)
+        self.assertEqual(payload["ready_slots"], ["morning"])
+        self.assertEqual(payload["missing_post_slots"], ["noon", "evening"])
+        self.assertEqual(payload["items"][0]["post_slot"], "morning")
         self.assertEqual(payload["items"][0]["sheet_row_column_count"], 34)
         self.assertEqual(payload["items"][0]["write_sheet"], "ROOM_Posts_v2")
 

@@ -36,7 +36,8 @@ from sheets import (
 
 JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
-TARGET_READY_POSTS = 5
+POST_SLOTS = ("morning", "noon", "evening")
+TARGET_READY_POSTS = len(POST_SLOTS)
 
 
 
@@ -190,6 +191,11 @@ def main() -> int:
             context=context,
             target_ready=TARGET_READY_POSTS,
         )
+        all_slots_ready = (
+            sum(generated.status == "ready" for _, generated in generation_results)
+            == TARGET_READY_POSTS
+        )
+        ready_slot_index = 0
         for item, generated in generation_results:
             LOGGER.info(
                 "投稿生成結果 run_id=%s product=%s score=%s demand=%s type=%s axis=%s pattern=%s quality=%s rewrites=%s status=%s generation_mode=%s quality_errors=%s",
@@ -212,15 +218,15 @@ def main() -> int:
                 today=today,
                 run_id=run_id,
             )
-            write_sheet = target_sheet_for_status(
-                generated.status,
-                output_sheet_name=output_sheet_name,
-                review_sheet_name=review_sheet_name,
-            )
+            post_slot = ""
             if generated.status == "ready":
+                post_slot = POST_SLOTS[ready_slot_index]
+                ready_slot_index += 1
                 ready_rows.append(row)
+                write_sheet = output_sheet_name if all_slots_ready else ""
             else:
                 review_rows.append(row)
+                write_sheet = review_sheet_name
             report_items.append(
                 GenerationReportItem(
                     scored=item,
@@ -228,14 +234,17 @@ def main() -> int:
                     row=row,
                     write_sheet=write_sheet,
                     duplicate_result=generated.duplicate_result,
+                    post_slot=post_slot,
                 )
             )
-        if len(ready_rows) < TARGET_READY_POSTS:
-            LOGGER.warning(
-                "投稿目標未達 run_id=%s target_ready=%s ready_rows=%s reviewed_candidates=%s total_candidates=%s",
+        if not all_slots_ready:
+            missing_slots = POST_SLOTS[len(ready_rows):]
+            LOGGER.error(
+                "投稿枠目標未達 run_id=%s required_slots=%s ready_slots=%s missing_slots=%s reviewed_candidates=%s total_candidates=%s",
                 run_id,
-                TARGET_READY_POSTS,
-                len(ready_rows),
+                POST_SLOTS,
+                POST_SLOTS[:len(ready_rows)],
+                missing_slots,
                 len(generation_results),
                 len(selected_products),
             )
@@ -249,18 +258,22 @@ def main() -> int:
             review_sheet_name=review_sheet_name,
             fetch_report=fetch_report,
             items=report_items,
+            required_post_slots=POST_SLOTS,
         )
-        sheets_client.append_products(output_sheet_name, ready_rows)
+        sheets_client.append_products(
+            output_sheet_name,
+            ready_rows if all_slots_ready else [],
+        )
         sheets_client.append_products(review_sheet_name, review_rows)
         LOGGER.info(
             "Googleスプレッドシート追記完了 run_id=%s ready_sheet=%s ready_rows=%s review_sheet=%s review_rows=%s",
             run_id,
             output_sheet_name,
-            len(ready_rows),
+            len(ready_rows) if all_slots_ready else 0,
             review_sheet_name,
             len(review_rows),
         )
-        return 0
+        return 0 if all_slots_ready else 1
     except Exception:
         LOGGER.exception("処理中にエラーが発生しました run_id=%s", run_id)
         return 1

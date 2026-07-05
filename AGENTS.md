@@ -50,7 +50,7 @@
 
 ## プロジェクト概要（rakuten-room）
 
-- **何をするか**: 楽天市場商品検索APIで育児商品を取得 → 最大5商品を選定 → 楽天ROOM向け投稿候補を Googleスプレッドシートへ毎朝追記する収益化エージェント。
+- **何をするか**: 楽天市場商品検索APIで育児商品を取得 → 朝・昼・晩の3枠すべてで品質合格した商品を各1件選定 → 楽天ROOM向け投稿候補を Googleスプレッドシートへ毎朝追記する収益化エージェント。
 - **生成方式**: 通常運用は**固定ルール生成のみ**。OpenAI API / LLM / Structured Outputs は呼ばない（API課金0の設計）。`USE_OPENAI=true` かつ `GENERATION_MODE=openai` を両方明示しない限りLLMは無効。
 - **出力先**: `ready` 行 → 当日分以降を本番シートへ追記 / `needs_review`・ERROR行 → レビュー用シートへ（人間確認対象）。
 - **自動実行**: GitHub Actions `daily.yml`（cron `0 22 * * *` UTC＝**日本時間07:00**）。手動は `workflow_dispatch`。

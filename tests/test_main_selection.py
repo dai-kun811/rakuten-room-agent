@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fixed_rule_generator import classify_product_type
 zoneinfo.ZoneInfo = lambda _key: timezone.utc
-from main import diversify_products, generate_until_ready
+from main import POST_SLOTS, TARGET_READY_POSTS, diversify_products, generate_until_ready
 from rakuten_api import Product
 from scoring import score_product
 
@@ -72,7 +72,7 @@ class MainSelectionTest(unittest.TestCase):
 
         self.assertEqual(len(selected), 5)
 
-    def test_generate_until_ready_replaces_quality_review_candidates(self) -> None:
+    def test_generate_until_ready_fills_all_three_post_slots(self) -> None:
         candidates = [
             scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
             for index in range(7)
@@ -96,13 +96,14 @@ class MainSelectionTest(unittest.TestCase):
             candidates,
             generator=generator,
             context=object(),
-            target_ready=5,
+            target_ready=TARGET_READY_POSTS,
         )
 
-        self.assertEqual(len(results), 7)
+        self.assertEqual(POST_SLOTS, ("morning", "noon", "evening"))
+        self.assertEqual(len(results), 5)
         self.assertEqual(
             sum(generated.status == "ready" for _, generated in results),
-            5,
+            3,
         )
 
 
