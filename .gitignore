@@ -45,6 +45,7 @@ reports/
 # Local tool state
 .claude/
 .codex/
+/.local/
 
 # Keep package metadata trackable if Node tooling is added later
 !package.json

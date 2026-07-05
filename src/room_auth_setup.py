@@ -7,6 +7,12 @@ from pathlib import Path
 
 
 ROOM_URL = "https://room.rakuten.co.jp/"
+DEFAULT_PROFILE_DIR = (
+    Path(__file__).resolve().parents[1]
+    / ".local"
+    / "room-worker"
+    / "chrome-profile"
+)
 
 
 def find_chrome() -> Path:
@@ -39,7 +45,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--profile-dir",
-        default=str(Path.home() / ".rakuten-room" / "chrome-profile"),
+        default=str(DEFAULT_PROFILE_DIR),
     )
     args = parser.parse_args()
     profile_dir = Path(args.profile_dir).expanduser().resolve()

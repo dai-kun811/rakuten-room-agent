@@ -3,15 +3,60 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from local_room_worker import append_ledger_event, load_reserved_urls, ready_items
+from local_room_worker import (
+    actions_run_is_today,
+    append_ledger_event,
+    current_post_slot,
+    load_claimed_post_slots,
+    load_reserved_urls,
+    parse_post_windows,
+    ready_items,
+)
 
 
 class LocalRoomWorkerTest(unittest.TestCase):
+    def test_post_windows_map_morning_noon_and_evening(self) -> None:
+        windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")
+        self.assertEqual(
+            current_post_slot(datetime(2026, 7, 5, 8, 15), windows=windows),
+            "2026-07-05:morning",
+        )
+        self.assertEqual(
+            current_post_slot(datetime(2026, 7, 5, 12, 15), windows=windows),
+            "2026-07-05:noon",
+        )
+        self.assertEqual(
+            current_post_slot(datetime(2026, 7, 5, 18, 15), windows=windows),
+            "2026-07-05:evening",
+        )
+        self.assertEqual(current_post_slot(datetime(2026, 7, 5, 16, 0), windows=windows), "")
+
+    def test_actions_run_must_be_today_in_local_timezone(self) -> None:
+        now = datetime(2026, 7, 5, 8, 0, tzinfo=timezone.utc)
+        self.assertTrue(actions_run_is_today({"created_at": "2026-07-05T01:00:00Z"}, now))
+        self.assertFalse(actions_run_is_today({"created_at": "2026-07-04T01:00:00Z"}, now))
+
+    def test_claimed_slot_blocks_duplicate_post_in_same_window(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "post_slot": "2026-07-05:morning",
+                        "status": "reserved",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(load_claimed_post_slots(path), {"2026-07-05:morning"})
+
     def test_ready_items_excludes_review_and_incomplete_rows(self) -> None:
         report = {
             "items": [
