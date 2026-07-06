@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$EngagementTime = "05:10",
+    [string]$EngagementVerifyTime = "06:45",
     [string]$GenerationGuardTime = "07:30",
     [string[]]$PostTimes = @("08:15", "12:15", "18:15"),
     [string[]]$PostGuardTimes = @("08:30", "12:30", "18:30"),
@@ -35,10 +36,13 @@ $engagementAction = New-ScheduledTaskAction `
     -Execute $python `
     -Argument ('"{0}" --apply --headful' -f $engagementWorker) `
     -WorkingDirectory $projectRoot
-$engagementTrigger = New-ScheduledTaskTrigger -Daily -At $EngagementTime
+$engagementTriggers = @(
+    New-ScheduledTaskTrigger -Daily -At $EngagementTime
+    New-ScheduledTaskTrigger -Daily -At $EngagementVerifyTime
+)
 $engagementTask = New-ScheduledTask `
     -Action $engagementAction `
-    -Trigger $engagementTrigger `
+    -Trigger $engagementTriggers `
     -Principal $principal `
     -Settings $settings `
     -Description "Run the daily Rakuten ROOM follow and like routine up to 50 each."
@@ -84,7 +88,7 @@ $postGuardTask = New-ScheduledTask `
     -Description "Verify and safely recover due ROOM post slots."
 
 if ($Preview) {
-    [pscustomobject]@{ TaskName = "RakutenROOMDailyEngagement"; Times = $EngagementTime; State = "Preview" }
+    [pscustomobject]@{ TaskName = "RakutenROOMDailyEngagement"; Times = (@($EngagementTime, $EngagementVerifyTime) -join ", "); State = "Preview" }
     [pscustomobject]@{ TaskName = "RakutenROOMGenerationGuard"; Times = $GenerationGuardTime; State = "Preview" }
     [pscustomobject]@{ TaskName = "RakutenROOMAutoPoster"; Times = ($PostTimes -join ", "); State = "Preview" }
     [pscustomobject]@{ TaskName = "RakutenROOMPostGuard"; Times = ($PostGuardTimes -join ", "); State = "Preview" }

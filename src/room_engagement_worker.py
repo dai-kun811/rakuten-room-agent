@@ -375,6 +375,34 @@ def configure_logging() -> None:
     )
 
 
+def write_and_publish_summary(summary: dict[str, Any], logger: logging.Logger) -> bool:
+    SUMMARY_PATH.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    try:
+        from room_progress_publisher import publish_progress
+
+        publish_progress(summary)
+        summary["published"] = True
+        logger.info(
+            "Public routine progress updated day=%s follow=%s like=%s completed=%s",
+            summary.get("routine_date"),
+            summary.get("followed"),
+            summary.get("liked"),
+            summary.get("completed"),
+        )
+    except Exception as exc:
+        summary["published"] = False
+        summary["publish_error"] = type(exc).__name__
+        logger.error("Public routine progress update failed error=%s", type(exc).__name__)
+    SUMMARY_PATH.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return bool(summary["published"])
+
+
 def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless: bool) -> int:
     configure_logging()
     logger = logging.getLogger("room-engagement-worker")
@@ -386,7 +414,18 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     followed, liked = progress_totals(today_progress)
     if followed >= goal and liked >= goal:
         logger.info("Daily engagement goal already complete follow=%s like=%s", followed, liked)
-        return 0
+        if not apply:
+            return 0
+        summary = {
+            "routine_date": day,
+            "followed": followed,
+            "liked": liked,
+            "goal": goal,
+            "attempted": 0,
+            "failures": 0,
+            "completed": True,
+        }
+        return 0 if write_and_publish_summary(summary, logger) else 1
     if not apply:
         logger.info(
             "Dry run day=%s candidates=%s follow=%s/%s like=%s/%s",
@@ -537,8 +576,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
         "failures": failures,
         "completed": followed >= goal and liked >= goal,
     }
-    SUMMARY_PATH.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-    return 0 if summary["completed"] else 1
+    published = write_and_publish_summary(summary, logger)
+    return 0 if summary["completed"] and published else 1
 
 
 def main() -> int:
