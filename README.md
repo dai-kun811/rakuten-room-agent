@@ -147,6 +147,11 @@ python src\room_engagement_worker.py --apply
 `--headful`付きで登録します。
 
 タスク登録後の既定時刻は、フォロー・いいねが5:10、投稿が8:15・12:15・18:15です。
+さらに生成監視を7:30、投稿確認・当日補填を8:30・12:30・18:30に実行します。
+生成監視は当日runが欠落した場合だけ`workflow_dispatch`を1回実行し、既存の失敗runは
+無条件に繰り返しません。投稿確認は`posted`済みを再送せず、`TimeoutError`だけ投稿なし認証確認後に
+1回限定で再試行します。結果は`.local\room-worker\daily-guard.log`と
+`daily-guard-summary.json`へ記録します。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-room-daily-routine.ps1

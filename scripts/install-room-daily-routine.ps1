@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$EngagementTime = "05:10",
+    [string]$GenerationGuardTime = "07:30",
     [string[]]$PostTimes = @("08:15", "12:15", "18:15"),
+    [string[]]$PostGuardTimes = @("08:30", "12:30", "18:30"),
     [switch]$Preview
 )
 
@@ -10,8 +12,9 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $engagementWorker = Join-Path $projectRoot "src\room_engagement_worker.py"
 $postWorker = Join-Path $projectRoot "src\local_room_worker.py"
+$dailyGuard = Join-Path $projectRoot "src\room_daily_guard.py"
 
-foreach ($path in @($python, $engagementWorker, $postWorker)) {
+foreach ($path in @($python, $engagementWorker, $postWorker, $dailyGuard)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required file was not found: $path"
     }
@@ -54,12 +57,42 @@ $postTask = New-ScheduledTask `
     -Settings $settings `
     -Description "Post one Rakuten ROOM item in each morning, noon, and evening slot."
 
+$generationGuardAction = New-ScheduledTaskAction `
+    -Execute $python `
+    -Argument ('"{0}" generation' -f $dailyGuard) `
+    -WorkingDirectory $projectRoot
+$generationGuardTrigger = New-ScheduledTaskTrigger -Daily -At $GenerationGuardTime
+$generationGuardTask = New-ScheduledTask `
+    -Action $generationGuardAction `
+    -Trigger $generationGuardTrigger `
+    -Principal $principal `
+    -Settings $settings `
+    -Description "Ensure today's ROOM generation run exists and has all three ready slots."
+
+$postGuardAction = New-ScheduledTaskAction `
+    -Execute $python `
+    -Argument ('"{0}" post' -f $dailyGuard) `
+    -WorkingDirectory $projectRoot
+$postGuardTriggers = foreach ($time in $PostGuardTimes) {
+    New-ScheduledTaskTrigger -Daily -At $time
+}
+$postGuardTask = New-ScheduledTask `
+    -Action $postGuardAction `
+    -Trigger $postGuardTriggers `
+    -Principal $principal `
+    -Settings $settings `
+    -Description "Verify and safely recover due ROOM post slots."
+
 if ($Preview) {
     [pscustomobject]@{ TaskName = "RakutenROOMDailyEngagement"; Times = $EngagementTime; State = "Preview" }
+    [pscustomobject]@{ TaskName = "RakutenROOMGenerationGuard"; Times = $GenerationGuardTime; State = "Preview" }
     [pscustomobject]@{ TaskName = "RakutenROOMAutoPoster"; Times = ($PostTimes -join ", "); State = "Preview" }
+    [pscustomobject]@{ TaskName = "RakutenROOMPostGuard"; Times = ($PostGuardTimes -join ", "); State = "Preview" }
 } else {
     Register-ScheduledTask -TaskName "RakutenROOMDailyEngagement" -InputObject $engagementTask -Force | Out-Null
+    Register-ScheduledTask -TaskName "RakutenROOMGenerationGuard" -InputObject $generationGuardTask -Force | Out-Null
     Register-ScheduledTask -TaskName "RakutenROOMAutoPoster" -InputObject $postTask -Force | Out-Null
-    Get-ScheduledTask -TaskName "RakutenROOMDailyEngagement", "RakutenROOMAutoPoster" |
+    Register-ScheduledTask -TaskName "RakutenROOMPostGuard" -InputObject $postGuardTask -Force | Out-Null
+    Get-ScheduledTask -TaskName "RakutenROOMDailyEngagement", "RakutenROOMGenerationGuard", "RakutenROOMAutoPoster", "RakutenROOMPostGuard" |
         Select-Object TaskName, State
 }
