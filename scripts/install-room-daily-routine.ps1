@@ -30,7 +30,7 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $engagementAction = New-ScheduledTaskAction `
     -Execute $python `
-    -Argument ('"{0}" --apply' -f $engagementWorker) `
+    -Argument ('"{0}" --apply --headful' -f $engagementWorker) `
     -WorkingDirectory $projectRoot
 $engagementTrigger = New-ScheduledTaskTrigger -Daily -At $EngagementTime
 $engagementTask = New-ScheduledTask `

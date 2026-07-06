@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -234,38 +234,51 @@ class RoomEngagementDriver:
         return False, "follow_unverified"
 
     def _like(self, page: Any) -> tuple[bool, str]:
-        for element in self._action_elements(page):
+        like_buttons = page.locator('button:has([class*="rex-favorite-"])')
+        try:
+            like_buttons.first.wait_for(state="visible", timeout=self.timeout_ms)
+        except Exception:
+            return False, "like_button_not_found"
+
+        for index in range(min(like_buttons.count(), 120)):
+            element = like_buttons.nth(index)
             try:
                 if not element.is_visible():
                     continue
-                text = " ".join(element.inner_text().split())
-                label = " ".join((element.get_attribute("aria-label") or "").split())
-                pressed = (element.get_attribute("aria-pressed") or "").lower()
-                class_name = (element.get_attribute("class") or "").lower()
+                icon_class = self._favorite_icon_class(element)
             except Exception:
                 continue
-            combined = label or text
-            if "いいね" not in combined or len(combined) > 40:
-                continue
-            if pressed == "true" or "liked" in class_name or "いいね済" in combined:
+            if "favorite-filled" in icon_class:
                 continue
             before = self._element_state(element)
             element.click()
             page.wait_for_timeout(800)
             after = self._element_state(element)
-            if after != before or after[2] == "true" or "liked" in after[3]:
+            if "favorite-filled" in self._favorite_icon_class(element):
+                return True, "liked"
+            if after != before and "favorite-outline" not in after[3]:
                 return True, "liked"
             return False, "like_unverified"
         return False, "like_button_not_found"
 
     @staticmethod
+    def _favorite_icon_class(element: Any) -> str:
+        try:
+            icon = element.locator('[class*="rex-favorite-"]').first
+            return (icon.get_attribute("class") or "").lower()
+        except Exception:
+            return ""
+
+    @staticmethod
     def _element_state(element: Any) -> tuple[str, str, str, str]:
         try:
+            root_class = (element.get_attribute("class") or "").lower()
+            favorite_class = RoomEngagementDriver._favorite_icon_class(element)
             return (
                 " ".join(element.inner_text().split()),
                 " ".join((element.get_attribute("aria-label") or "").split()),
                 (element.get_attribute("aria-pressed") or "").lower(),
-                (element.get_attribute("class") or "").lower(),
+                " ".join(part for part in (root_class, favorite_class) if part),
             )
         except Exception:
             return ("detached", "", "", "")
@@ -275,14 +288,15 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
     found: dict[str, RoutineCandidate] = {}
     for search_url in search_urls:
         page.goto(search_url, wait_until="domcontentloaded")
+        submit_user_search(page)
         for _ in range(5):
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(700)
-        links = page.locator('a[href*="room.rakuten.co.jp/"][href*="/items"]')
+        links = page.locator('a[href*="/items"]')
         for index in range(min(links.count(), 300)):
             link = links.nth(index)
             try:
-                href = link.get_attribute("href") or ""
+                href = urljoin(page.url, link.get_attribute("href") or "")
                 name = " ".join(link.inner_text().split())
             except Exception:
                 continue
@@ -290,6 +304,19 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
             if candidate:
                 found[candidate.id] = candidate
     return list(found.values())
+
+
+def submit_user_search(page: Any) -> bool:
+    try:
+        search_input = page.locator('input[name="search_keyword"]').first
+        if not search_input.is_visible():
+            return False
+        search_input.press("Enter")
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(3_000)
+        return True
+    except Exception:
+        return False
 
 
 def sync_routine_page(

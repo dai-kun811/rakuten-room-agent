@@ -154,6 +154,23 @@ def current_post_slot(
     return ""
 
 
+def resolve_post_slot(
+    now: datetime | None = None,
+    *,
+    override: str | None = None,
+    windows: list[tuple[str, int, int]] | None = None,
+) -> str:
+    local_now = now or datetime.now().astimezone()
+    configured_windows = windows or parse_post_windows(os.getenv("ROOM_POST_WINDOWS"))
+    forced_label = (override or "").strip()
+    if not forced_label:
+        return current_post_slot(local_now, windows=configured_windows)
+    valid_labels = {label for label, _start, _end in configured_windows}
+    if forced_label not in valid_labels:
+        raise ValueError(f"Invalid forced ROOM post slot: {forced_label}")
+    return f"{local_now.date().isoformat()}:{forced_label}"
+
+
 def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bool:
     raw_timestamp = str(run.get("run_started_at") or run.get("created_at") or "")
     if not raw_timestamp:
@@ -236,7 +253,7 @@ def main() -> int:
         logger.error("ROOM browser profile is missing.")
         return 1
 
-    slot = current_post_slot()
+    slot = resolve_post_slot(override=os.getenv("ROOM_FORCE_POST_SLOT"))
     if not slot:
         logger.info("Outside configured ROOM post windows; no post attempted.")
         return 0

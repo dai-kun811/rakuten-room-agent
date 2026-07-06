@@ -11,7 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fixed_rule_generator import classify_product_type
 zoneinfo.ZoneInfo = lambda _key: timezone.utc
-from main import POST_SLOTS, TARGET_READY_POSTS, diversify_products, generate_until_ready
+from main import (
+    POST_SLOTS,
+    SEARCH_KEYWORDS_PER_CATEGORY,
+    SEARCH_PAGES_PER_KEYWORD,
+    TARGET_READY_POSTS,
+    diversify_products,
+    generate_until_ready,
+)
 from rakuten_api import Product
 from scoring import score_product
 
@@ -33,6 +40,10 @@ def scored(name: str, url: str, total_score: int):
 
 
 class MainSelectionTest(unittest.TestCase):
+    def test_daily_search_uses_additional_keywords_and_pages(self) -> None:
+        self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 2)
+        self.assertEqual(SEARCH_PAGES_PER_KEYWORD, 2)
+
     def test_diversify_products_prefers_unique_product_types_per_day(self) -> None:
         candidates = [
             scored("おしりふき まとめ買い 80枚", "https://example.com/wipes-a", 100),

@@ -17,6 +17,7 @@ from local_room_worker import (
     load_reserved_urls,
     parse_post_windows,
     ready_items,
+    resolve_post_slot,
 )
 
 
@@ -41,6 +42,17 @@ class LocalRoomWorkerTest(unittest.TestCase):
         now = datetime(2026, 7, 5, 8, 0, tzinfo=timezone.utc)
         self.assertTrue(actions_run_is_today({"created_at": "2026-07-05T01:00:00Z"}, now))
         self.assertFalse(actions_run_is_today({"created_at": "2026-07-04T01:00:00Z"}, now))
+
+    def test_forced_slot_supports_safe_same_day_recovery(self) -> None:
+        windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")
+        now = datetime(2026, 7, 6, 16, 30)
+
+        self.assertEqual(
+            resolve_post_slot(now, override="morning", windows=windows),
+            "2026-07-06:morning",
+        )
+        with self.assertRaises(ValueError):
+            resolve_post_slot(now, override="night", windows=windows)
 
     def test_claimed_slot_blocks_duplicate_post_in_same_window(self) -> None:
         with TemporaryDirectory() as directory:

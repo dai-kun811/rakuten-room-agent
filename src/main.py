@@ -38,6 +38,8 @@ JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
 POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
+SEARCH_KEYWORDS_PER_CATEGORY = 2
+SEARCH_PAGES_PER_KEYWORD = 2
 
 
 
@@ -87,7 +89,11 @@ def main() -> int:
             access_key=access_key,
             referer=referer,
         )
-        products, fetch_report = rakuten_client.fetch_products(target_date=today)
+        products, fetch_report = rakuten_client.fetch_products(
+            target_date=today,
+            keywords_per_category=SEARCH_KEYWORDS_PER_CATEGORY,
+            pages_per_keyword=SEARCH_PAGES_PER_KEYWORD,
+        )
         LOGGER.info(
             "楽天API取得完了 run_id=%s unique_products=%s total_api_items=%s attempts=%s failures=%s",
             run_id,
