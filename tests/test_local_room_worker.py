@@ -69,6 +69,34 @@ class LocalRoomWorkerTest(unittest.TestCase):
             )
             self.assertEqual(load_claimed_post_slots(path), {"2026-07-05:morning"})
 
+    def test_retry_failed_detail_reopens_matching_slot_only(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.jsonl"
+            events = [
+                {
+                    "post_slot": "2026-07-06:morning",
+                    "status": "failed",
+                    "detail": "TimeoutError",
+                },
+                {
+                    "post_slot": "2026-07-06:noon",
+                    "status": "failed",
+                    "detail": "投稿後の完了表示を確認できませんでした。",
+                },
+            ]
+            path.write_text(
+                "".join(json.dumps(event, ensure_ascii=False) + "\n" for event in events),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                load_claimed_post_slots(
+                    path,
+                    retry_failed_details={"TimeoutError"},
+                ),
+                {"2026-07-06:noon"},
+            )
+
     def test_ready_items_excludes_review_and_incomplete_rows(self) -> None:
         report = {
             "items": [

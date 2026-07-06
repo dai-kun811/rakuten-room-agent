@@ -183,10 +183,14 @@ def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bo
     return run_time.astimezone(local_now.tzinfo).date() == local_now.date()
 
 
-def load_claimed_post_slots(path: Path = LEDGER_PATH) -> set[str]:
+def load_claimed_post_slots(
+    path: Path = LEDGER_PATH,
+    *,
+    retry_failed_details: set[str] | None = None,
+) -> set[str]:
     if not path.exists():
         return set()
-    claimed: set[str] = set()
+    latest_events: dict[str, tuple[str, str]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -195,9 +199,18 @@ def load_claimed_post_slots(path: Path = LEDGER_PATH) -> set[str]:
         except json.JSONDecodeError:
             continue
         slot = str(event.get("post_slot", "")).strip()
-        if slot and event.get("status") in {"reserved", "posted", "failed"}:
-            claimed.add(slot)
-    return claimed
+        if slot:
+            latest_events[slot] = (
+                str(event.get("status", "")),
+                str(event.get("detail", "")),
+            )
+    retry_failed_details = retry_failed_details or set()
+    return {
+        slot
+        for slot, (status, detail) in latest_events.items()
+        if status in {"reserved", "posted", "failed"}
+        and not (status == "failed" and detail in retry_failed_details)
+    }
 
 
 def load_reserved_urls(
@@ -295,7 +308,9 @@ def main() -> int:
         if not actions_run_is_today(run):
             logger.info("Latest successful workflow is not from today; no post attempted.")
             return 0
-        if slot in load_claimed_post_slots():
+        if slot in load_claimed_post_slots(
+            retry_failed_details=retry_failed_details
+        ):
             logger.info("ROOM post slot already claimed slot=%s", slot)
             return 0
 
