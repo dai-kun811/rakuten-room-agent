@@ -127,6 +127,21 @@
       font-size: 12px;
     }
 
+    .automation-stats .stat {
+      border-color: #b7dcc7;
+      background: #f4fbf7;
+    }
+
+    .automation-stats .stat-value.status-ok {
+      color: var(--green);
+      font-size: 24px;
+    }
+
+    .automation-stats .stat-value.status-warn {
+      color: #9a6700;
+      font-size: 24px;
+    }
+
     .layout {
       display: grid;
       grid-template-columns: 310px minmax(0, 1fr);
@@ -762,20 +777,43 @@
   <div class="shell">
     <header class="topbar">
       <div>
-        <h1>楽天ROOM 手動ルーティン</h1>
-        <p class="sub">育児・ベビー・キッズ・知育に特化した候補を、毎朝5:00更新の「今日の50件」で処理します。楽天ROOM上のフォローといいねは手動で行い、この画面では進捗だけを保存します。</p>
+        <h1>楽天ROOM 日次ルーティン</h1>
+        <p class="sub">上段の「自動処理実績」は専用ワーカーの集計結果です。下段の手動チェックと候補表は、このブラウザだけに保存される確認用表示です。</p>
       </div>
       <a class="user-link" href="https://room.rakuten.co.jp/tora_papa/items" target="_blank" rel="noopener">自分のROOMを開く</a>
     </header>
 
-    <section class="stats" aria-label="今日の進捗">
+    <section class="stats automation-stats" aria-label="自動処理実績">
       <div class="stat">
-        <div class="stat-label">今日のフォロー</div>
+        <div class="stat-label">自動フォロー実績</div>
+        <div class="stat-value"><span id="autoFollowDone">-</span>/<span id="autoFollowGoal">50</span></div>
+        <div class="stat-foot" id="autoFollowFoot">公開集計を取得中</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">自動いいね実績</div>
+        <div class="stat-value"><span id="autoLikeDone">-</span>/<span id="autoLikeGoal">50</span></div>
+        <div class="stat-foot" id="autoLikeFoot">公開集計を取得中</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">自動処理の状態</div>
+        <div class="stat-value status-warn" id="autoStatus">確認中</div>
+        <div class="stat-foot" id="autoStatusFoot">-</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">実績日</div>
+        <div class="stat-value" id="autoRoutineDate">-</div>
+        <div class="stat-foot" id="autoUpdatedAt">最終更新 -</div>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="このブラウザの手動チェック">
+      <div class="stat">
+        <div class="stat-label">手動チェック：フォロー</div>
         <div class="stat-value"><span id="followDone">0</span>/50</div>
         <div class="stat-foot" id="followFoot">未処理 50</div>
       </div>
       <div class="stat">
-        <div class="stat-label">今日のいいね</div>
+        <div class="stat-label">手動チェック：いいね</div>
         <div class="stat-value"><span id="likeDone">0</span>/50</div>
         <div class="stat-foot" id="likeFoot">未処理 50</div>
       </div>
@@ -945,7 +983,8 @@
       resetHour: 5,
       dailyGoal: 50,
       storageKey: "rakutenRoomRoutine.v1",
-      roomUrl: "https://room.rakuten.co.jp/tora_papa/items"
+      roomUrl: "https://room.rakuten.co.jp/tora_papa/items",
+      progressApiUrl: "https://api.github.com/repos/dai-kun811/rakuten-room-agent/contents/automation-progress.json?ref=routine-state"
     };
 
     const DEFAULT_CANDIDATES = [
@@ -1811,6 +1850,16 @@
     let visibleIds = [];
 
     const els = {
+      autoFollowDone: document.getElementById("autoFollowDone"),
+      autoFollowGoal: document.getElementById("autoFollowGoal"),
+      autoFollowFoot: document.getElementById("autoFollowFoot"),
+      autoLikeDone: document.getElementById("autoLikeDone"),
+      autoLikeGoal: document.getElementById("autoLikeGoal"),
+      autoLikeFoot: document.getElementById("autoLikeFoot"),
+      autoStatus: document.getElementById("autoStatus"),
+      autoStatusFoot: document.getElementById("autoStatusFoot"),
+      autoRoutineDate: document.getElementById("autoRoutineDate"),
+      autoUpdatedAt: document.getElementById("autoUpdatedAt"),
       followDone: document.getElementById("followDone"),
       followFoot: document.getElementById("followFoot"),
       likeDone: document.getElementById("likeDone"),
@@ -1841,6 +1890,65 @@
     ensureTodaySelection();
     bindEvents();
     render();
+    loadAutomationProgress();
+    window.setInterval(loadAutomationProgress, 60_000);
+
+    async function loadAutomationProgress() {
+      try {
+        const separator = SETTINGS.progressApiUrl.includes("?") ? "&" : "?";
+        const response = await fetch(
+          `${SETTINGS.progressApiUrl}${separator}cache=${Date.now()}`,
+          {
+            cache: "no-store",
+            headers: { Accept: "application/vnd.github+json" }
+          }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const envelope = await response.json();
+        const encoded = String(envelope.content || "").replace(/\s/g, "");
+        const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+        renderAutomationProgress(JSON.parse(new TextDecoder().decode(bytes)));
+      } catch {
+        els.autoStatus.textContent = "取得失敗";
+        els.autoStatus.className = "stat-value status-warn";
+        els.autoStatusFoot.textContent = "公開集計を取得できません";
+        els.autoUpdatedAt.textContent = "再読み込みで再試行します";
+      }
+    }
+
+    function renderAutomationProgress(progress) {
+      const today = routineDate();
+      const isToday = progress.routine_date === today;
+      const goal = Number(progress.goal || SETTINGS.dailyGoal);
+      const followed = Number(progress.followed || 0);
+      const liked = Number(progress.liked || 0);
+      const completed = Boolean(progress.completed) && followed >= goal && liked >= goal;
+
+      els.autoFollowGoal.textContent = goal;
+      els.autoLikeGoal.textContent = goal;
+      els.autoRoutineDate.textContent = progress.routine_date || "-";
+      if (isToday) {
+        els.autoFollowDone.textContent = followed;
+        els.autoLikeDone.textContent = liked;
+        els.autoFollowFoot.textContent = `未処理 ${Math.max(0, goal - followed)}`;
+        els.autoLikeFoot.textContent = `未処理 ${Math.max(0, goal - liked)}`;
+        els.autoStatus.textContent = completed ? "対応済み" : "処理中";
+        els.autoStatus.className = `stat-value ${completed ? "status-ok" : "status-warn"}`;
+        els.autoStatusFoot.textContent = `失敗 ${Number(progress.failures || 0)}`;
+      } else {
+        els.autoFollowDone.textContent = "-";
+        els.autoLikeDone.textContent = "-";
+        els.autoFollowFoot.textContent = "本日分は未報告";
+        els.autoLikeFoot.textContent = "本日分は未報告";
+        els.autoStatus.textContent = "本日未報告";
+        els.autoStatus.className = "stat-value status-warn";
+        els.autoStatusFoot.textContent = `前回 ${progress.routine_date || "-"}`;
+      }
+      const updated = progress.updated_at ? new Date(progress.updated_at) : null;
+      els.autoUpdatedAt.textContent = updated && !Number.isNaN(updated.getTime())
+        ? `最終更新 ${updated.toLocaleString("ja-JP")}`
+        : "最終更新 -";
+    }
 
     function loadState() {
       const raw = localStorage.getItem(SETTINGS.storageKey);
