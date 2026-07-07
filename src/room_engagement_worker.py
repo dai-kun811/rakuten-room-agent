@@ -159,6 +159,19 @@ def candidate_from_room_url(url: str, name: str = "") -> RoutineCandidate | None
     )
 
 
+def candidate_from_search_user(user: Any) -> RoutineCandidate | None:
+    if not isinstance(user, dict):
+        return None
+    username = str(user.get("username", "")).strip()
+    fullname = str(user.get("fullname", "")).strip()
+    if not username:
+        return None
+    return candidate_from_room_url(
+        f"https://room.rakuten.co.jp/{username}/items",
+        fullname,
+    )
+
+
 class RoomEngagementDriver:
     def __init__(self, *, timeout_ms: int = 30_000) -> None:
         self.timeout_ms = timeout_ms
@@ -301,6 +314,27 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
             except Exception:
                 continue
             candidate = candidate_from_room_url(href, name)
+            if candidate:
+                found[candidate.id] = candidate
+        model_links = page.locator('a[ng-click="goToUserRoom()"]')
+        for index in range(min(model_links.count(), 300)):
+            link = model_links.nth(index)
+            try:
+                user = link.evaluate(
+                    """element => {
+                        const angular = window.angular;
+                        if (!angular) return null;
+                        const scope = angular.element(element).scope();
+                        if (!scope || !scope.user) return null;
+                        return {
+                            username: scope.user.username,
+                            fullname: scope.user.fullname,
+                        };
+                    }"""
+                )
+            except Exception:
+                continue
+            candidate = candidate_from_search_user(user)
             if candidate:
                 found[candidate.id] = candidate
     return list(found.values())

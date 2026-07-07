@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from room_engagement_worker import (
     RoomEngagementDriver,
     candidate_from_room_url,
+    candidate_from_search_user,
     extract_json_constant,
     load_routine_sources,
     progress_by_candidate,
@@ -165,6 +166,16 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         self.assertEqual(candidate.id, "room_example")
         self.assertIsNone(candidate_from_room_url("https://example.com/room_example/items"))
         self.assertIsNone(candidate_from_room_url("https://room.rakuten.co.jp/tora_papa/items"))
+
+    def test_candidate_from_search_user_uses_angular_user_model(self) -> None:
+        candidate = candidate_from_search_user(
+            {"username": "room_example", "fullname": "Example User"}
+        )
+
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.id, "room_example")
+        self.assertEqual(candidate.name, "Example User")
+        self.assertIsNone(candidate_from_search_user({"fullname": "Missing username"}))
 
 
 if __name__ == "__main__":
