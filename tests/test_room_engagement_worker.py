@@ -13,6 +13,7 @@ from room_engagement_worker import (
     RoomEngagementDriver,
     candidate_from_room_url,
     candidate_from_search_user,
+    discover_candidates_from_api,
     extract_json_constant,
     load_routine_sources,
     progress_by_candidate,
@@ -114,6 +115,59 @@ class FakeSearchPage:
 
 
 class RoomEngagementWorkerTest(unittest.TestCase):
+    def test_discovers_candidates_from_public_user_search_api(self) -> None:
+        class FakeResponse:
+            def __init__(self, payload) -> None:
+                self.payload = payload
+
+            def raise_for_status(self) -> None:
+                pass
+
+            def json(self):
+                return self.payload
+
+        calls = []
+
+        def fake_get(url, *, params, headers, timeout):
+            calls.append((url, params, headers, timeout))
+            if params["page"] == 1:
+                return FakeResponse(
+                    {
+                        "status": "success",
+                        "data": [
+                            {"username": "room_example", "fullname": "Example User"},
+                            {"fullname": "Missing username"},
+                            *({"username": f"room_page1_{index}"} for index in range(18)),
+                        ],
+                    }
+                )
+            if params["page"] == 2:
+                return FakeResponse(
+                    {
+                        "status": "success",
+                        "data": [
+                            {"username": "room_example", "fullname": "Example User"},
+                            {"username": "room_page2", "fullname": "Page Two"},
+                        ],
+                    }
+                )
+            return FakeResponse({"status": "not found", "data": []})
+
+        candidates = discover_candidates_from_api(
+            "https://room.rakuten.co.jp/search/user?keyword=%E9%9B%A2%E4%B9%B3%E9%A3%9F&rank=6%2C5",
+            http_get=fake_get,
+        )
+
+        self.assertEqual(candidates[0].id, "room_example")
+        self.assertEqual(candidates[-1].id, "room_page2")
+        self.assertEqual(len(candidates), 20)
+        self.assertEqual(calls[0][0], "https://room.rakuten.co.jp/api/user/search")
+        self.assertEqual(calls[0][1], {"query": "離乳食", "page": 1, "rank": "6,5"})
+        self.assertEqual(calls[1][1], {"query": "離乳食", "page": 2, "rank": "6,5"})
+        self.assertEqual(len(calls), 2)
+        self.assertIn("Mozilla/5.0", calls[0][2]["User-Agent"])
+        self.assertEqual(calls[0][3], 30)
+
     def test_user_search_submits_prefilled_keyword(self) -> None:
         page = FakeSearchPage()
 

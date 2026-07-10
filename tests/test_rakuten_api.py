@@ -192,6 +192,19 @@ class RakutenApiTest(unittest.TestCase):
         self.assertTrue(required.issubset(second), second)
         self.assertNotEqual(first[3:], second[3:])
 
+    def test_core_searches_start_with_supported_postable_keywords(self) -> None:
+        categories = dict(rotating_categories(date(2026, 7, 10), 5))
+
+        self.assertEqual(categories["知育玩具"][:2], ["マグネットブロック", "木製積み木"])
+        self.assertEqual(
+            categories["寝かしつけ用品"][:2],
+            ["授乳ライト ホワイトノイズ", "寝かしつけ ぬいぐるみ"],
+        )
+        self.assertEqual(
+            categories["ベビー用消耗品"][:2],
+            ["おしりふき まとめ買い", "紙おむつ まとめ買い"],
+        )
+
     def test_429_retries_three_times_then_succeeds(self) -> None:
         session = FakeSession(
             {

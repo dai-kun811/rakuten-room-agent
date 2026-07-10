@@ -3,17 +3,25 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-07-07
+最終更新: 2026-07-10
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 「直近の状況」欄の先頭（サイト構造変更への修正）について、次回定期実行で交流候補の補充が復旧したかを確認する
-2. git状態（未commit/未pushの有無）を実測して確認する（文書の記載より実測が正）
+1. 2026-07-10 07:00定期Actionsの当日runと朝昼晩3枠を07:30以降に確認する
+2. 2026-07-10 08:15・12:15・18:15投稿タスクと投稿台帳で当日3枠の投稿結果を確認する
+3. git状態を実測し、公開ユーザー検索API対応のローカル差分（`src/room_engagement_worker.py`、テスト）をcommit/pushするか社長確認する
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-07-11 03:31: 社長指摘「楽天ROOMに投稿されてなくない？」を検証。2026-07-10の投稿台帳に`reserved`/`posted`/`failed`行は0件で、実際に投稿されていない。`RakutenROOMAutoPoster`は08:15/12:15/18:15に動き終了コード0だが、ワーカーログはいずれも最新成功成果物run #64（2026-07-06、`67d878493971`）を見て`No unposted ready item assigned to slot=morning/noon/evening`。7/10のActions run #73（29056987260）はfailureで、成果物内は楽天API取得572件・失敗0だが`ready_slots=[]`、`missing_post_slots=[morning,noon,evening]`、38件すべて`needs_review`。理由は37件が`short_name_unresolved`、1件が重複/品質NG。`GenerationGuard`/`PostGuard`は「Today's generation run failed; automatic repeat blocked」として無条件反復を止めている。7/7以降daily.ymlは連続failureで、投稿は7/6成功分以降止まっている。
+- 2026-07-10 21:51: `room-10`で公開進捗を最終確認。実ブラウザで `https://dai-kun811.github.io/rakuten-room-agent/` を開き、上段の自動処理実績が実績日2026-07-10、自動フォロー50/50、自動いいね50/50、対応済み、失敗0を表示することを確認。下段の手動チェックはフォロー0/50・いいね0/50で別表示のまま。公開APIの`automation-progress.json`も2026-07-10 50/50・失敗0・`completed=true`。指定されていた`room-routine-pages.yml`のcommit `e438670`実行はGitHub API上ではfailure/cancelledで、成功ではない。ただし現行Pagesはlegacy `gh-pages`配信が実ソースで、公開ページ自体は正常に反映済み。HANDOFFとroom-2 memory更新済み。
+- 2026-07-10 06:39: room-2で日次交流完了を確認。Windowsタスク`RakutenROOMDailyEngagement`と`RakutenROOMAutoPoster`はいずれも有効で、repo `.venv\Scripts\python.exe` と正しいワーカーを参照。交流は06:31にフォロー50/50・いいね50/50・`completed=true`・公開進捗更新済みで完了。途中`TimeoutError`が2件あったが、ログイン切れ・CAPTCHAは検出なし。現在06:39のためActionsは07:00定期実行待ちで、workflow_dispatchは未実行。当日投稿台帳にはまだ予約・投稿なし。`RakutenROOMAutoPoster`次回は08:15、ガードは07:30/08:30以降に通常確認。
+- 2026-07-10 06:07: `room-10` heartbeatで公開進捗を確認。実ブラウザでページは開け、下段の手動チェック0/50は別表示のまま。当日2026-07-10の交流は実行中で、ログ上は06:07時点フォロー36/50・いいね35/50、`RakutenROOMDailyEngagement`はRunning。途中TimeoutErrorが2件あるが処理は継続中。`daily-routine-summary.json`は直近完了済みの2026-07-09 50/50のままで、当日完了集計はまだ公開前のためページ上段は一時的に「公開集計を取得中」。旧heartbeat文が7/6固定だったため、当日確認用に再更新し、実行時刻も完了再送後に見やすい06:50 JST相当へ変更済み。
+- 2026-07-09 06:45: 日次交流はフォロー50/50・いいね50/50・失敗0・`completed=true`まで完了。実ブラウザで `https://dai-kun811.github.io/rakuten-room-agent/` を再読み込みし、上段の自動処理実績が実績日2026-07-09、自動フォロー50/50、自動いいね50/50、対応済み、失敗0を表示することを確認。下段の手動チェックは0/50として別表示のまま。`room-10` heartbeat は7/6固定確認から「当日分の公開進捗50/50確認」へ更新済み。07:00定期Actionsと朝昼晩3枠は07:30以降に確認する。
+- 2026-07-08 06:45: 日次交流はフォロー50/50・いいね50/50・失敗0・`completed=true`まで完了し、公開進捗も再送成功。
+- 2026-07-08 06:12: 日次交流を実行。Windowsタスク2件は有効でrepo `.venv` と正しいワーカーを参照。前回のAngularスコープ参照修正は、実ページで`window.angular`が非公開のため候補0件のままと判明。公開`/api/user/search`を通常ブラウザヘッダーで読み、`username`から候補URLを復元するローカル修正と回帰テストを追加。5検索100件・重複除外後81件を取得し、全153テスト合格。修正版の実運用は06:12時点フォロー35/50・いいね34/50、失敗0で実行中。Codex外部操作枠が10:01まで上限となり最終台帳確認は未実施。7:30前のためActions dispatchは行わず、07:00定期実行待ち。差分は未commit/未push。
 - 2026-07-07 05:23: 日次交流を実行。Windowsタスク2件は有効で、repo `.venv` と正しいワーカーを参照。固定候補71件のうち過去完了70件で、当日利用可能1件だけとなり、05:03手動起動と05:10定期起動はいずれも候補枯渇で終了コード1。当日実績はフォロー1/50・いいね0/50。原因は楽天ROOMユーザー検索結果のプロフィールリンクから`href`が消え、Angularの`goToUserRoom()`遷移へ変わったサイト構造変更。公開モデルの`user.username`から候補URLを復元するローカル修正と回帰テストを追加し、対象8テスト合格。外部操作上限により修正後の実検索・再実行は未確認。06:45の既定再送トリガーが次の確認点。commit/push未実施。
 - 2026-07-06 19:03: 公開ルーティンページへ自動処理実績を追加。ローカル台帳から日付・followed・liked・goal・attempted・failures・completedだけを専用公開ブランチ`routine-state`の`automation-progress.json`へ更新し、候補ID・ROOM URL・認証情報は公開しない。ページ上段は公開集計、下段はブラウザ別手動チェックとして分離。実集計2026-07-06 50/50・失敗0・completed=trueの公開と、完了済みワーカーからの再送に成功。05:10に加え06:45の再送トリガーを登録。全151テスト・構文・タスクプレビュー合格、commit `e438670`をmainへpush。Pages反映の最終確認は外部操作上限解除後の21:07 heartbeatで実施予定。
 - 2026-07-06: 公開ルーティンページが0/50と表示される件を確認。実台帳の再集計はフォロー50・いいね50、`daily-routine-summary.json`も50/50・失敗0・completed=true。公開ページの進捗はブラウザごとのlocalStorageで、自動処理専用Chromeプロファイルやローカル台帳と同期されないため、別ブラウザでは0/50になる表示仕様。実処理未達ではない。

@@ -7,11 +7,12 @@ import os
 import random
 import re
 import sys
+import requests
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -172,6 +173,51 @@ def candidate_from_search_user(user: Any) -> RoutineCandidate | None:
     )
 
 
+def discover_candidates_from_api(
+    search_url: str,
+    *,
+    http_get: Any = requests.get,
+) -> list[RoutineCandidate]:
+    query = parse_qs(urlparse(search_url).query)
+    base_params: dict[str, str | int] = {
+        "query": query.get("keyword", [""])[0],
+    }
+    for source, target in (("follower", "followers"), ("items", "collects"), ("rank", "rank")):
+        value = query.get(source, [""])[0]
+        if value:
+            base_params[target] = value
+
+    found: dict[str, RoutineCandidate] = {}
+    for page in range(1, 6):
+        response = http_get(
+            "https://room.rakuten.co.jp/api/user/search",
+            params={**base_params, "page": page},
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Referer": search_url,
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+                ),
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("status") not in {"success", "next page"}:
+            break
+        users = payload.get("data", [])
+        if not isinstance(users, list) or not users:
+            break
+        for user in users:
+            candidate = candidate_from_search_user(user)
+            if candidate is not None:
+                found[candidate.id] = candidate
+        if len(users) < 20:
+            break
+    return list(found.values())
+
+
 class RoomEngagementDriver:
     def __init__(self, *, timeout_ms: int = 30_000) -> None:
         self.timeout_ms = timeout_ms
@@ -300,6 +346,15 @@ class RoomEngagementDriver:
 def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCandidate]:
     found: dict[str, RoutineCandidate] = {}
     for search_url in search_urls:
+        try:
+            api_candidates = discover_candidates_from_api(search_url)
+        except (requests.RequestException, ValueError, TypeError):
+            api_candidates = []
+        for candidate in api_candidates:
+            found[candidate.id] = candidate
+        if api_candidates:
+            continue
+
         page.goto(search_url, wait_until="domcontentloaded")
         submit_user_search(page)
         for _ in range(5):

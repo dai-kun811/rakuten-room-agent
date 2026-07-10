@@ -15,6 +15,7 @@ from fixed_rule_generator import (
     GENERATION_MODE,
     FixedRulePostGenerator,
     GenerationContext,
+    HASHTAGS,
     classify_product_type,
 )
 from generation_report import GenerationReportItem, write_generation_reports
@@ -40,6 +41,7 @@ POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
 SEARCH_KEYWORDS_PER_CATEGORY = 2
 SEARCH_PAGES_PER_KEYWORD = 2
+SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 
 
 
@@ -329,6 +331,7 @@ def diversify_products(
     ranked = sorted(
         candidates,
         key=lambda item: (
+            0 if is_supported_room_product(item.product) else 1,
             recent_types[classify_product_type(item.product)],
             -item.total_score,
         ),
@@ -356,6 +359,10 @@ def diversify_products(
         if item not in selected:
             selected.append(item)
     return selected
+
+
+def is_supported_room_product(product: Product) -> bool:
+    return classify_product_type(product) in SUPPORTED_ROOM_PRODUCT_TYPES
 
 
 def generate_until_ready(

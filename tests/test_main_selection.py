@@ -18,6 +18,7 @@ from main import (
     TARGET_READY_POSTS,
     diversify_products,
     generate_until_ready,
+    is_supported_room_product,
 )
 from rakuten_api import Product
 from scoring import score_product
@@ -82,6 +83,22 @@ class MainSelectionTest(unittest.TestCase):
         selected = diversify_products(candidates, recent_history=[], limit=5)
 
         self.assertEqual(len(selected), 5)
+
+    def test_diversify_products_prioritizes_postable_supported_types(self) -> None:
+        candidates = [
+            scored("キッズ 手袋 外遊び 防寒 通園", "https://example.com/gloves", 120),
+            scored("マグネットブロック 48ピース 知育", "https://example.com/blocks", 80),
+            scored("授乳ライト ホワイトノイズ コードレス", "https://example.com/light", 79),
+            scored("紙おむつ パンツタイプ Mサイズ", "https://example.com/diaper", 78),
+        ]
+
+        selected = diversify_products(candidates, recent_history=[], limit=3)
+
+        self.assertFalse(is_supported_room_product(candidates[0].product))
+        self.assertEqual(
+            [classify_product_type(item.product) for item in selected],
+            ["magnetic_blocks", "sleep_light", "diaper"],
+        )
 
     def test_generate_until_ready_fills_all_three_post_slots(self) -> None:
         candidates = [
