@@ -465,6 +465,9 @@ class GenerationContext:
         titles: set[str] = set()
         bodies: list[str] = []
         for record in records:
+            status = record.get("ステータス", "").strip()
+            if status and status != "ready":
+                continue
             title = record.get("タイトル", "").strip()
             body = record.get("投稿文", "").strip()
             if title:

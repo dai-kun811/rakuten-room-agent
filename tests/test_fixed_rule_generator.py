@@ -193,6 +193,18 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertNotEqual(classify_product_type(product), "diaper", name)
 
+    def test_review_rows_do_not_pollute_generation_history(self) -> None:
+        context = GenerationContext.from_history(
+            [
+                {"ステータス": "needs_review", "タイトル": "失敗タイトル", "投稿文": "失敗本文"},
+                {"ステータス": "ERROR", "タイトル": "エラータイトル", "投稿文": "エラー本文"},
+                {"ステータス": "ready", "タイトル": "投稿済みタイトル", "投稿文": "投稿済み本文"},
+            ]
+        )
+
+        self.assertEqual(context.historical_titles, {"投稿済みタイトル"})
+        self.assertEqual(context.historical_bodies, ["投稿済み本文"])
+
     def test_caption_cross_sell_terms_do_not_override_product_identity(self) -> None:
         bookshelf = Product(
             category="絵本",
