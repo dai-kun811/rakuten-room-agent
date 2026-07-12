@@ -16,6 +16,8 @@ from room_daily_guard import (
     due_slot_labels,
     ensure_generation_ready,
     ensure_slot_posted,
+    generation_recovery_already_dispatched,
+    mark_generation_recovery_dispatched,
     read_latest_slot_events,
     report_has_all_slots,
     report_item_for_slot,
@@ -120,8 +122,52 @@ class RoomDailyGuardTest(unittest.TestCase):
         self.assertTrue(report_has_all_slots(report))
         session.post.assert_called_once()
 
+    @patch("room_daily_guard.time.sleep", return_value=None)
+    @patch("room_daily_guard.fetch_latest_generation_report")
     @patch("room_daily_guard.fetch_workflow_runs")
-    def test_failed_generation_is_not_repeated(self, fetch_runs) -> None:
+    def test_failed_generation_dispatches_one_recovery(
+        self,
+        fetch_runs,
+        fetch_report,
+        _sleep,
+    ) -> None:
+        now = datetime(2026, 7, 6, 7, 30, tzinfo=timezone(timedelta(hours=9)))
+        failed = {
+            "id": 63,
+            "status": "completed",
+            "conclusion": "failure",
+            "created_at": "2026-07-05T22:05:00Z",
+        }
+        successful = {
+            "id": 64,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-07-05T22:08:00Z",
+        }
+        fetch_runs.side_effect = [[failed], [successful]]
+        fetch_report.return_value = (successful, self.ready_report())
+        response = Mock()
+        response.raise_for_status.return_value = None
+        session = Mock()
+        session.post.return_value = response
+
+        with TemporaryDirectory() as directory:
+            recovery_state = Path(directory) / "recovery.json"
+            run, report = ensure_generation_ready(
+                session,
+                headers={},
+                now=now,
+                poll_seconds=0,
+                recovery_state_path=recovery_state,
+            )
+
+            self.assertEqual(run["id"], 64)
+            self.assertTrue(report_has_all_slots(report))
+            self.assertTrue(generation_recovery_already_dispatched("2026-07-06", path=recovery_state))
+        session.post.assert_called_once()
+
+    @patch("room_daily_guard.fetch_workflow_runs")
+    def test_failed_generation_is_not_repeated_after_daily_recovery(self, fetch_runs) -> None:
         now = datetime(2026, 7, 6, 7, 30, tzinfo=timezone(timedelta(hours=9)))
         fetch_runs.return_value = [
             {
@@ -133,8 +179,16 @@ class RoomDailyGuardTest(unittest.TestCase):
         ]
         session = Mock()
 
-        with self.assertRaises(DailyGuardError):
-            ensure_generation_ready(session, headers={}, now=now)
+        with TemporaryDirectory() as directory:
+            recovery_state = Path(directory) / "recovery.json"
+            mark_generation_recovery_dispatched("2026-07-06", 62, now=now, path=recovery_state)
+            with self.assertRaises(DailyGuardError):
+                ensure_generation_ready(
+                    session,
+                    headers={},
+                    now=now,
+                    recovery_state_path=recovery_state,
+                )
 
         session.post.assert_not_called()
 

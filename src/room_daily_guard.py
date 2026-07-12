@@ -29,6 +29,7 @@ AUTH_PROBE = PROJECT_ROOT / "src" / "room_auth_probe.py"
 STATE_DIR = PROJECT_ROOT / ".local" / "room-worker"
 LOG_PATH = STATE_DIR / "daily-guard.log"
 SUMMARY_PATH = STATE_DIR / "daily-guard-summary.json"
+RECOVERY_STATE_PATH = STATE_DIR / "daily-guard-recovery.json"
 REQUIRED_SLOTS = ("morning", "noon", "evening")
 SAFE_RETRY_DETAILS = {"TimeoutError"}
 
@@ -73,6 +74,64 @@ def fetch_workflow_runs(session: Any, headers: dict[str, str]) -> list[dict[str,
     return list(response.json().get("workflow_runs", []))
 
 
+def read_recovery_state(path: Path = RECOVERY_STATE_PATH) -> dict[str, Any]:
+    if not path.exists():
+        return {"generation_recovery_dates": {}}
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"generation_recovery_dates": {}}
+    if not isinstance(state, dict):
+        return {"generation_recovery_dates": {}}
+    recoveries = state.get("generation_recovery_dates")
+    if not isinstance(recoveries, dict):
+        state["generation_recovery_dates"] = {}
+    return state
+
+
+def write_recovery_state(state: dict[str, Any], path: Path = RECOVERY_STATE_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def generation_recovery_already_dispatched(
+    routine_date: str,
+    *,
+    path: Path = RECOVERY_STATE_PATH,
+) -> bool:
+    recoveries = read_recovery_state(path).get("generation_recovery_dates", {})
+    return routine_date in recoveries
+
+
+def mark_generation_recovery_dispatched(
+    routine_date: str,
+    failed_run_id: Any,
+    *,
+    now: datetime | None = None,
+    path: Path = RECOVERY_STATE_PATH,
+) -> None:
+    state = read_recovery_state(path)
+    recoveries = state.setdefault("generation_recovery_dates", {})
+    recoveries[routine_date] = {
+        "failed_run_id": failed_run_id,
+        "dispatched_at": (now or datetime.now().astimezone()).isoformat(),
+    }
+    write_recovery_state(state, path)
+
+
+def dispatch_generation_workflow(session: Any, headers: dict[str, str]) -> None:
+    response = session.post(
+        f"{REPO_API}/actions/workflows/daily.yml/dispatches",
+        headers=headers,
+        json={"ref": "main"},
+        timeout=30,
+    )
+    response.raise_for_status()
+
+
 def ensure_generation_ready(
     session: Any,
     *,
@@ -80,9 +139,13 @@ def ensure_generation_ready(
     now: datetime | None = None,
     timeout_seconds: int = 15 * 60,
     poll_seconds: int = 15,
+    recovery_state_path: Path = RECOVERY_STATE_PATH,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     started = time.monotonic()
     dispatched = False
+    recovery_failed_run_id = None
+    local_now = now or datetime.now().astimezone()
+    routine_date = local_now.date().isoformat()
     while True:
         runs = today_runs(fetch_workflow_runs(session, headers), now)
         active = next(
@@ -105,18 +168,31 @@ def ensure_generation_ready(
                 None,
             )
             if failed is not None:
-                raise DailyGuardError(
-                    f"Today's generation run failed; automatic repeat blocked run={failed.get('id')}."
-                )
+                if (
+                    not dispatched
+                    and not generation_recovery_already_dispatched(
+                        routine_date,
+                        path=recovery_state_path,
+                    )
+                ):
+                    dispatch_generation_workflow(session, headers)
+                    mark_generation_recovery_dispatched(
+                        routine_date,
+                        failed.get("id"),
+                        now=local_now,
+                        path=recovery_state_path,
+                    )
+                    dispatched = True
+                    recovery_failed_run_id = failed.get("id")
+                elif dispatched and failed.get("id") == recovery_failed_run_id:
+                    pass
+                else:
+                    raise DailyGuardError(
+                        f"Today's generation run failed; automatic repeat blocked run={failed.get('id')}."
+                    )
 
             if not dispatched:
-                response = session.post(
-                    f"{REPO_API}/actions/workflows/daily.yml/dispatches",
-                    headers=headers,
-                    json={"ref": "main"},
-                    timeout=30,
-                )
-                response.raise_for_status()
+                dispatch_generation_workflow(session, headers)
                 dispatched = True
 
         if time.monotonic() - started >= timeout_seconds:
