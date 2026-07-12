@@ -8,13 +8,14 @@
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 1. 2026-07-12 12:15の`RakutenROOMAutoPoster`で昼枠がpostedになることを`post-ledger.jsonl`で確認する（12:30 `RakutenROOMPostGuard`が補填確認）
 2. 2026-07-12 18:15の`RakutenROOMAutoPoster`で晩枠がpostedになることを`post-ledger.jsonl`で確認する（18:30 `RakutenROOMPostGuard`が補填確認）
-3. 2026-07-13以降、07:00定期生成が`8eb45e8`の修正込みで3枠readyになることを確認する
+3. 2026-07-13以降、07:00定期生成が`8eb45e8`と`71f5bda`の修正込みで3枠readyになり、失敗時は当日1回だけ自動再生成されることを確認する
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-07-12 10:14: 今後も朝昼夜の投稿が正常に毎日行われるよう、`room_daily_guard.py`に「当日生成runがfailureになった場合、その日1回だけbounded recoveryとして`daily.yml`を再dispatchして待つ」処理を追加。無限リトライはせず、同日2回目以降の失敗は従来通り停止して理由を残す。回復実行の記録は`.local/room-worker/daily-guard-recovery.json`へ保存。`tests/test_room_daily_guard.py`に、失敗後1回だけ再生成して3枠readyを受け入れるテストと、同日2回目は再実行しないテストを追加。全158テスト合格。commit `71f5bda`（`Add bounded daily ROOM generation recovery`）をmainへpush済み。Windowsタスク3件は有効で、`RakutenROOMAutoPoster`次回12:15、`RakutenROOMPostGuard`次回12:30。10:14時点の当日台帳は朝枠postedのみで、昼夜は時刻前。
 - 2026-07-12 10:03: 社長から「朝昼夜の投稿が完全に完了していないので徹底」と指摘。07:30生成ガードと08:30投稿ガードは、当日run `29170603254` / `29171311123` がfailureだったため失敗。最新失敗report `b6e4dbb656e6` はrequired slots morning/noon/evening、readyはmorning/noonのみ、missing evening、ready 2・needs_review 36で、ペット用おむつ候補も混入していた。commit `8eb45e8`（`Restore reliable daily ROOM slot generation`）で検索キーワード数を4へ増やし、ペット/大人用/介護/監視カメラ/美顔器/背景布/保護フィルム/替えブラシ等を候補から除外。全157テスト合格後mainへpushし、手動dispatch run `29174529121` がsuccess。report `0063a67fc867` はmorning/noon/evening全枠ready、missing空。朝枠は`ROOM_FORCE_POST_SLOT=morning`で回復投稿し、`post-ledger.jsonl`に`2026-07-12:morning`のreserved/postedあり（URL `https://item.rakuten.co.jp/f105244-oizumi/ap50`）。昼・晩は時刻前のため、12:15/18:15の通常投稿と12:30/18:30のガード確認待ち。
 - 2026-07-12 06:36: room-2日次運用を実行。`RakutenROOMDailyEngagement`、`RakutenROOMAutoPoster`、`RakutenROOMGenerationGuard`、`RakutenROOMPostGuard`は有効で、いずれもrepo `.venv\Scripts\python.exe` と正しいワーカー/作業ディレクトリを参照。交流タスクは05:10実行が本実行となり、06:32にフォロー50/50・いいね50/50・失敗0・`completed=true`・公開進捗更新まで完了。ログイン切れ/CAPTCHA/候補枯渇なし。06:36時点は7:00前のためworkflow_dispatchは未実行。当日post-ledger行はまだ0件で、生成07:00待ち、投稿は08:15/12:15/18:15待ち。
 - 2026-07-11 21:50: `room-10`で公開進捗を当日分として最終確認。実ブラウザで `https://dai-kun811.github.io/rakuten-room-agent/` を開き、上段の自動処理実績が実績日2026-07-11、自動フォロー50/50、自動いいね50/50、対応済み、失敗0、最終更新2026/7/11 6:45:04を表示することを確認。下段の手動チェックはフォロー0/50・いいね0/50で別表示のまま。公開進捗表示は正常。
