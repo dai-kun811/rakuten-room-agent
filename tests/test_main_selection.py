@@ -17,6 +17,7 @@ from main import (
     SEARCH_PAGES_PER_KEYWORD,
     TARGET_READY_POSTS,
     diversify_products,
+    exclude_non_room_candidates,
     generate_until_ready,
     is_supported_room_product,
 )
@@ -42,8 +43,20 @@ def scored(name: str, url: str, total_score: int):
 
 class MainSelectionTest(unittest.TestCase):
     def test_daily_search_uses_additional_keywords_and_pages(self) -> None:
-        self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 2)
+        self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 4)
         self.assertEqual(SEARCH_PAGES_PER_KEYWORD, 2)
+
+    def test_excludes_non_room_candidates_before_selection(self) -> None:
+        candidates = [
+            scored("パンパース 新生児 紙おむつ", "https://example.com/baby-diaper", 100).product,
+            scored("ペット おむつ 犬用 紙おむつ", "https://example.com/pet-diaper", 99).product,
+            scored("大人用紙おむつ 介護 パンツ", "https://example.com/adult-diaper", 98).product,
+        ]
+
+        kept, removed = exclude_non_room_candidates(candidates)
+
+        self.assertEqual(removed, 2)
+        self.assertEqual([item.url for item in kept], ["https://example.com/baby-diaper"])
 
     def test_diversify_products_prefers_unique_product_types_per_day(self) -> None:
         candidates = [

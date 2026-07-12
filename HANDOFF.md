@@ -3,18 +3,21 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-07-10
+最終更新: 2026-07-12
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 2026-07-10 07:00定期Actionsの当日runと朝昼晩3枠を07:30以降に確認する
-2. 2026-07-10 08:15・12:15・18:15投稿タスクと投稿台帳で当日3枠の投稿結果を確認する
-3. git状態を実測し、公開ユーザー検索API対応のローカル差分（`src/room_engagement_worker.py`、テスト）をcommit/pushするか社長確認する
+1. 2026-07-12 07:00定期Actionsの当日runを07:30以降に確認する（06:36時点では7:00前のためworkflow_dispatch未実行）
+2. 2026-07-12の`room-generation-report`でrequired/ready slotsがmorning/noon/evening、missing_post_slots空、各枠ready 1件を確認する
+3. 2026-07-12 08:15・12:15・18:15の`RakutenROOMAutoPoster`結果を`post-ledger.jsonl`で確認する
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-07-12 06:36: room-2日次運用を実行。`RakutenROOMDailyEngagement`、`RakutenROOMAutoPoster`、`RakutenROOMGenerationGuard`、`RakutenROOMPostGuard`は有効で、いずれもrepo `.venv\Scripts\python.exe` と正しいワーカー/作業ディレクトリを参照。交流タスクは05:10実行が本実行となり、06:32にフォロー50/50・いいね50/50・失敗0・`completed=true`・公開進捗更新まで完了。ログイン切れ/CAPTCHA/候補枯渇なし。06:36時点は7:00前のためworkflow_dispatchは未実行。当日post-ledger行はまだ0件で、生成07:00待ち、投稿は08:15/12:15/18:15待ち。
+- 2026-07-11 21:50: `room-10`で公開進捗を当日分として最終確認。実ブラウザで `https://dai-kun811.github.io/rakuten-room-agent/` を開き、上段の自動処理実績が実績日2026-07-11、自動フォロー50/50、自動いいね50/50、対応済み、失敗0、最終更新2026/7/11 6:45:04を表示することを確認。下段の手動チェックはフォロー0/50・いいね0/50で別表示のまま。公開進捗表示は正常。
+- 2026-07-11 06:34: room-2日次運用を実行。`RakutenROOMDailyEngagement`と`RakutenROOMAutoPoster`は有効で、どちらもrepo `.venv\Scripts\python.exe` と正しいワーカーを参照。05:02に交流タスクを起動し、05:10定期トリガーは既存実行と重複。06:31にフォロー50/50・いいね50/50・失敗0・`completed=true`・公開済みまで完了。ログイン切れ/CAPTCHAなし。06:34時点は7:00前のためworkflow_dispatchは未実行。既存の復旧run #75（29116094742、report `aff10b2c16db`）はsuccessで、required/ready slotsはmorning/noon/evening、欠落0、ready各枠1件。post-ledgerは2026-07-11 morning/noon/eveningがすべて`posted`済み。`RakutenROOMAutoPoster`次回は08:15だが、台帳上は二重投稿ガード対象。
 - 2026-07-11 03:58: 投稿復旧完了。社長の新方針に従い、通常のcommit/push・workflow実行・投稿確認は自律実行する運用へ変更。commit `72880b1`で投稿可能タイプ優先・ROOMユーザー検索API復旧をpush後、run #74はまだready 0件。原因は`needs_review`行を履歴に混ぜた自己重複だったため、commit `9d70286`で`GenerationContext.from_history`が`ステータス=ready`以外を重複履歴から除外するよう修正しpush。全156テスト合格。`daily.yml` run #75（29116094742、report `aff10b2c16db`）はsuccess、`ready_slots=[morning,noon,evening]`、欠落0。安全な強制枠指定で2026-07-11の朝昼晩3件を投稿し、post-ledgerは全枠`posted`。認証済みChromeで`https://room.rakuten.co.jp/tora_papa/items`を開き、`omomag10018`、`7263244`、`4901301448378-4`の表示を確認。公開HTTPは403だが認証ブラウザではログイン切れなし。
 - 2026-07-11 03:45: 社長から「投稿できるまで責任をもって繰り返しチェックし、確実に投稿できるように」と指摘。生成復旧として、対応済み商品タイプを優先選定し、コア検索キーワードを投稿可能タイプ（マグネットブロック、木製積み木、授乳ライト、寝かしつけぬいぐるみ、紙おむつ等）へ寄せる修正を実装。既存のROOMユーザー検索API復旧差分も含めてローカルcommit `72880b1`（`Restore daily ROOM post candidate generation`）を作成。`C:\Users\daiku\AppData\Local\Programs\Python\Python312\python.exe -m unittest discover -s tests`で155テスト合格。`git push origin main`はdefault branchへのpushに明示承認が必要として安全審査で拒否されたため未push。Actionsにはまだ反映されていない。次は社長の明示的なpush承認を受けてmainへpushし、`daily.yml`を手動実行して3枠ready確認、投稿時刻または安全な強制枠で投稿まで追跡する。
 - 2026-07-11 03:31: 社長指摘「楽天ROOMに投稿されてなくない？」を検証。2026-07-10の投稿台帳に`reserved`/`posted`/`failed`行は0件で、実際に投稿されていない。`RakutenROOMAutoPoster`は08:15/12:15/18:15に動き終了コード0だが、ワーカーログはいずれも最新成功成果物run #64（2026-07-06、`67d878493971`）を見て`No unposted ready item assigned to slot=morning/noon/evening`。7/10のActions run #73（29056987260）はfailureで、成果物内は楽天API取得572件・失敗0だが`ready_slots=[]`、`missing_post_slots=[morning,noon,evening]`、38件すべて`needs_review`。理由は37件が`short_name_unresolved`、1件が重複/品質NG。`GenerationGuard`/`PostGuard`は「Today's generation run failed; automatic repeat blocked」として無条件反復を止めている。7/7以降daily.ymlは連続failureで、投稿は7/6成功分以降止まっている。

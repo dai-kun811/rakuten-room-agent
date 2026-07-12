@@ -39,9 +39,27 @@ JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
 POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
-SEARCH_KEYWORDS_PER_CATEGORY = 2
+SEARCH_KEYWORDS_PER_CATEGORY = 4
 SEARCH_PAGES_PER_KEYWORD = 2
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
+EXCLUDED_ROOM_CANDIDATE_TERMS = (
+    "ペット",
+    "犬用",
+    "猫",
+    "介護",
+    "大人用",
+    "男女兼用",
+    "尿取り",
+    "リハビリ",
+    "医療費控除",
+    "防犯",
+    "監視カメラ",
+    "美顔器",
+    "背景布",
+    "撮影用",
+    "保護フィルム",
+    "替えブラシ",
+)
 
 
 
@@ -136,15 +154,17 @@ def main() -> int:
             products,
             existing_urls=existing_urls,
         )
+        eligible_products, excluded_count = exclude_non_room_candidates(deduped_products)
         LOGGER.info(
-            "重複除外完了 run_id=%s existing_urls=%s removed=%s remaining=%s",
+            "重複除外完了 run_id=%s existing_urls=%s removed=%s excluded_non_room=%s remaining=%s",
             run_id,
             len(existing_urls),
             duplicate_count,
-            len(deduped_products),
+            excluded_count,
+            len(eligible_products),
         )
 
-        if not deduped_products:
+        if not eligible_products:
             reason = "楽天APIから商品は取得できましたが、既存URLまたは類似商品とすべて重複しました。"
             LOGGER.error("%s run_id=%s", reason, run_id)
             sheets_client.append_error(
@@ -156,17 +176,17 @@ def main() -> int:
             return 0
 
         tiers = build_selection_tiers_from_env()
-        filter_counts = count_filter_results(deduped_products, tiers)
+        filter_counts = count_filter_results(eligible_products, tiers)
         LOGGER.info("選定条件別の候補数 run_id=%s counts=%s", run_id, filter_counts)
         candidates = select_products(
-            deduped_products,
+            eligible_products,
             today,
             tiers,
-            limit=len(deduped_products),
+            limit=len(eligible_products),
         )
         selected_products = diversify_products(candidates, recent_history, limit=len(candidates))
         if not selected_products:
-            top_products = score_all_products(deduped_products, today)[:3]
+            top_products = score_all_products(eligible_products, today)[:3]
             details = [
                 {
                     "product": item.product.name[:40],
@@ -306,6 +326,20 @@ def deduplicate_products(
         kept.append(product)
         seen_urls.add(normalized_url)
     return kept, removed
+
+
+def exclude_non_room_candidates(products: list[Product]) -> tuple[list[Product], int]:
+    kept = [
+        product
+        for product in products
+        if not is_excluded_room_candidate(product)
+    ]
+    return kept, len(products) - len(kept)
+
+
+def is_excluded_room_candidate(product: Product) -> bool:
+    text = product.identity_text
+    return any(term.lower() in text for term in EXCLUDED_ROOM_CANDIDATE_TERMS)
 
 
 def is_near_duplicate(left: Product, right: Product) -> bool:
