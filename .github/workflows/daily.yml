@@ -6,6 +6,11 @@ on:
     # User-facing schedule is daily at 07:00 JST.
     - cron: "0 22 * * *"
   workflow_dispatch:
+    inputs:
+      blocked_urls:
+        description: "Recovery-only product URLs to exclude from this generation run"
+        required: false
+        default: ""
 
 concurrency:
   group: rakuten-room-daily-post
@@ -50,6 +55,7 @@ jobs:
           DEBUG_MIN_REVIEW_COUNT: ${{ vars.DEBUG_MIN_REVIEW_COUNT || '0' }}
           DEBUG_MIN_REVIEW_AVERAGE: ${{ vars.DEBUG_MIN_REVIEW_AVERAGE || '0' }}
           DEBUG_MIN_TOTAL_SCORE: ${{ vars.DEBUG_MIN_TOTAL_SCORE || '0' }}
+          ROOM_BLOCKED_URLS: ${{ github.event.inputs.blocked_urls || '' }}
         run: python src/main.py
 
       - name: Upload generation report

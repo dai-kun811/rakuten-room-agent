@@ -20,6 +20,7 @@ from main import (
     exclude_non_room_candidates,
     generate_until_ready,
     is_supported_room_product,
+    parse_blocked_urls,
 )
 from rakuten_api import Product
 from scoring import score_product
@@ -57,6 +58,20 @@ class MainSelectionTest(unittest.TestCase):
 
         self.assertEqual(removed, 2)
         self.assertEqual([item.url for item in kept], ["https://example.com/baby-diaper"])
+
+    def test_parse_blocked_urls_normalizes_recovery_exclusions(self) -> None:
+        blocked = parse_blocked_urls(
+            "https://item.rakuten.co.jp/shop/item/?scid=x,\n"
+            "https://item.rakuten.co.jp/shop/other/"
+        )
+
+        self.assertEqual(
+            blocked,
+            {
+                "https://item.rakuten.co.jp/shop/item",
+                "https://item.rakuten.co.jp/shop/other",
+            },
+        )
 
     def test_diversify_products_prefers_unique_product_types_per_day(self) -> None:
         candidates = [

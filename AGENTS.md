@@ -1,3 +1,29 @@
+# 最重要ルール: 楽天ROOM 朝・昼・晩 投稿の完了責任
+
+このプロジェクトを担当する全エージェントは、楽天ROOM投稿について「候補生成が動いた」「投稿タスクが終了コード0だった」だけで完了扱いにしてはいけない。
+
+毎日、朝・昼・晩の各1投稿、合計3投稿が楽天ROOMへ正確に投稿され、品質条件を満たし、投稿台帳で `posted` まで確認できた状態を完了条件とする。
+
+必ず確認すること:
+
+- GitHub Actions `daily.yml` の当日runが成功していること。
+- `room-generation-report` で `required_post_slots=["morning","noon","evening"]`、`ready_slots` が3枠すべて揃い、`missing_post_slots=[]` であること。
+- ready候補が品質合格であり、重複・本文類似・短縮名未確定・タイトル不一致などで `needs_review` に落ちていないこと。
+- Windows投稿タスク `RakutenROOMAutoPoster` / `RakutenROOMPostGuard` の結果だけで判断せず、`.local\room-worker\post-ledger.jsonl` に当日 `morning` / `noon` / `evening` の `posted` があること。
+- 可能な範囲で実際のROOM表示または公開進捗表示も確認すること。ただしCodex環境の外部サイト制約がある場合は、台帳・Actions artifact・ログを一次証跡とする。
+
+未達の場合の責任:
+
+- 朝・昼・晩のいずれか1枠でも未投稿なら、完了報告をしてはいけない。
+- 生成が失敗した場合は、当日失敗runの artifact を確認し、`ready_slots` / `missing_post_slots` / `review_reasons` / `duplicate_result` / `quality.errors` を原因別に特定する。
+- 品質を落として無理に投稿してはいけない。品質条件を満たす候補が3枠揃うまで、候補選定・生成ロジック・重複判定・再生成条件を安全に修正し、テストし、再実行する。
+- 既に投稿済みの枠を重複投稿してはいけない。投稿台帳とslotを見て、未投稿枠だけを回復する。
+- その日の3投稿が `posted` で確認できるまで、各エージェントは責任を持って復旧・検証を継続する。未投稿・生成run失敗・ガード停止を理由に作業を終了しない。
+- 生成run失敗で停止した場合は、必要な修正、テスト、再実行、未投稿slotだけの投稿回復、post-ledger確認までを一連の復旧作業として扱う。
+- その場で外部承認や権限が必要になって復旧を完了できない場合でも、そこで曖昧に終えず、未達slot、失敗run、原因、実施済み修正、次に許可が必要な具体操作を `HANDOFF.md` に残す。
+- 次回以降のエージェントは `HANDOFF.md` の未達slotから再開し、同じ調査を繰り返さず、3枠 `posted` まで継続する。
+- ユーザーへの報告は「できていない」で止めず、未達枠、原因、実施した復旧、残りの一手を必ず示す。
+
 # rakuten-room — Codex/AI 作業ガイド（AGENTS.md）
 
 このファイルは Codex / AIエージェントが本プロジェクトで作業する際に最初に読む指示書です。

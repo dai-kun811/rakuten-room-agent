@@ -53,6 +53,33 @@ class RoomPosterTest(unittest.TestCase):
 
         self.assertFalse(RoomPoster._response_confirms_post(Response()))
 
+    def test_click_submit_uses_forced_click_after_enabled_check(self) -> None:
+        class Submit:
+            clicked_force = None
+
+            @staticmethod
+            def is_disabled() -> bool:
+                return False
+
+            def click(self, *, force: bool) -> None:
+                self.clicked_force = force
+
+        submit = Submit()
+        RoomPoster._click_submit(submit)
+        self.assertTrue(submit.clicked_force)
+
+    def test_click_submit_rejects_disabled_button(self) -> None:
+        class Submit:
+            @staticmethod
+            def is_disabled() -> bool:
+                return True
+
+            def click(self, *, force: bool) -> None:
+                raise AssertionError("disabled submit should not be clicked")
+
+        with self.assertRaisesRegex(RoomPostError, "無効"):
+            RoomPoster._click_submit(Submit())
+
     def test_wait_for_item_name_uses_angular_item_signal(self) -> None:
         class Page:
             def __init__(self) -> None:

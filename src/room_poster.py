@@ -113,7 +113,7 @@ class RoomPoster:
                         and item.request.method == "POST",
                         timeout=self.timeout_ms,
                     ) as response_info:
-                        submit.click()
+                        self._click_submit(submit)
                     response = response_info.value
                 except PlaywrightTimeoutError:
                     pass
@@ -152,6 +152,17 @@ class RoomPoster:
         except Exception:
             return False
         return isinstance(payload, dict) and payload.get("status") == "success"
+
+    @staticmethod
+    def _click_submit(submit: Any) -> None:
+        try:
+            if submit.is_disabled():
+                raise RoomPostError("ROOM投稿ボタンが無効です。")
+        except RoomPostError:
+            raise
+        except Exception:
+            pass
+        submit.click(force=True)
 
     def _wait_for_item_name(self, page: Any) -> None:
         try:

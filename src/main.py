@@ -137,6 +137,14 @@ def main() -> int:
         existing_urls = sheets_client.read_existing_urls(output_sheet_name)
         if output_sheet_name != source_sheet_name:
             existing_urls.update(sheets_client.read_existing_urls(source_sheet_name))
+        blocked_urls = parse_blocked_urls(os.getenv("ROOM_BLOCKED_URLS"))
+        existing_urls.update(blocked_urls)
+        if blocked_urls:
+            LOGGER.info(
+                "復旧用の投稿不可URLを除外します run_id=%s blocked_urls=%s",
+                run_id,
+                len(blocked_urls),
+            )
         recent_history = sheets_client.read_recent_history(
             output_sheet_name,
             today=today,
@@ -325,6 +333,20 @@ def deduplicate_products(
         kept.append(product)
         seen_urls.add(normalized_url)
     return kept, removed
+
+
+def parse_blocked_urls(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {
+        normalized
+        for normalized in (
+            normalize_product_url(url.strip())
+            for url in re.split(r"[\s,]+", value)
+            if url.strip()
+        )
+        if normalized
+    }
 
 
 def exclude_non_room_candidates(products: list[Product]) -> tuple[list[Product], int]:
