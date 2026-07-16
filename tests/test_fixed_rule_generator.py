@@ -715,8 +715,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         ):
             generated = generate("wipes")
         self.assertEqual(generated.status, "needs_review")
-        self.assertEqual(generated.rewrite_count, 4)
-        self.assertIn("最大5回の再生成で品質条件を満たせない", generated.quality_errors)
+        self.assertEqual(generated.rewrite_count, 7)
+        self.assertIn("最大8回の再生成で品質条件を満たせない", generated.quality_errors)
 
     def test_mismatched_hashtags_are_rejected(self) -> None:
         generated = generate("ring_toy")

@@ -27,6 +27,38 @@ DAILY_GOAL = 50
 RESET_HOUR = 5
 OWN_ROOM_ID = "tora_papa"
 CAPTCHA_PATTERN = re.compile(r"captcha|ロボットではありません|画像認証", re.IGNORECASE)
+API_SEARCH_TIMEOUT_SECONDS = 20
+MAX_API_SEARCH_PAGES = 2
+BROWSER_SEARCH_TIMEOUT_MS = 8_000
+MAX_DISCOVERY_SEARCH_URLS = 10
+SUPPLEMENTAL_SEARCH_URLS = [
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E7%94%A8%E5%93%81&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%AD%90%E8%82%B2%E3%81%A6&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E3%82%B0%E3%83%83%E3%82%BA&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%9E%E3%83%9E%E3%82%B0%E3%83%83%E3%82%BA&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E7%B5%B5%E6%9C%AC&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%82%AD%E3%83%83%E3%82%BA%E7%94%A8%E5%93%81&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E9%80%9A%E5%9C%92%E3%82%B0%E3%83%83%E3%82%BA&rank=6%2C5%2C4%2C3",
+    "https://room.rakuten.co.jp/search/user?keyword=%E9%9B%A2%E4%B9%B3%E9%A3%9F&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%AD%90%E3%81%A9%E3%82%82%E3%81%A8%E6%9A%AE%E3%82%89%E3%81%99&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E7%9F%A5%E8%82%B2%E7%8E%A9%E5%85%B7&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E8%82%B2%E5%85%90%E4%BE%BF%E5%88%A9%E3%82%B0%E3%83%83%E3%82%BA&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E7%94%A8%E5%93%81&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%AD%90%E8%82%B2%E3%81%A6&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E3%82%B0%E3%83%83%E3%82%BA&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E7%B5%B5%E6%9C%AC&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%82%AD%E3%83%83%E3%82%BA%E7%94%A8%E5%93%81&rank=2%2C1",
+    "https://room.rakuten.co.jp/search/user?keyword=%E9%9B%A2%E4%B9%B3%E9%A3%9F",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%AD%90%E8%82%B2%E3%81%A6",
+    "https://room.rakuten.co.jp/search/user?keyword=%E7%9F%A5%E8%82%B2%E7%8E%A9%E5%85%B7",
+    "https://room.rakuten.co.jp/search/user?keyword=%E8%82%B2%E5%85%90%E4%BE%BF%E5%88%A9%E3%82%B0%E3%83%83%E3%82%BA",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E7%94%A8%E5%93%81",
+    "https://room.rakuten.co.jp/search/user?keyword=%E7%B5%B5%E6%9C%AC",
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%82%AD%E3%83%83%E3%82%BA%E7%94%A8%E5%93%81",
+]
 
 
 class EngagementError(RuntimeError):
@@ -84,6 +116,7 @@ def load_routine_sources(path: Path = ROUTINE_SOURCE) -> tuple[list[RoutineCandi
         if item.get("id") and item.get("url")
     ]
     search_urls = re.findall(r'url:\s*"(https://room\.rakuten\.co\.jp/search/user[^"]+)"', search_block.group(1))
+    search_urls = list(dict.fromkeys([*search_urls, *SUPPLEMENTAL_SEARCH_URLS]))
     return candidates, search_urls
 
 
@@ -188,7 +221,7 @@ def discover_candidates_from_api(
             base_params[target] = value
 
     found: dict[str, RoutineCandidate] = {}
-    for page in range(1, 6):
+    for page in range(1, MAX_API_SEARCH_PAGES + 1):
         response = http_get(
             "https://room.rakuten.co.jp/api/user/search",
             params={**base_params, "page": page},
@@ -200,7 +233,7 @@ def discover_candidates_from_api(
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
                 ),
             },
-            timeout=30,
+            timeout=API_SEARCH_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         payload = response.json()
@@ -230,8 +263,10 @@ class RoomEngagementDriver:
         need_follow: bool,
         need_like: bool,
     ) -> EngagementResult:
-        page.goto(candidate.url, wait_until="domcontentloaded")
         page.set_default_timeout(self.timeout_ms)
+        if hasattr(page, "set_default_navigation_timeout"):
+            page.set_default_navigation_timeout(self.timeout_ms)
+        page.goto(candidate.url, wait_until="domcontentloaded", timeout=self.timeout_ms)
         self._assert_safe_page(page)
         followed, follow_status = self._follow(page) if need_follow else (False, "goal_reached")
         liked, like_status = self._like(page) if need_like else (False, "goal_reached")
@@ -344,8 +379,14 @@ class RoomEngagementDriver:
 
 
 def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCandidate]:
+    logger = logging.getLogger("room-engagement-worker")
     found: dict[str, RoutineCandidate] = {}
-    for search_url in search_urls:
+    page.set_default_timeout(BROWSER_SEARCH_TIMEOUT_MS)
+    if hasattr(page, "set_default_navigation_timeout"):
+        page.set_default_navigation_timeout(BROWSER_SEARCH_TIMEOUT_MS)
+    for index, search_url in enumerate(search_urls):
+        if index >= MAX_DISCOVERY_SEARCH_URLS:
+            break
         try:
             api_candidates = discover_candidates_from_api(search_url)
         except (requests.RequestException, ValueError, TypeError):
@@ -355,43 +396,50 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
         if api_candidates:
             continue
 
-        page.goto(search_url, wait_until="domcontentloaded")
-        submit_user_search(page)
-        for _ in range(5):
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(700)
-        links = page.locator('a[href*="/items"]')
-        for index in range(min(links.count(), 300)):
-            link = links.nth(index)
-            try:
-                href = urljoin(page.url, link.get_attribute("href") or "")
-                name = " ".join(link.inner_text().split())
-            except Exception:
-                continue
-            candidate = candidate_from_room_url(href, name)
-            if candidate:
-                found[candidate.id] = candidate
-        model_links = page.locator('a[ng-click="goToUserRoom()"]')
-        for index in range(min(model_links.count(), 300)):
-            link = model_links.nth(index)
-            try:
-                user = link.evaluate(
-                    """element => {
-                        const angular = window.angular;
-                        if (!angular) return null;
-                        const scope = angular.element(element).scope();
-                        if (!scope || !scope.user) return null;
-                        return {
-                            username: scope.user.username,
-                            fullname: scope.user.fullname,
-                        };
-                    }"""
-                )
-            except Exception:
-                continue
-            candidate = candidate_from_search_user(user)
-            if candidate:
-                found[candidate.id] = candidate
+        try:
+            page.goto(
+                search_url,
+                wait_until="domcontentloaded",
+                timeout=BROWSER_SEARCH_TIMEOUT_MS,
+            )
+            submit_user_search(page)
+            for _ in range(5):
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(700)
+            links = page.locator('a[href*="/items"]')
+            for link_index in range(min(links.count(), 300)):
+                link = links.nth(link_index)
+                try:
+                    href = urljoin(page.url, link.get_attribute("href") or "")
+                    name = " ".join(link.inner_text().split())
+                except Exception:
+                    continue
+                candidate = candidate_from_room_url(href, name)
+                if candidate:
+                    found[candidate.id] = candidate
+            model_links = page.locator('a[ng-click="goToUserRoom()"]')
+            for link_index in range(min(model_links.count(), 300)):
+                link = model_links.nth(link_index)
+                try:
+                    user = link.evaluate(
+                        """element => {
+                            const angular = window.angular;
+                            if (!angular) return null;
+                            const scope = angular.element(element).scope();
+                            if (!scope || !scope.user) return null;
+                            return {
+                                username: scope.user.username,
+                                fullname: scope.user.fullname,
+                            };
+                        }"""
+                    )
+                except Exception:
+                    continue
+                candidate = candidate_from_search_user(user)
+                if candidate:
+                    found[candidate.id] = candidate
+        except Exception as exc:
+            logger.warning("Candidate browser discovery skipped index=%s error=%s", index, type(exc).__name__)
     return list(found.values())
 
 
@@ -401,7 +449,7 @@ def submit_user_search(page: Any) -> bool:
         if not search_input.is_visible():
             return False
         search_input.press("Enter")
-        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_load_state("domcontentloaded", timeout=BROWSER_SEARCH_TIMEOUT_MS)
         page.wait_for_timeout(3_000)
         return True
     except Exception:

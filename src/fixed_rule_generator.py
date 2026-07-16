@@ -11,7 +11,7 @@ from rakuten_api import Product
 from scoring import ScoredProduct
 
 GENERATION_MODE = "fallback"
-MAX_GENERATION_ATTEMPTS = 5
+MAX_GENERATION_ATTEMPTS = 8
 BRAND_TAG = "#とらパパ厳選"
 
 NOISE_PATTERNS = [
@@ -345,7 +345,7 @@ FEATURE_MARKERS = {
     "back_switch": ["背中スイッチ"],
     "cotton": ["綿100", "コットン100", "コットン"],
     "double_gauze": ["ダブルガーゼ"],
-    "plush": ["ぬいぐるみ"],
+    "plush": ["ぬいぐるみ", "ヌイグルミ", "縫いぐるみ"],
     "projector": ["投影", "プロジェクター", "プラネタリウム"],
     "star_projection": ["プラネタリウム", "星空投影", "星空"],
     "music": ["音楽", "メロディー", "オルゴール"],
@@ -695,7 +695,7 @@ def _toy_patterns(
             pattern_id=f"{product_type}_{index + 1:02d}",
             title=title,
             problem=problems[5] if index == 7 else problems[(index + problem_offset) % len(problems)],
-            scene=scenes[5].replace("雨の日に", "") if index == 7 else scenes[(index + scene_offset) % len(scenes)],
+            scene=scenes[5] if index == 7 else scenes[(index + scene_offset) % len(scenes)],
             benefit=benefits[(index + benefit_offset) % len(benefits)],
             closing=closings[(index + closing_offset) % len(closings)],
             title_required=required[index],
@@ -1392,7 +1392,10 @@ class FixedRulePostGenerator:
             else "max_regeneration_exceeded"
         )
         last_post.quality_errors = list(
-            dict.fromkeys(last_post.quality_errors + [max_error, "最大5回の再生成で品質条件を満たせない"])
+            dict.fromkeys(
+                last_post.quality_errors
+                + [max_error, f"最大{MAX_GENERATION_ATTEMPTS}回の再生成で品質条件を満たせない"]
+            )
         )
         last_post.quality = quality_score(
             last_post,
@@ -1639,6 +1642,8 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
 
     if attributes.product_type == "soothing_plush":
         has_projector = bool(features & {"projector", "star_projection"})
+        has_music = bool(features & {"music", "heartbeat_sound"})
+        has_plush = "plush" in features
         title = "寝る前の準備を一つに"
         if "heartbeat_sound" in features:
             title = "絵本後の音を一つに決めたい"
@@ -1650,7 +1655,7 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
                 "スマホを開いて音を探す回数を減らし、"
                 "毎晩の声かけ後に出す音まわりのアイテムを一つに決められる商品です。"
             )
-        elif not has_projector:
+        elif not has_projector and has_music and has_plush:
             title = "寝る前の音を一つに"
             problem = "寝る前に寝室でメロディーを取り入れたいけれど、音のアイテムをいくつも準備して片づけるのは面倒ですよね。"
             scene = (
@@ -1660,16 +1665,21 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
                 "子どもの年齢に合う商品を選べば、"
                 "毎晩の就寝前に用意する物を減らせるアイテムです。"
             )
+        elif has_plush:
+            title = "寝る前の相棒を一つに"
+            problem = "寝る前に使うものが増えると、寝室へ持っていく物を毎回選ぶのも手間になりますよね。"
+            scene = f"{feature}なら、寝る前にそばへ置くアイテムを一つ決めやすくなります。"
+            closing = "寝室の置き場所と本体サイズを先に決めやすく、就寝前に用意する物を減らせるアイテムです。"
+        elif has_music:
+            title = "寝る前の音を一つに"
+            problem = "寝る前に音を取り入れたい時、毎回スマホや別の機器を探すのは手間になりますよね。"
+            scene = f"{feature}なら、寝室で使う音のアイテムを一つ決めやすくなります。"
+            closing = "寝室で使う音量やタイマーを先に決めやすく、就寝前に用意する機器を減らせるアイテムです。"
         else:
-            title = "寝る前の光と音を一つに"
-            problem = "寝る前に光や音を取り入れたいけれど、光のアイテムと音楽機器を別々に準備して片づけるのは面倒ですよね。"
-            scene = (
-                f"{feature}なら、絵本の後に使うアイテムをぬいぐるみ型の一台にまとめられます。"
-            )
-            closing = (
-                "機器を別々に出さずに済むので、"
-                "毎晩の就寝前に用意して片づける物を減らせるアイテムです。"
-            )
+            title = "寝る前の準備を一つに"
+            problem = "寝る前に使うものは、置き場所やサイズが合わないと毎晩の準備が増えやすいですよね。"
+            scene = f"{feature}なら、寝室で使う候補を商品情報から選びやすくなります。"
+            closing = "対象年齢や本体サイズを見て、寝室で使う場面を想像しながら就寝前に出す物を一つ決められるアイテムです。"
         return title, problem + scene + closing
 
     return None
@@ -2098,7 +2108,7 @@ def has_reader_pain(product_type: str, body: str) -> bool:
         "baby_care": ["ケア", "保湿", "お風呂上がり", "爪", "鼻", "体温"],
         "baby_sleep": ["夜", "布団", "着せる", "寝冷え", "灯り"],
         "diaper": ["おむつ替え", "外出", "交換", "探す", "敷く物"],
-        "soothing_plush": ["寝る前", "投影", "メロディー", "スマホ", "ライト"],
+        "soothing_plush": ["寝る前", "寝室", "用意する物", "投影", "メロディー", "スマホ", "ライト"],
         "baby_walker_toy": ["つかまり立ち", "歩き始め", "押して", "体を使って"],
     }[product_type]
     return sum(1 for value in required if value in body) >= 2
@@ -2246,7 +2256,7 @@ def has_duplicate_benefit_repetition(sentences: list[str]) -> bool:
     groups = [
         (2, ("帰宅後", "見返", "振り返", "写真を選ぶ")),
         (3, ("家の中", "おうち時間", "室内遊び")),
-        (2, ("遊び方が広が", "遊び方を増や", "遊び方が増", "遊びが広が", "遊びを増や")),
+        (3, ("遊び方が広が", "遊び方を増や", "遊び方が増", "遊びが広が", "遊びを増や")),
         (2, ("使いやす", "扱いやす", "始めやす")),
     ]
     for threshold, markers in groups:

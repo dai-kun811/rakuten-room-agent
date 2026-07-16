@@ -6,6 +6,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -13,6 +14,7 @@ from room_engagement_worker import (
     RoomEngagementDriver,
     candidate_from_room_url,
     candidate_from_search_user,
+    discover_candidates,
     discover_candidates_from_api,
     extract_json_constant,
     load_routine_sources,
@@ -107,7 +109,7 @@ class FakeSearchPage:
     def locator(self, _selector: str):
         return self.search_input
 
-    def wait_for_load_state(self, state: str) -> None:
+    def wait_for_load_state(self, state: str, **_kwargs) -> None:
         self.waited_for = state
 
     def wait_for_timeout(self, _milliseconds: int) -> None:
@@ -166,7 +168,7 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         self.assertEqual(calls[1][1], {"query": "離乳食", "page": 2, "rank": "6,5"})
         self.assertEqual(len(calls), 2)
         self.assertIn("Mozilla/5.0", calls[0][2]["User-Agent"])
-        self.assertEqual(calls[0][3], 30)
+        self.assertEqual(calls[0][3], 20)
 
     def test_user_search_submits_prefilled_keyword(self) -> None:
         page = FakeSearchPage()
@@ -188,11 +190,115 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         self.assertEqual(status, "liked")
         self.assertIn("favorite-filled", unfilled.icon_class)
 
+    def test_engage_sets_navigation_timeout_before_opening_candidate(self) -> None:
+        class FakeNavigationPage:
+            url = "https://room.rakuten.co.jp/room_example/items"
+
+            def __init__(self) -> None:
+                self.default_timeout = None
+                self.navigation_timeout = None
+                self.goto_kwargs = None
+
+            def set_default_timeout(self, timeout: int) -> None:
+                self.default_timeout = timeout
+
+            def set_default_navigation_timeout(self, timeout: int) -> None:
+                self.navigation_timeout = timeout
+
+            def goto(self, url: str, **kwargs) -> None:
+                self.goto_kwargs = {"url": url, **kwargs}
+
+        class FastDriver(RoomEngagementDriver):
+            def _assert_safe_page(self, _page) -> None:
+                pass
+
+            def _follow(self, _page):
+                return True, "followed"
+
+            def _like(self, _page):
+                return True, "liked"
+
+        page = FakeNavigationPage()
+        candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items")
+        self.assertIsNotNone(candidate)
+
+        FastDriver(timeout_ms=1234).engage(
+            page,
+            candidate,
+            need_follow=True,
+            need_like=True,
+        )
+
+        self.assertEqual(page.default_timeout, 1234)
+        self.assertEqual(page.navigation_timeout, 1234)
+        self.assertEqual(
+            page.goto_kwargs,
+            {
+                "url": "https://room.rakuten.co.jp/room_example/items",
+                "wait_until": "domcontentloaded",
+                "timeout": 1234,
+            },
+        )
+
+    def test_discover_candidates_sets_search_navigation_timeout(self) -> None:
+        class EmptyLocator:
+            @property
+            def first(self):
+                return self
+
+            def is_visible(self) -> bool:
+                return False
+
+            def count(self) -> int:
+                return 0
+
+        class FakeDiscoveryPage:
+            url = "https://room.rakuten.co.jp/search/user?keyword=test"
+
+            def __init__(self) -> None:
+                self.default_timeout = None
+                self.navigation_timeout = None
+                self.goto_kwargs = None
+
+            def set_default_timeout(self, timeout: int) -> None:
+                self.default_timeout = timeout
+
+            def set_default_navigation_timeout(self, timeout: int) -> None:
+                self.navigation_timeout = timeout
+
+            def goto(self, url: str, **kwargs) -> None:
+                self.goto_kwargs = {"url": url, **kwargs}
+
+            def locator(self, _selector: str):
+                return EmptyLocator()
+
+            def evaluate(self, _script: str) -> None:
+                pass
+
+            def wait_for_timeout(self, _milliseconds: int) -> None:
+                pass
+
+        page = FakeDiscoveryPage()
+        with patch("room_engagement_worker.discover_candidates_from_api", return_value=[]):
+            discover_candidates(page, ["https://room.rakuten.co.jp/search/user?keyword=test"])
+
+        self.assertEqual(page.default_timeout, 8_000)
+        self.assertEqual(page.navigation_timeout, 8_000)
+        self.assertEqual(
+            page.goto_kwargs,
+            {
+                "url": "https://room.rakuten.co.jp/search/user?keyword=test",
+                "wait_until": "domcontentloaded",
+                "timeout": 8_000,
+            },
+        )
+
     def test_loads_current_routine_candidates_and_search_links(self) -> None:
         candidates, search_urls = load_routine_sources()
         self.assertGreaterEqual(len(candidates), 50)
-        self.assertTrue(search_urls)
+        self.assertGreaterEqual(len(search_urls), 30)
         self.assertEqual(len({item.id for item in candidates}), len(candidates))
+        self.assertTrue(any("keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99" in url for url in search_urls))
 
     def test_extract_json_constant_rejects_missing_data(self) -> None:
         self.assertEqual(extract_json_constant('const ITEMS = [{"id": 1}];', "ITEMS"), [{"id": 1}])
