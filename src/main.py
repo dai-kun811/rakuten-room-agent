@@ -135,7 +135,6 @@ def main() -> int:
             return 0
 
         existing_urls = sheets_client.read_existing_urls(output_sheet_name)
-        existing_urls.update(sheets_client.read_existing_urls(review_sheet_name))
         if output_sheet_name != source_sheet_name:
             existing_urls.update(sheets_client.read_existing_urls(source_sheet_name))
         recent_history = sheets_client.read_recent_history(

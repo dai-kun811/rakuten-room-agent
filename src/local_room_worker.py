@@ -144,13 +144,14 @@ def current_post_slot(
     now: datetime | None = None,
     *,
     windows: list[tuple[str, int, int]] | None = None,
+    post_date: str | None = None,
 ) -> str:
     local_now = now or datetime.now().astimezone()
     for label, start, end in windows or parse_post_windows(
         os.getenv("ROOM_POST_WINDOWS")
     ):
         if start <= local_now.hour < end:
-            return f"{local_now.date().isoformat()}:{label}"
+            return f"{(post_date or local_now.date().isoformat())}:{label}"
     return ""
 
 
@@ -158,17 +159,19 @@ def resolve_post_slot(
     now: datetime | None = None,
     *,
     override: str | None = None,
+    post_date: str | None = None,
     windows: list[tuple[str, int, int]] | None = None,
 ) -> str:
     local_now = now or datetime.now().astimezone()
+    effective_date = post_date or local_now.date().isoformat()
     configured_windows = windows or parse_post_windows(os.getenv("ROOM_POST_WINDOWS"))
     forced_label = (override or "").strip()
     if not forced_label:
-        return current_post_slot(local_now, windows=configured_windows)
+        return current_post_slot(local_now, windows=configured_windows, post_date=post_date)
     valid_labels = {label for label, _start, _end in configured_windows}
     if forced_label not in valid_labels:
         raise ValueError(f"Invalid forced ROOM post slot: {forced_label}")
-    return f"{local_now.date().isoformat()}:{forced_label}"
+    return f"{effective_date}:{forced_label}"
 
 
 def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bool:
@@ -266,7 +269,11 @@ def main() -> int:
         logger.error("ROOM browser profile is missing.")
         return 1
 
-    slot = resolve_post_slot(override=os.getenv("ROOM_FORCE_POST_SLOT"))
+    forced_post_date = os.getenv("ROOM_FORCE_POST_DATE", "").strip() or None
+    slot = resolve_post_slot(
+        override=os.getenv("ROOM_FORCE_POST_SLOT"),
+        post_date=forced_post_date,
+    )
     if not slot:
         logger.info("Outside configured ROOM post windows; no post attempted.")
         return 0
@@ -305,7 +312,7 @@ def main() -> int:
             logger.info("No unposted ready item assigned to slot=%s", slot_label)
             return 0
 
-        if not actions_run_is_today(run):
+        if not forced_post_date and not actions_run_is_today(run):
             logger.info("Latest successful workflow is not from today; no post attempted.")
             return 0
         if slot in load_claimed_post_slots(

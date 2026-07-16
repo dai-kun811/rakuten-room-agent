@@ -54,6 +54,20 @@ class LocalRoomWorkerTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_post_slot(now, override="night", windows=windows)
 
+    def test_forced_slot_can_backfill_an_explicit_post_date(self) -> None:
+        windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")
+        now = datetime(2026, 7, 17, 1, 30)
+
+        self.assertEqual(
+            resolve_post_slot(
+                now,
+                override="evening",
+                post_date="2026-07-16",
+                windows=windows,
+            ),
+            "2026-07-16:evening",
+        )
+
     def test_claimed_slot_blocks_duplicate_post_in_same_window(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "ledger.jsonl"

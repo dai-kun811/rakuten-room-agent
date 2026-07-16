@@ -218,6 +218,14 @@ class SheetsTest(unittest.TestCase):
         self.assertNotIn("append_products(source_sheet_name", main_source)
         self.assertNotIn("append_error(source_sheet_name", main_source)
 
+    def test_main_does_not_hard_dedupe_review_sheet_urls(self) -> None:
+        main_source = (Path(__file__).resolve().parents[1] / "src" / "main.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("read_recent_history(\n                review_sheet_name", main_source)
+        self.assertNotIn("existing_urls.update(sheets_client.read_existing_urls(review_sheet_name))", main_source)
+
 
 class SheetsLikeMixin:
     from sheets import SheetsClient
