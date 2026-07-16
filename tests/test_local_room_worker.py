@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -39,9 +39,11 @@ class LocalRoomWorkerTest(unittest.TestCase):
         self.assertEqual(current_post_slot(datetime(2026, 7, 5, 16, 0), windows=windows), "")
 
     def test_actions_run_must_be_today_in_local_timezone(self) -> None:
-        now = datetime(2026, 7, 5, 8, 0, tzinfo=timezone.utc)
-        self.assertTrue(actions_run_is_today({"created_at": "2026-07-05T01:00:00Z"}, now))
-        self.assertFalse(actions_run_is_today({"created_at": "2026-07-04T01:00:00Z"}, now))
+        jst = timezone(timedelta(hours=9))
+        now = datetime(2026, 7, 5, 8, 0, tzinfo=jst)
+        self.assertTrue(actions_run_is_today({"created_at": "2026-07-04T22:00:00Z"}, now))
+        self.assertFalse(actions_run_is_today({"created_at": "2026-07-03T22:00:00Z"}, now))
+        self.assertFalse(actions_run_is_today({"created_at": "2026-07-04T16:52:00Z"}, now))
 
     def test_forced_slot_supports_safe_same_day_recovery(self) -> None:
         windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")

@@ -11,7 +11,8 @@ from rakuten_api import Product
 from scoring import ScoredProduct
 
 GENERATION_MODE = "fallback"
-MAX_GENERATION_ATTEMPTS = 8
+MAX_GENERATION_ATTEMPTS = 16
+DISTINCTIVE_REWRITE_START = 8
 BRAND_TAG = "#とらパパ厳選"
 
 NOISE_PATTERNS = [
@@ -1486,6 +1487,8 @@ def build_candidate(
         title = remove_intention_phrases(title)
         body = remove_intention_phrases(body)
     body = add_listing_teaser(body, attributes)
+    if attempt >= DISTINCTIVE_REWRITE_START:
+        title, body = add_distinctive_product_detail(title, body, scored, attributes)
     analysis = build_analysis(scored, attributes, pattern.pattern_id)
     post = GeneratedPost(
         title=title,
@@ -1876,6 +1879,67 @@ def expanded_three_sentence_closing(product_type: str, checks: str) -> str:
         "sleep_light": "音と灯りを一台にまとめられるので、夜のお世話で探す物を減らしやすいアイテムです。",
         "stroller_storage": "よく使う荷物の定位置を作れるので、外出中にバッグを探る時間を減らしやすい収納です。",
     }[product_type]
+
+
+def add_distinctive_product_detail(
+    title: str,
+    body: str,
+    scored: ScoredProduct,
+    attributes: ProductAttributes,
+) -> tuple[str, str]:
+    proof = product_proof_sentence(scored, attributes)
+    if not proof:
+        return title, body
+    title = distinct_title(title, scored)
+    sentences = split_sentences(body)
+    if not sentences:
+        return title, body
+    candidate_sentences = [*sentences[:-1], proof]
+    candidate_body = "".join(candidate_sentences)
+    if 150 <= len(candidate_body) <= 260:
+        return title, candidate_body
+    compact = compact_product_proof_sentence(scored, attributes)
+    if compact:
+        candidate_sentences[-1] = compact
+        candidate_body = "".join(candidate_sentences)
+        if 150 <= len(candidate_body) <= 260:
+            return title, candidate_body
+    return title, body
+
+
+def distinct_title(title: str, scored: ScoredProduct) -> str:
+    product = scored.product
+    if product.review_count >= 30:
+        return f"レビュー{product.review_count}件の{title}"
+    if product.price > 0:
+        return f"{product.price:,}円台の{title}"
+    return title
+
+
+def product_proof_sentence(scored: ScoredProduct, attributes: ProductAttributes) -> str:
+    product = scored.product
+    label = attributes.short_product_label
+    if product.review_count >= 30 and product.review_average > 0:
+        return (
+            f"レビュー{product.review_count}件・評価{product.review_average:.2f}の情報があり、"
+            f"{label}を家庭で使う場面を想像しやすいアイテムです。"
+        )
+    if product.price > 0:
+        return (
+            f"{product.price:,}円台の価格帯なので、"
+            f"{label}を日々の育児に足す候補として考えやすいアイテムです。"
+        )
+    return ""
+
+
+def compact_product_proof_sentence(scored: ScoredProduct, attributes: ProductAttributes) -> str:
+    product = scored.product
+    label = attributes.short_product_label
+    if product.review_count >= 30:
+        return f"レビュー{product.review_count}件の情報があり、{label}の使い方を想像しやすいアイテムです。"
+    if product.price > 0:
+        return f"{product.price:,}円台で、{label}を日々の育児に足しやすいアイテムです。"
+    return ""
 
 
 def build_analysis(

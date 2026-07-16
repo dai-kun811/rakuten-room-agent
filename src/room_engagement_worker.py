@@ -30,7 +30,7 @@ CAPTCHA_PATTERN = re.compile(r"captcha|ロボットではありません|画像�
 API_SEARCH_TIMEOUT_SECONDS = 20
 MAX_API_SEARCH_PAGES = 2
 BROWSER_SEARCH_TIMEOUT_MS = 8_000
-MAX_DISCOVERY_SEARCH_URLS = 10
+MAX_DISCOVERY_SEARCH_URLS = 20
 SUPPLEMENTAL_SEARCH_URLS = [
     "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99&rank=6%2C5%2C4%2C3",
     "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E7%94%A8%E5%93%81&rank=6%2C5%2C4%2C3",
@@ -378,9 +378,15 @@ class RoomEngagementDriver:
             return ("detached", "", "", "")
 
 
-def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCandidate]:
+def discover_candidates(
+    page: Any,
+    search_urls: Iterable[str],
+    *,
+    exclude_ids: Iterable[str] = (),
+) -> list[RoutineCandidate]:
     logger = logging.getLogger("room-engagement-worker")
     found: dict[str, RoutineCandidate] = {}
+    excluded = set(exclude_ids)
     page.set_default_timeout(BROWSER_SEARCH_TIMEOUT_MS)
     if hasattr(page, "set_default_navigation_timeout"):
         page.set_default_navigation_timeout(BROWSER_SEARCH_TIMEOUT_MS)
@@ -391,9 +397,10 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
             api_candidates = discover_candidates_from_api(search_url)
         except (requests.RequestException, ValueError, TypeError):
             api_candidates = []
-        for candidate in api_candidates:
+        fresh_api_candidates = [candidate for candidate in api_candidates if candidate.id not in excluded]
+        for candidate in fresh_api_candidates:
             found[candidate.id] = candidate
-        if api_candidates:
+        if fresh_api_candidates:
             continue
 
         try:
@@ -415,7 +422,7 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
                 except Exception:
                     continue
                 candidate = candidate_from_room_url(href, name)
-                if candidate:
+                if candidate and candidate.id not in excluded:
                     found[candidate.id] = candidate
             model_links = page.locator('a[ng-click="goToUserRoom()"]')
             for link_index in range(min(model_links.count(), 300)):
@@ -436,7 +443,7 @@ def discover_candidates(page: Any, search_urls: Iterable[str]) -> list[RoutineCa
                 except Exception:
                     continue
                 candidate = candidate_from_search_user(user)
-                if candidate:
+                if candidate and candidate.id not in excluded:
                     found[candidate.id] = candidate
         except Exception as exc:
             logger.warning("Candidate browser discovery skipped index=%s error=%s", index, type(exc).__name__)
@@ -626,7 +633,17 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
             while followed < goal or liked < goal:
                 candidate = next((item for item in queue if item.id not in attempted), None)
                 if candidate is None:
-                    discovered = discover_candidates(work_page, search_urls)
+                    completed_or_attempted_ids = {
+                        candidate_id
+                        for candidate_id, item in lifetime_progress.items()
+                        if item.get("followed") and item.get("liked")
+                    }
+                    completed_or_attempted_ids.update(attempted)
+                    discovered = discover_candidates(
+                        work_page,
+                        search_urls,
+                        exclude_ids=completed_or_attempted_ids,
+                    )
                     for item in discovered:
                         known[item.id] = item
                         if item.id not in attempted and not (

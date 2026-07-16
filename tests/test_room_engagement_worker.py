@@ -293,6 +293,70 @@ class RoomEngagementWorkerTest(unittest.TestCase):
             },
         )
 
+    def test_discover_candidates_falls_back_when_api_results_are_excluded(self) -> None:
+        class EmptyLocator:
+            @property
+            def first(self):
+                return self
+
+            def is_visible(self) -> bool:
+                return False
+
+            def count(self) -> int:
+                return 0
+
+            def nth(self, _index: int):
+                return self
+
+        class Link:
+            def get_attribute(self, name: str):
+                return "/room_new/items" if name == "href" else None
+
+            def inner_text(self) -> str:
+                return "New User"
+
+        class LinkLocator:
+            def count(self) -> int:
+                return 1
+
+            def nth(self, _index: int):
+                return Link()
+
+        class FakeDiscoveryPage:
+            url = "https://room.rakuten.co.jp/search/user?keyword=test"
+
+            def set_default_timeout(self, _timeout: int) -> None:
+                pass
+
+            def set_default_navigation_timeout(self, _timeout: int) -> None:
+                pass
+
+            def goto(self, url: str, **_kwargs) -> None:
+                self.url = url
+
+            def locator(self, selector: str):
+                if selector == 'a[href*="/items"]':
+                    return LinkLocator()
+                return EmptyLocator()
+
+            def evaluate(self, _script: str) -> None:
+                pass
+
+            def wait_for_timeout(self, _milliseconds: int) -> None:
+                pass
+
+        stale = candidate_from_room_url("https://room.rakuten.co.jp/room_old/items")
+        self.assertIsNotNone(stale)
+        page = FakeDiscoveryPage()
+        with patch("room_engagement_worker.discover_candidates_from_api", return_value=[stale]):
+            candidates = discover_candidates(
+                page,
+                ["https://room.rakuten.co.jp/search/user?keyword=test"],
+                exclude_ids={"room_old"},
+            )
+
+        self.assertEqual([candidate.id for candidate in candidates], ["room_new"])
+
     def test_loads_current_routine_candidates_and_search_links(self) -> None:
         candidates, search_urls = load_routine_sources()
         self.assertGreaterEqual(len(candidates), 50)

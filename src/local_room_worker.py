@@ -183,7 +183,8 @@ def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bo
     except ValueError:
         return False
     local_now = now or datetime.now().astimezone()
-    return run_time.astimezone(local_now.tzinfo).date() == local_now.date()
+    local_run_time = run_time.astimezone(local_now.tzinfo)
+    return local_run_time.date() == local_now.date() and local_run_time.hour >= 7
 
 
 def load_claimed_post_slots(

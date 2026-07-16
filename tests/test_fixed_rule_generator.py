@@ -19,6 +19,7 @@ from fixed_rule_generator import (
     HASHTAGS,
     PATTERNS,
     ProductAttributes,
+    add_distinctive_product_detail,
     classify_product_type,
     confirmation_repeat_count,
     ending_family,
@@ -715,8 +716,21 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         ):
             generated = generate("wipes")
         self.assertEqual(generated.status, "needs_review")
-        self.assertEqual(generated.rewrite_count, 7)
-        self.assertIn("最大8回の再生成で品質条件を満たせない", generated.quality_errors)
+        self.assertEqual(generated.rewrite_count, 15)
+        self.assertIn("最大16回の再生成で品質条件を満たせない", generated.quality_errors)
+
+    def test_distinctive_rewrite_uses_review_evidence_without_adding_sentences(self) -> None:
+        generated = generate("wooden_blocks")
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("wooden_blocks"), date(2026, 7, 17)),
+            generated.attributes,
+        )
+
+        self.assertIn("レビュー", title)
+        self.assertIn("レビュー", body)
+        self.assertEqual(len(split_sentences(body)), len(split_sentences(generated.body)))
 
     def test_mismatched_hashtags_are_rejected(self) -> None:
         generated = generate("ring_toy")
