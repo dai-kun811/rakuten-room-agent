@@ -15,6 +15,8 @@ class RoomRoutinePageTest(unittest.TestCase):
         self.assertIn('id="autoLikeDone"', page)
         self.assertIn('id="autoStatus"', page)
         self.assertIn("routine-state", page)
+        self.assertIn("raw.githubusercontent.com", page)
+        self.assertIn("fetchAutomationProgress", page)
         self.assertIn('aria-label="このブラウザの手動チェック"', page)
 
 

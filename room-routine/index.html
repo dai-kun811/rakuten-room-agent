@@ -984,7 +984,8 @@
       dailyGoal: 50,
       storageKey: "rakutenRoomRoutine.v1",
       roomUrl: "https://room.rakuten.co.jp/tora_papa/items",
-      progressApiUrl: "https://api.github.com/repos/dai-kun811/rakuten-room-agent/contents/automation-progress.json?ref=routine-state"
+      progressApiUrl: "https://api.github.com/repos/dai-kun811/rakuten-room-agent/contents/automation-progress.json?ref=routine-state",
+      progressRawUrl: "https://raw.githubusercontent.com/dai-kun811/rakuten-room-agent/routine-state/automation-progress.json"
     };
 
     const DEFAULT_CANDIDATES = [
@@ -1895,6 +1896,17 @@
 
     async function loadAutomationProgress() {
       try {
+        renderAutomationProgress(await fetchAutomationProgress());
+      } catch {
+        els.autoStatus.textContent = "取得失敗";
+        els.autoStatus.className = "stat-value status-warn";
+        els.autoStatusFoot.textContent = "公開集計を取得できません";
+        els.autoUpdatedAt.textContent = "再読み込みで再試行します";
+      }
+    }
+
+    async function fetchAutomationProgress() {
+      try {
         const separator = SETTINGS.progressApiUrl.includes("?") ? "&" : "?";
         const response = await fetch(
           `${SETTINGS.progressApiUrl}${separator}cache=${Date.now()}`,
@@ -1907,12 +1919,15 @@
         const envelope = await response.json();
         const encoded = String(envelope.content || "").replace(/\s/g, "");
         const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
-        renderAutomationProgress(JSON.parse(new TextDecoder().decode(bytes)));
+        return JSON.parse(new TextDecoder().decode(bytes));
       } catch {
-        els.autoStatus.textContent = "取得失敗";
-        els.autoStatus.className = "stat-value status-warn";
-        els.autoStatusFoot.textContent = "公開集計を取得できません";
-        els.autoUpdatedAt.textContent = "再読み込みで再試行します";
+        const separator = SETTINGS.progressRawUrl.includes("?") ? "&" : "?";
+        const response = await fetch(
+          `${SETTINGS.progressRawUrl}${separator}cache=${Date.now()}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
       }
     }
 
