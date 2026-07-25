@@ -732,6 +732,20 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("レビュー", body)
         self.assertEqual(len(split_sentences(body)), len(split_sentences(generated.body)))
 
+    def test_distinctive_rewrite_keeps_concrete_marketing_ending(self) -> None:
+        generated = generate("baby_sleep")
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("baby_sleep"), date(2026, 7, 25)),
+            generated.attributes,
+        )
+        changed = replace(generated, title=title, body=body)
+
+        errors = validate_post(changed, changed.attributes)
+
+        self.assertFalse(any("marketing_weak_cta" in error for error in errors), errors)
+
     def test_mismatched_hashtags_are_rejected(self) -> None:
         generated = generate("ring_toy")
         generated.hashtags = HASHTAGS["kids_camera"]

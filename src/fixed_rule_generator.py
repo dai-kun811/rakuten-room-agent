@@ -1894,13 +1894,16 @@ def add_distinctive_product_detail(
     sentences = split_sentences(body)
     if not sentences:
         return title, body
-    candidate_sentences = [*sentences[:-1], proof]
+    candidate_sentences = [
+        *sentences[:-1],
+        ensure_sentence(merge_sentences(proof, sentences[-1])),
+    ]
     candidate_body = "".join(candidate_sentences)
     if 150 <= len(candidate_body) <= 260:
         return title, candidate_body
     compact = compact_product_proof_sentence(scored, attributes)
     if compact:
-        candidate_sentences[-1] = compact
+        candidate_sentences[-1] = ensure_sentence(merge_sentences(compact, sentences[-1]))
         candidate_body = "".join(candidate_sentences)
         if 150 <= len(candidate_body) <= 260:
             return title, candidate_body
