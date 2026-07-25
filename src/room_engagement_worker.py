@@ -176,6 +176,30 @@ def progress_totals(progress: dict[str, dict[str, bool]]) -> tuple[int, int]:
     )
 
 
+def build_daily_candidate_queue(
+    source_candidates: Iterable[RoutineCandidate],
+    today_progress: dict[str, dict[str, bool]],
+) -> list[RoutineCandidate]:
+    candidates = list(source_candidates)
+    known = {candidate.id: candidate for candidate in candidates}
+    partial_ids = [
+        candidate_id
+        for candidate_id, item in today_progress.items()
+        if not (item["followed"] and item["liked"])
+    ]
+    queue = [known[candidate_id] for candidate_id in partial_ids if candidate_id in known]
+    queue.extend(
+        candidate
+        for candidate in candidates
+        if candidate.id not in partial_ids
+        and not (
+            today_progress.get(candidate.id, {}).get("followed")
+            and today_progress.get(candidate.id, {}).get("liked")
+        )
+    )
+    return queue
+
+
 def candidate_from_room_url(url: str, name: str = "") -> RoutineCandidate | None:
     parsed = urlparse(url)
     if parsed.netloc.lower() != "room.rakuten.co.jp":
@@ -554,7 +578,6 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     source_candidates, search_urls = load_routine_sources()
     events = read_ledger()
     today_progress = progress_by_candidate(events, day=day)
-    lifetime_progress = progress_by_candidate(events)
     followed, liked = progress_totals(today_progress)
     if followed >= goal and liked >= goal:
         logger.info("Daily engagement goal already complete follow=%s like=%s", followed, liked)
@@ -589,21 +612,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
 
     attempted: set[str] = set()
     known = {candidate.id: candidate for candidate in source_candidates}
-    partial_ids = [
-        candidate_id
-        for candidate_id, item in today_progress.items()
-        if not (item["followed"] and item["liked"])
-    ]
-    queue = [known[candidate_id] for candidate_id in partial_ids if candidate_id in known]
-    queue.extend(
-        candidate
-        for candidate in source_candidates
-        if candidate.id not in partial_ids
-        and not (
-            lifetime_progress.get(candidate.id, {}).get("followed")
-            and lifetime_progress.get(candidate.id, {}).get("liked")
-        )
-    )
+    queue = build_daily_candidate_queue(source_candidates, today_progress)
     driver = RoomEngagementDriver()
     failures = 0
     with sync_playwright() as playwright:
@@ -635,7 +644,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                 if candidate is None:
                     completed_or_attempted_ids = {
                         candidate_id
-                        for candidate_id, item in lifetime_progress.items()
+                        for candidate_id, item in today_progress.items()
                         if item.get("followed") and item.get("liked")
                     }
                     completed_or_attempted_ids.update(attempted)
@@ -647,8 +656,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                     for item in discovered:
                         known[item.id] = item
                         if item.id not in attempted and not (
-                            lifetime_progress.get(item.id, {}).get("followed")
-                            and lifetime_progress.get(item.id, {}).get("liked")
+                            today_progress.get(item.id, {}).get("followed")
+                            and today_progress.get(item.id, {}).get("liked")
                         ):
                             queue.append(item)
                     candidate = next((item for item in queue if item.id not in attempted), None)

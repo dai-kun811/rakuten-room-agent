@@ -12,6 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from room_engagement_worker import (
     RoomEngagementDriver,
+    RoutineCandidate,
+    build_daily_candidate_queue,
     candidate_from_room_url,
     candidate_from_search_user,
     discover_candidates,
@@ -383,6 +385,21 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         progress = progress_by_candidate(events, day="2026-07-05")
         self.assertEqual(progress_totals(progress), (2, 2))
         self.assertEqual(set(progress), {"a", "b"})
+
+    def test_daily_queue_reuses_prior_day_candidates_but_skips_today_complete(self) -> None:
+        candidates = [
+            RoutineCandidate(id="a", name="A", url="https://room.rakuten.co.jp/a/items"),
+            RoutineCandidate(id="b", name="B", url="https://room.rakuten.co.jp/b/items"),
+            RoutineCandidate(id="c", name="C", url="https://room.rakuten.co.jp/c/items"),
+        ]
+        today_progress = {
+            "a": {"followed": True, "liked": True},
+            "b": {"followed": True, "liked": False},
+        }
+
+        queue = build_daily_candidate_queue(candidates, today_progress)
+
+        self.assertEqual([candidate.id for candidate in queue], ["b", "c"])
 
     def test_candidate_from_room_url_only_accepts_profile_item_pages(self) -> None:
         candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items", "Example")
