@@ -1887,62 +1887,42 @@ def add_distinctive_product_detail(
     scored: ScoredProduct,
     attributes: ProductAttributes,
 ) -> tuple[str, str]:
-    proof = product_proof_sentence(scored, attributes)
-    if not proof:
+    if scored.product.price <= 0:
         return title, body
-    title = distinct_title(title, scored)
+    title = distinct_title(scored, attributes)
     sentences = split_sentences(body)
-    if not sentences:
+    if len(sentences) < 3:
         return title, body
-    candidate_sentences = [
-        *sentences[:-1],
-        ensure_sentence(merge_sentences(proof, sentences[-1])),
-    ]
+    teaser = distinct_listing_teaser(listing_teaser(attributes), scored)
+    opening = ensure_sentence(
+        f"{teaser}{attributes.short_product_label}を選ぶときは、"
+        "使う場面と価格の両方が暮らしに合うか気になりますよね"
+    )
+    feature = confirmed_feature_phrase(attributes)
+    middle = ensure_sentence(
+        f"{feature}なら、{attributes.short_product_label}を使う場面で、"
+        "準備から片づけまでの動きを整えやすくなります"
+    )
+    candidate_sentences = [opening, middle, sentences[-1]]
     candidate_body = "".join(candidate_sentences)
     if 150 <= len(candidate_body) <= 260:
         return title, candidate_body
-    compact = compact_product_proof_sentence(scored, attributes)
-    if compact:
-        candidate_sentences[-1] = ensure_sentence(merge_sentences(compact, sentences[-1]))
-        candidate_body = "".join(candidate_sentences)
-        if 150 <= len(candidate_body) <= 260:
-            return title, candidate_body
-    return title, body
+    return title, distinct_listing_teaser(body, scored)
 
 
-def distinct_title(title: str, scored: ScoredProduct) -> str:
-    product = scored.product
-    if product.review_count >= 30:
-        return f"レビュー{product.review_count}件の{title}"
-    if product.price > 0:
-        return f"{product.price:,}円台の{title}"
-    return title
+def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
+    price = scored.product.price
+    match = re.match(r"^【([^】]{1,35})】", body)
+    if price <= 0 or match is None:
+        return body
+    teaser = f"{price:,}円台 {match.group(1)}"
+    if len(teaser) > 35:
+        return body
+    return f"【{teaser}】{body[match.end():]}"
 
 
-def product_proof_sentence(scored: ScoredProduct, attributes: ProductAttributes) -> str:
-    product = scored.product
-    label = attributes.short_product_label
-    if product.review_count >= 30 and product.review_average > 0:
-        return (
-            f"レビュー{product.review_count}件・評価{product.review_average:.2f}の情報があり、"
-            f"{label}を家庭で使う場面を想像しやすいアイテムです。"
-        )
-    if product.price > 0:
-        return (
-            f"{product.price:,}円台の価格帯なので、"
-            f"{label}を日々の育児に足す候補として考えやすいアイテムです。"
-        )
-    return ""
-
-
-def compact_product_proof_sentence(scored: ScoredProduct, attributes: ProductAttributes) -> str:
-    product = scored.product
-    label = attributes.short_product_label
-    if product.review_count >= 30:
-        return f"レビュー{product.review_count}件の情報があり、{label}の使い方を想像しやすいアイテムです。"
-    if product.price > 0:
-        return f"{product.price:,}円台で、{label}を日々の育児に足しやすいアイテムです。"
-    return ""
+def distinct_title(scored: ScoredProduct, attributes: ProductAttributes) -> str:
+    return f"{scored.product.price:,}円台から選ぶ{attributes.short_product_label}"
 
 
 def build_analysis(

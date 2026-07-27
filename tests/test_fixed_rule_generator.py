@@ -20,6 +20,7 @@ from fixed_rule_generator import (
     PATTERNS,
     ProductAttributes,
     add_distinctive_product_detail,
+    build_candidate,
     classify_product_type,
     confirmation_repeat_count,
     ending_family,
@@ -719,7 +720,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertEqual(generated.rewrite_count, 15)
         self.assertIn("最大16回の再生成で品質条件を満たせない", generated.quality_errors)
 
-    def test_distinctive_rewrite_uses_review_evidence_without_adding_sentences(self) -> None:
+    def test_distinctive_rewrite_uses_price_evidence_without_adding_sentences(self) -> None:
         generated = generate("wooden_blocks")
         title, body = add_distinctive_product_detail(
             generated.title,
@@ -728,9 +729,13 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             generated.attributes,
         )
 
-        self.assertIn("レビュー", title)
-        self.assertIn("レビュー", body)
-        self.assertEqual(len(split_sentences(body)), len(split_sentences(generated.body)))
+        self.assertIn("円台", title)
+        self.assertIn("円台", body)
+        self.assertNotIn("レビュー", title)
+        self.assertNotIn("レビュー", body)
+        self.assertIn(len(split_sentences(body)), {3, 4})
+        changed = replace(generated, title=title, body=body)
+        self.assertNotIn("禁止表現を使用", validate_post(changed, changed.attributes))
 
     def test_distinctive_rewrite_keeps_concrete_marketing_ending(self) -> None:
         generated = generate("baby_sleep")
@@ -745,6 +750,33 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         errors = validate_post(changed, changed.attributes)
 
         self.assertFalse(any("marketing_weak_cta" in error for error in errors), errors)
+
+    def test_distinctive_rewrite_recovers_after_all_base_patterns_are_historical(self) -> None:
+        product = product_for("wooden_blocks")
+        scored = score_product(product, date(2026, 7, 26))
+        attributes = extract_attributes(product)
+        patterns = PATTERNS[attributes.product_type]
+        start = stable_index(product.url, len(patterns))
+        previous = [
+            build_candidate(
+                scored,
+                attributes,
+                patterns[(start + attempt) % len(patterns)],
+                attempt,
+            )
+            for attempt in range(len(patterns))
+        ]
+        context = GenerationContext(
+            historical_titles={post.title for post in previous},
+            historical_bodies=[post.body for post in previous],
+        )
+
+        generated = FixedRulePostGenerator().generate(scored, context=context)
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertGreaterEqual(generated.rewrite_count, len(patterns))
+        self.assertIn("円台", generated.title)
+        self.assertIn("円台", generated.body)
 
     def test_mismatched_hashtags_are_rejected(self) -> None:
         generated = generate("ring_toy")
