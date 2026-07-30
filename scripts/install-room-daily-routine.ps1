@@ -3,8 +3,8 @@ param(
     [string]$EngagementTime = "05:10",
     [string]$EngagementVerifyTime = "06:45",
     [string]$GenerationGuardTime = "07:30",
-    [string[]]$PostTimes = @("08:15", "12:15", "18:15"),
-    [string[]]$PostGuardTimes = @("08:30", "12:30", "18:30"),
+    [string[]]$PostTimes = @("08:00", "12:00", "19:00"),
+    [string[]]$PostGuardTimes = @("08:30", "12:30", "19:30"),
     [switch]$Preview
 )
 
