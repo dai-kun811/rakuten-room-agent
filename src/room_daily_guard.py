@@ -159,7 +159,15 @@ def ensure_generation_ready(
             )
             if successful is not None:
                 run, report = fetch_latest_generation_report(session, headers=headers)
-                if run.get("id") == successful.get("id") and report_has_all_slots(report):
+                if run.get("id") != successful.get("id"):
+                    # A completed run can be visible briefly before its artifact
+                    # appears in the artifacts API. Keep polling instead of
+                    # mistaking the previous successful report for today's run.
+                    if time.monotonic() - started >= timeout_seconds:
+                        raise DailyGuardError("Timed out waiting for today's generation report artifact.")
+                    time.sleep(poll_seconds)
+                    continue
+                if report_has_all_slots(report):
                     return run, report
                 raise DailyGuardError("Today's successful generation report is missing required slots.")
 

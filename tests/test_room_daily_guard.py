@@ -125,6 +125,70 @@ class RoomDailyGuardTest(unittest.TestCase):
     @patch("room_daily_guard.time.sleep", return_value=None)
     @patch("room_daily_guard.fetch_latest_generation_report")
     @patch("room_daily_guard.fetch_workflow_runs")
+    def test_successful_run_waits_for_its_artifact_instead_of_using_previous_report(
+        self,
+        fetch_runs,
+        fetch_report,
+        sleep,
+    ) -> None:
+        now = datetime(2026, 7, 6, 7, 30, tzinfo=timezone(timedelta(hours=9)))
+        previous = {
+            "id": 63,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-07-04T22:05:00Z",
+        }
+        successful = {
+            "id": 64,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-07-05T22:05:00Z",
+        }
+        fetch_runs.return_value = [successful]
+        fetch_report.side_effect = [
+            (previous, self.ready_report()),
+            (successful, self.ready_report()),
+        ]
+
+        run, report = ensure_generation_ready(
+            Mock(),
+            headers={},
+            now=now,
+            poll_seconds=0,
+        )
+
+        self.assertEqual(run["id"], 64)
+        self.assertTrue(report_has_all_slots(report))
+        sleep.assert_called_once_with(0)
+
+    @patch("room_daily_guard.fetch_latest_generation_report")
+    @patch("room_daily_guard.fetch_workflow_runs")
+    def test_successful_run_still_fails_when_its_own_report_is_missing_slots(
+        self,
+        fetch_runs,
+        fetch_report,
+    ) -> None:
+        now = datetime(2026, 7, 6, 7, 30, tzinfo=timezone(timedelta(hours=9)))
+        successful = {
+            "id": 64,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-07-05T22:05:00Z",
+        }
+        missing_report = self.ready_report()
+        missing_report["missing_post_slots"] = ["evening"]
+        fetch_runs.return_value = [successful]
+        fetch_report.return_value = (successful, missing_report)
+
+        with self.assertRaisesRegex(
+            DailyGuardError,
+            "successful generation report is missing required slots",
+        ):
+            ensure_generation_ready(Mock(), headers={}, now=now)
+
+    @patch("room_daily_guard.time.sleep", return_value=None)
+    @patch("room_daily_guard.fetch_latest_generation_report")
+    @patch("room_daily_guard.fetch_workflow_runs")
     def test_failed_generation_dispatches_one_recovery(
         self,
         fetch_runs,
