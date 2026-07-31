@@ -71,9 +71,9 @@ class RoomPoster:
                 headless=self.headless,
             )
             page = context.new_page()
-            page.set_default_timeout(self.timeout_ms)
+            self._prepare_page(page)
             try:
-                page.goto(product_url, wait_until="domcontentloaded")
+                self._goto(page, product_url)
                 self._assert_authenticated(page)
                 trigger = self._first_visible(page, ROOM_TRIGGER_SELECTORS)
                 if trigger is None:
@@ -81,7 +81,7 @@ class RoomPoster:
 
                 trigger_href = trigger.get_attribute("href")
                 if trigger_href:
-                    page.goto(trigger_href, wait_until="domcontentloaded")
+                    self._goto(page, trigger_href)
                     target = page
                 else:
                     pages_before = len(context.pages)
@@ -92,8 +92,7 @@ class RoomPoster:
                         if len(context.pages) > pages_before
                         else page
                     )
-                target.set_default_timeout(self.timeout_ms)
-                target.wait_for_load_state("domcontentloaded")
+                self._prepare_page(target)
                 self._assert_authenticated(target)
                 self._wait_for_item_name(target)
 
@@ -131,6 +130,23 @@ class RoomPoster:
                 return RoomPostResult(product_url=product_url, status="posted")
             finally:
                 context.close()
+
+    def _prepare_page(self, page: Any) -> None:
+        page.set_default_timeout(self.timeout_ms)
+        page.set_default_navigation_timeout(max(self.timeout_ms * 2, 60_000))
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=self.timeout_ms)
+        except Exception:
+            # Rakuten pages can keep loading third-party resources after the
+            # interactive ROOM controls are already available. The explicit
+            # selectors and item-name check below remain the posting gate.
+            pass
+
+    def _goto(self, page: Any, url: str) -> None:
+        navigation_timeout_ms = max(self.timeout_ms * 2, 60_000)
+        page.set_default_navigation_timeout(navigation_timeout_ms)
+        page.goto(url, wait_until="commit", timeout=navigation_timeout_ms)
+        self._prepare_page(page)
 
     @staticmethod
     def _first_visible(page: Any, selectors: Iterable[str]) -> Any | None:

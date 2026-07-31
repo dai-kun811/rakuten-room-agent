@@ -21,18 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-07-30 19:36 JST
+最終更新: 2026-07-31 19:33 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 2026-07-30 19:36 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照。交流は05:42にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`、06:45再送も終了コード0。実ブラウザ上段は2026-07-30・自動50/50・対応済み・失敗0、下段の手動0/50は別表示として確認済み。
-2. 07:00定期runが欠落したため07:30 GenerationGuardがrun `30496348640` / report `446f3babee70`をdispatchして3枠readyを確認。その後GitHubの定期run `30498227651` / report `7871348b1d73`もsuccess。最新artifactはrequired/readyがmorning/noon/evening、missing空、ready品質errors空、楽天API 932件・32/32成功・失敗0。Origin/Referer/accessKeyはマスク済みログで実送信確認。既存URL102件を含む重複189件を除外し、Sheetsへready 3行・review 25行を追記。
-3. 投稿台帳は朝 `https://item.rakuten.co.jp/yuistore/2375051`、昼 `https://item.rakuten.co.jp/sunny-style/ed-01`、晩 `https://item.rakuten.co.jp/babyplanetes/angeldear-blankie` の3枠すべて `posted`。19:30 PostGuardもconfirmed_slots=[morning,noon,evening]・status=posted。実ROOMプロフィールで各artifact本文の3投稿表示も照合済み。2026-07-30分は責任完了。次回は翌日の当日証跡を新規確認する。
+1. 2026-07-31 19:33 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果0。交流は05:43にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`、06:45再送も0。実ブラウザ上段は2026-07-31・自動50/50・対応済み・失敗0、下段の手動0/50は別表示として確認済み。
+2. 07:00定期run欠落を07:30 GenerationGuardがrun `30587348487` / report `093864268637`で復旧し、その後遅延schedule run `30589763008` / report `aa7e71f7c01c`もsuccess。晩の投稿導線Timeout後は失敗URLを`blocked_urls`で除外したrun `30622579212` / report `00095a64663d`を実行。最新artifactはrequired/readyがmorning/noon/evening、missing空、ready品質errors空・重複なし、楽天API 960件・32/32成功・失敗0。Origin/Referer/accessKeyはマスク済み実送信ログで確認。
+3. 投稿台帳は朝 `https://item.rakuten.co.jp/lecdirect/e168_999atsu2px16`、昼 `https://item.rakuten.co.jp/pica-holic/swjay1882`、晩 `https://item.rakuten.co.jp/tramonto/l08` の3枠すべて `posted`。晩は2商品で生のPlaywright `TimeoutError`が再現したため、`src/room_poster.py`を応答開始後の明示セレクタ・商品名確認へ進めるナビゲーションに堅牢化し、全171テスト合格後に未投稿eveningだけ復旧。19:30 PostGuardも3枠confirmed・status=posted、実ROOMで3本文を照合済み。次回は翌日の当日証跡を新規確認する。
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-07-31 19:33: `room-2`日次運用を責任完了。交流50/50・公開ページ当日表示・Actions最新回復run `30622579212`の3枠ready/品質errors空・台帳3枠posted・19:30ガード3枠確認・実ROOM3本文表示を確認。晩投稿の共通ナビゲーションTimeoutは読み込み待ちを堅牢化して復旧し、全171テスト合格。タスク4件の最終結果も0。
 - 2026-07-30 19:36: `room-2`日次運用を責任完了。Windowsタスク4件は有効・正しい実行先で全結果0。交流50/50・失敗0、公開ページ上段も当日50/50・対応済み・失敗0。最新Actions run `30498227651` / report `7871348b1d73` はsuccess、3枠ready・missing空・ready品質errors空、楽天API 932件・32/32成功・失敗0。台帳はmorning/noon/eveningすべてposted、19:30 PostGuardも3枠確認。実ROOMプロフィールでも当日3投稿本文を確認。
 - 2026-07-29 05:47: `room-2`日次運用。交流50/50・失敗0・公開正本更新まで完了。品質修正 `3d972b3` をmainへpushし、全170テスト合格。07:30前のため当日生成は未実行、投稿台帳は0件、未投稿はmorning/noon/evening。公開ページ上段のみ前日キャッシュ表示で、06:45再送後に再確認が必要。Codex同日追跡登録APIは複数回タイムアウトし、追跡自動化は作成されていない。
 - 2026-07-28 07:37: `room-2`日次運用。交流と公開進捗は当日50/50・失敗0で完了。定期Actions欠落を07:30 GenerationGuardが一回だけ復旧したが、run `30310938501` / report `595298b9cc1a` はreadyがmorning/noon、evening欠落でfailure。楽天APIは960件・失敗0。未反映修正commit `3d972b3`は全170テスト合格だが、default branchへのpushは明示承認不足として拒否。投稿台帳は当日0件で、未投稿はmorning/noon/evening。次は明示的な`git push origin main`承認後のpush、再生成、未投稿3枠だけの投稿回復、台帳確認。

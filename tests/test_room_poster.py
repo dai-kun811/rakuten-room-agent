@@ -102,6 +102,41 @@ class RoomPosterTest(unittest.TestCase):
         with self.assertRaisesRegex(RoomPostError, "商品名読み込み"):
             RoomPoster(user_data_dir=".")._wait_for_item_name(Page())
 
+    def test_goto_uses_commit_and_tolerates_slow_domcontentloaded(self) -> None:
+        class Page:
+            def __init__(self) -> None:
+                self.default_timeout = 0
+                self.navigation_timeout = 0
+                self.goto_args = None
+                self.load_timeout = 0
+
+            def set_default_timeout(self, timeout: int) -> None:
+                self.default_timeout = timeout
+
+            def set_default_navigation_timeout(self, timeout: int) -> None:
+                self.navigation_timeout = timeout
+
+            def goto(self, url: str, *, wait_until: str, timeout: int) -> None:
+                self.goto_args = (url, wait_until, timeout)
+
+            def wait_for_load_state(self, state: str, *, timeout: int) -> None:
+                self.load_timeout = timeout
+                raise TimeoutError
+
+        page = Page()
+        RoomPoster(user_data_dir=".", timeout_ms=30_000)._goto(
+            page,
+            "https://item.rakuten.co.jp/example/item",
+        )
+
+        self.assertEqual(
+            page.goto_args,
+            ("https://item.rakuten.co.jp/example/item", "commit", 60_000),
+        )
+        self.assertEqual(page.default_timeout, 30_000)
+        self.assertEqual(page.navigation_timeout, 60_000)
+        self.assertEqual(page.load_timeout, 30_000)
+
 
 if __name__ == "__main__":
     unittest.main()
