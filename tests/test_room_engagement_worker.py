@@ -200,6 +200,7 @@ class RoomEngagementWorkerTest(unittest.TestCase):
                 self.default_timeout = None
                 self.navigation_timeout = None
                 self.goto_kwargs = None
+                self.load_state_calls = []
 
             def set_default_timeout(self, timeout: int) -> None:
                 self.default_timeout = timeout
@@ -209,6 +210,9 @@ class RoomEngagementWorkerTest(unittest.TestCase):
 
             def goto(self, url: str, **kwargs) -> None:
                 self.goto_kwargs = {"url": url, **kwargs}
+
+            def wait_for_load_state(self, state: str, **kwargs) -> None:
+                self.load_state_calls.append({"state": state, **kwargs})
 
         class FastDriver(RoomEngagementDriver):
             def _assert_safe_page(self, _page) -> None:
@@ -232,15 +236,61 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         )
 
         self.assertEqual(page.default_timeout, 1234)
-        self.assertEqual(page.navigation_timeout, 1234)
+        self.assertEqual(page.navigation_timeout, 60_000)
         self.assertEqual(
             page.goto_kwargs,
             {
                 "url": "https://room.rakuten.co.jp/room_example/items",
-                "wait_until": "domcontentloaded",
-                "timeout": 1234,
+                "wait_until": "commit",
+                "timeout": 60_000,
             },
         )
+        self.assertEqual(
+            page.load_state_calls,
+            [
+                {"state": "domcontentloaded", "timeout": 1234},
+                {"state": "domcontentloaded", "timeout": 1234},
+            ],
+        )
+
+    def test_engage_continues_when_domcontentloaded_is_delayed(self) -> None:
+        class DelayedNavigationPage:
+            url = "https://room.rakuten.co.jp/room_example/items"
+
+            def set_default_timeout(self, _timeout: int) -> None:
+                pass
+
+            def set_default_navigation_timeout(self, _timeout: int) -> None:
+                pass
+
+            def goto(self, _url: str, **_kwargs) -> None:
+                pass
+
+            def wait_for_load_state(self, _state: str, **_kwargs) -> None:
+                raise TimeoutError
+
+        class FastDriver(RoomEngagementDriver):
+            def _assert_safe_page(self, _page) -> None:
+                pass
+
+            def _follow(self, _page):
+                return True, "followed"
+
+            def _like(self, _page):
+                return True, "liked"
+
+        candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items")
+        self.assertIsNotNone(candidate)
+
+        result = FastDriver().engage(
+            DelayedNavigationPage(),
+            candidate,
+            need_follow=True,
+            need_like=True,
+        )
+
+        self.assertTrue(result.followed)
+        self.assertTrue(result.liked)
 
     def test_discover_candidates_sets_search_navigation_timeout(self) -> None:
         class EmptyLocator:

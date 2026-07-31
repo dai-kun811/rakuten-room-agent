@@ -287,10 +287,8 @@ class RoomEngagementDriver:
         need_follow: bool,
         need_like: bool,
     ) -> EngagementResult:
-        page.set_default_timeout(self.timeout_ms)
-        if hasattr(page, "set_default_navigation_timeout"):
-            page.set_default_navigation_timeout(self.timeout_ms)
-        page.goto(candidate.url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+        self._prepare_page(page)
+        self._goto(page, candidate.url)
         self._assert_safe_page(page)
         followed, follow_status = self._follow(page) if need_follow else (False, "goal_reached")
         liked, like_status = self._like(page) if need_like else (False, "goal_reached")
@@ -301,6 +299,26 @@ class RoomEngagementDriver:
             follow_status=follow_status,
             like_status=like_status,
         )
+
+    def _prepare_page(self, page: Any) -> None:
+        page.set_default_timeout(self.timeout_ms)
+        navigation_timeout_ms = max(self.timeout_ms * 2, 60_000)
+        if hasattr(page, "set_default_navigation_timeout"):
+            page.set_default_navigation_timeout(navigation_timeout_ms)
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=self.timeout_ms)
+        except Exception:
+            # Rakuten pages can keep loading third-party resources after the
+            # actionable ROOM controls are already available. Authentication,
+            # CAPTCHA, follow, and like checks below remain the safety gates.
+            pass
+
+    def _goto(self, page: Any, url: str) -> None:
+        navigation_timeout_ms = max(self.timeout_ms * 2, 60_000)
+        if hasattr(page, "set_default_navigation_timeout"):
+            page.set_default_navigation_timeout(navigation_timeout_ms)
+        page.goto(url, wait_until="commit", timeout=navigation_timeout_ms)
+        self._prepare_page(page)
 
     @staticmethod
     def _assert_safe_page(page: Any) -> None:
