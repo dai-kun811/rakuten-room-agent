@@ -176,12 +176,15 @@ def ensure_generation_ready(
                 None,
             )
             if failed is not None:
-                if (
-                    not dispatched
-                    and not generation_recovery_already_dispatched(
+                recovery_available = (
+                    not generation_recovery_already_dispatched(
                         routine_date,
                         path=recovery_state_path,
                     )
+                )
+                if (
+                    recovery_available
+                    and (not dispatched or recovery_failed_run_id is None)
                 ):
                     dispatch_generation_workflow(session, headers)
                     mark_generation_recovery_dispatched(
