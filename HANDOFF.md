@@ -21,18 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-01 19:32 JST
+最終更新: 2026-08-02 18:31 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 2026-08-01 19:32 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果0。交流は05:48に50/50へ到達し、完了分岐の再送で`failures=0`・`completed=true`・`published=true`を確定。実ブラウザ上段は2026-08-01・自動50/50・対応済み・失敗0、下段の手動0/50は別表示として確認済み。
-2. 07:00定期run欠落を07:30 GenerationGuardがrun `30670142901` / report `5263fca8cbfb`で復旧し、その後遅延schedule run `30672029874` / report `b6bfed2184d5`もsuccess。最新artifactはrequired/readyがmorning/noon/evening、missing空、ready品質errors空・重複なし、楽天API 960件・32/32成功・失敗0。Origin/Referer/accessKeyのマスク済み実送信、既存120件を含む重複除外、Sheets ready 3 / review 109追記をログで確認。
-3. 投稿台帳は朝 `https://item.rakuten.co.jp/morevalue/w24`、昼 `https://item.rakuten.co.jp/d-dish/wnm-01ry`、晩 `https://item.rakuten.co.jp/peapod/zy2home-clock02` の3枠すべて`posted`。晩はユーザー指定18:15後に未投稿eveningだけ回復し、19:00 AutoPosterは`new=0`で重複なし。19:30 PostGuardは3枠confirmed・status=posted、実ROOMで3本文も照合済み。次回は翌日の当日証跡を新規確認する。
+1. 2026-08-02 18:31 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果0。交流は05:45に50/50へ到達し、06:45再送も`failures=0`・`completed=true`・`published=true`で終了0。実ブラウザ上段は2026-08-02・自動50/50・対応済み・失敗0、下段の手動0/50は別表示として確認済み。
+2. 07:00定期run欠落を07:30 GenerationGuardがrun `30721391059` / report `fdbc73631852`で復旧し、その後遅延schedule run `30722419371` / report `af6b91028e11`もsuccess。最新artifactはrequired/readyがmorning/noon/evening、missing空、ready品質errors空・重複なし、楽天API 960件・32/32成功・失敗0。Origin/Referer/accessKeyのマスク済み実送信、既存126件を含む重複除外、Sheets ready 3 / review 330追記をログで確認。
+3. 投稿台帳は朝 `https://item.rakuten.co.jp/premium-interior/lff-bs01`、昼 `https://item.rakuten.co.jp/robotplaza/stml-elephant`、晩 `https://item.rakuten.co.jp/e-kitchen/7189067` の3枠すべて`posted`。晩はユーザー指定18:15後に未投稿eveningだけ回復し、18:30の再評価は`new=0`で重複なし。18:30 PostGuardは3枠confirmed・status=posted、実ROOMで3本文も照合済み。次回は翌日の当日証跡を新規確認する。
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-08-02 18:31: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions最新run `30722419371` / report `af6b91028e11`の3枠ready/品質errors空、台帳3枠posted、18:30ガード3枠確認、実ROOM3本文を確認。07:00 run欠落はGenerationGuardが安全に一回回復し、遅延schedule runも成功。コード修正なし。
 - 2026-08-01 19:32: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions最新run `30672029874` / report `b6bfed2184d5`の3枠ready/品質errors空、台帳3枠posted、19:30ガード3枠確認、実ROOM3本文を確認。交流ページ遷移の連続Timeoutをcommit `3d9f067`、成功run直後のartifact公開競合をcommit `287588a`で修正し、全174テスト合格・mainへpush済み。
 - 2026-07-31 19:33: `room-2`日次運用を責任完了。交流50/50・公開ページ当日表示・Actions最新回復run `30622579212`の3枠ready/品質errors空・台帳3枠posted・19:30ガード3枠確認・実ROOM3本文表示を確認。晩投稿の共通ナビゲーションTimeoutは読み込み待ちを堅牢化して復旧し、全171テスト合格。タスク4件の最終結果も0。
 - 2026-07-30 19:36: `room-2`日次運用を責任完了。Windowsタスク4件は有効・正しい実行先で全結果0。交流50/50・失敗0、公開ページ上段も当日50/50・対応済み・失敗0。最新Actions run `30498227651` / report `7871348b1d73` はsuccess、3枠ready・missing空・ready品質errors空、楽天API 932件・32/32成功・失敗0。台帳はmorning/noon/eveningすべてposted、19:30 PostGuardも3枠確認。実ROOMプロフィールでも当日3投稿本文を確認。
@@ -106,7 +107,7 @@
 - git remote（dai-kun811/rakuten-room-agent・公開）・GitHub Actions は変更なしで稼働継続。
 
 ## 残タスク・次の一手
-- 2026-07-30は交流・生成品質・公開表示・朝昼晩3投稿・PostGuard・実ROOM表示まで完了。次回は翌日の当日証跡を同じ完了条件で確認する。
+- 2026-08-02は交流・生成品質・公開表示・朝昼晩3投稿・PostGuard・実ROOM表示まで完了。次回は翌日の当日証跡を同じ完了条件で確認する。
 - 2026-07-28は生成失敗で3枠とも未投稿のまま。品質修正 `3d972b3` は2026-07-29にmain反映済み。
 - 通常運用で毎日3枠readyと3枠postedを確認する。
 - `ROOM_Posts_Review` の69件は必要に応じて確認・破棄する。自動投稿対象ではない。
