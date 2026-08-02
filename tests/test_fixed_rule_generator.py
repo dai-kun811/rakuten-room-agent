@@ -27,6 +27,7 @@ from fixed_rule_generator import (
     extract_attributes,
     stable_index,
     split_sentences,
+    similarity,
     syntax_similarity,
     validate_post,
 )
@@ -750,6 +751,26 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         errors = validate_post(changed, changed.attributes)
 
         self.assertFalse(any("marketing_weak_cta" in error for error in errors), errors)
+
+    def test_distinctive_rewrite_attempts_produce_safe_low_similarity_bodies(self) -> None:
+        generated = generate("magnetic_blocks")
+        scored = score_product(product_for("magnetic_blocks"), date(2026, 8, 3))
+        variants = [
+            add_distinctive_product_detail(
+                generated.title,
+                generated.body,
+                scored,
+                generated.attributes,
+                attempt=attempt,
+            )
+            for attempt in range(8, 16)
+        ]
+
+        self.assertEqual(len({body for _title, body in variants}), 8)
+        self.assertLess(similarity(variants[0][1], variants[1][1]), 0.75)
+        for title, body in variants:
+            changed = replace(generated, title=title, body=body)
+            self.assertEqual(validate_post(changed, changed.attributes), [])
 
     def test_distinctive_rewrite_recovers_after_all_base_patterns_are_historical(self) -> None:
         product = product_for("wooden_blocks")

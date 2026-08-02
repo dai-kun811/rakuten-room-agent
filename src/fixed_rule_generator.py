@@ -1488,7 +1488,13 @@ def build_candidate(
         body = remove_intention_phrases(body)
     body = add_listing_teaser(body, attributes)
     if attempt >= DISTINCTIVE_REWRITE_START:
-        title, body = add_distinctive_product_detail(title, body, scored, attributes)
+        title, body = add_distinctive_product_detail(
+            title,
+            body,
+            scored,
+            attributes,
+            attempt=attempt,
+        )
     analysis = build_analysis(scored, attributes, pattern.pattern_id)
     post = GeneratedPost(
         title=title,
@@ -1886,6 +1892,8 @@ def add_distinctive_product_detail(
     body: str,
     scored: ScoredProduct,
     attributes: ProductAttributes,
+    *,
+    attempt: int = DISTINCTIVE_REWRITE_START,
 ) -> tuple[str, str]:
     if scored.product.price <= 0:
         return title, body
@@ -1894,14 +1902,23 @@ def add_distinctive_product_detail(
     if len(sentences) < 3:
         return title, body
     teaser = distinct_listing_teaser(listing_teaser(attributes), scored)
-    opening = ensure_sentence(
-        f"{teaser}{attributes.short_product_label}を選ぶときは、"
-        "使う場面と価格の両方が暮らしに合うか気になりますよね"
-    )
     feature = confirmed_feature_phrase(attributes)
+    label = attributes.short_product_label
+    price_text = f"{scored.product.price:,}円台"
+    variant = max(0, attempt - DISTINCTIVE_REWRITE_START) % 8
+    openings = [
+        f"{teaser}{label}を選ぶときは、使う場面と価格の両方が暮らしに合うか気になりますよね",
+        f"{teaser}{price_text}の{label}なら、{feature}を使う時間と置き場所を一緒に思い浮かべたいですよね",
+        f"{teaser}{feature}と{price_text}の組み合わせは、{label}を毎日のどこで使うか考えるきっかけになります",
+        f"{teaser}{label}を暮らしへ足すなら、{price_text}という予算と{feature}の使い道を先に整理したいですよね",
+    ]
+    middles = [
+        f"{feature}なら、{label}を使う場面で、準備から片づけまでの動きを整えやすくなります",
+        f"{label}を取り入れられるため、必要な時に出して使い終わった後に戻す流れをまとめやすくなります",
+    ]
+    opening = ensure_sentence(openings[variant % len(openings)])
     middle = ensure_sentence(
-        f"{feature}なら、{attributes.short_product_label}を使う場面で、"
-        "準備から片づけまでの動きを整えやすくなります"
+        middles[(variant + variant // len(openings)) % len(middles)]
     )
     candidate_sentences = [opening, middle, sentences[-1]]
     candidate_body = "".join(candidate_sentences)
