@@ -21,18 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-10 18:31 JST
+最終更新: 2026-08-12 19:38 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 2026-08-10 18:31 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果は全件0。登録時刻は交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。交流は05:46にフォロー/いいね各50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。公開ページ上段は2026-08-10・自動50/50・対応済み・失敗0、最終更新06:45:02。下段の手動0/50は別表示として確認済み。
-2. 07:00定期runは欠落し、07:30 GenerationGuardが回復run `31339541299` / report `3dbc99fb3001`をdispatchして結果0。遅延定期run `31339829688` / report `b6887d7a57a2`もsuccessで、required/readyはmorning/noon/evening、missing空、ready品質85/85/85・errors空・review理由空・重複なし・最大構造類似0.60。最新runは楽天API 960件・32/32成功・失敗0、Referer/Origin/accessKey実送信、既存URL171件を参照して229件と非対象61件を除外、Sheetsへready 3件・review 146件を追記。reviewは品質違反のまま隔離され投稿対象外。コード修正不要。
-3. 投稿台帳は朝 `https://item.rakuten.co.jp/ilovebaby-gift/bk-52953`、昼 `https://item.rakuten.co.jp/risoukyou/ka-86605`、晩 `https://item.rakuten.co.jp/shop-always/r200722-05n` の3枠すべて`posted`。晩は18:15チェック後にeveningだけ回復。18:30 PostGuardは`confirmed_slots=[morning,noon,evening]`・`status=posted`・結果0。18:30 worker再評価も`new=0`・結果0で重複なし。実ROOMで3本文も照合済み。未投稿枠なし。次回は翌日の当日証跡を新規確認する。
+1. 2026-08-12 19:38 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果は全件0。登録時刻は交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。交流は05:48にフォロー/いいね各50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。公開ページ上段は2026-08-12・自動50/50・対応済み・失敗0、最終更新05:48:32。下段の手動0/50は別表示として確認済み。
+2. 07:30 GenerationGuardが回復run `31542675556` / report `7fde57298a9d`を確認して結果0。遅延定期run `31544121589` / report `79cecef48d75`もsuccessで、required/readyはmorning/noon/evening、missing空、ready品質85/85/85・errors空・review理由空・重複なし・最大構造類似0.533。最新runは楽天API 930件・32/32成功・失敗0、Referer/Origin/accessKey実送信、既存URL183件を参照して222件と非対象54件を除外、Sheetsへready 3件・review 155件を追記。reviewは品質違反のまま隔離され投稿対象外。コード修正不要。
+3. 投稿台帳は朝 `https://item.rakuten.co.jp/glittershop2024/glittersho2026070822353657145207`、昼 `https://item.rakuten.co.jp/kyarahouse/7269205`、晩 `https://item.rakuten.co.jp/rouge-yao/a311-51` の3枠がそれぞれ1件だけ`posted`、failed 0。19:30 PostGuardは`confirmed_slots=[morning,noon,evening]`・`status=posted`・結果0。19:36 worker再評価も`new=0`・結果0で重複なし。実ROOMで3本文とartifactを照合済み。未投稿枠なし。次回は翌日の当日証跡を新規確認する。
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-08-12 19:38: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、最新Actions run `31544121589` / report `79cecef48d75`の3枠ready・品質errors空、台帳3枠posted、19:30ガード3枠確認、実ROOM3本文を確認。最終workerは`new=0`。コード修正なし。
 - 2026-08-10 18:31: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、最新Actions run `31339829688` / report `b6887d7a57a2`の3枠ready・品質errors空、台帳3枠posted、18:30ガード3枠確認、実ROOM3本文を確認。07:00 run欠落はGenerationGuardが一度だけ安全に回復し、遅延schedule runも成功。晩は18:15チェック後にeveningだけ復旧し、最終workerは`new=0`。コード修正なし。
 - 2026-08-09 19:33: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、最新Actions run `31282030322` / report `5d33a44bdd98`の3枠ready・品質errors空、台帳3枠posted、19:30ガード3枠確認、実ROOM3本文を確認。07:00 run欠落はGenerationGuardが一度だけ安全に回復し、遅延schedule runも成功。最終workerは`new=0`。コード修正なし。
 - 2026-08-08 19:35: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、最新Actions run `31224750142` / report `9386a08f19e6`の3枠ready・品質errors空、台帳3枠posted、19:30ガード3枠確認、実ROOM3本文を確認。07:00 run欠落はGenerationGuardが一度だけ安全に回復し、遅延schedule runも成功。最終workerは`new=0`。コード修正なし。
