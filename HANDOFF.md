@@ -21,19 +21,20 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-15 18:31 JST
+最終更新: 2026-08-16 18:32 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
-1. 2026-08-15 18:31 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果は全件0。交流は05:58に50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。実ブラウザの公開上段は当日50/50・対応済み・失敗0、下段の手動0/50は別表示。
-2. 遅延schedule run `31846772088` / report `1e0e95b17cc1` がsuccessで、GenerationGuardも結果0。required/readyはmorning/noon/evening、missing空、ready品質85/85/85・errors空・review理由空・重複なし。楽天API 960件・32/32成功・失敗0、Origin/Referer/accessKey実送信、既存URL195件を参照して230件と非ROOM60件を除外。Sheetsへready 3件・review 203件を追記。reviewは品質違反のまま隔離。
-3. 投稿台帳は朝 `https://item.rakuten.co.jp/babyplanetes/robotplaza01`、昼 `https://item.rakuten.co.jp/pomp1/001`、晩 `https://item.rakuten.co.jp/k222/328586` が各1件だけ`posted`、failed 0。18:30 PostGuardは`confirmed_slots=[morning,noon,evening]`・`status=posted`・結果0。最終worker再評価も`new=0`・結果0で重複抑止を確認。
-4. 実ROOMの商品数106と3本文のartifact一致を確認済み。未投稿枠・未達交流なし。コード修正不要。次回は翌日の当日証跡を新規確認する。
+1. 2026-08-16 18:32 JST時点、Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、最終結果は全件0。交流は05:55に50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。実ブラウザの公開上段は当日50/50・対応済み・失敗0、下段の手動0/50は別表示。
+2. schedule run `31912177502` / report `46adf3175517` がsuccessで、GenerationGuardも結果0。required/readyはmorning/noon/evening、missing空、ready品質85/85/85・errors空・review理由空・重複なし・本文類似度最大0.600。楽天API 960件・32/32成功・失敗0、Origin/Referer/accessKey実送信、既存URL198件を参照して254件と非ROOM70件を除外。Sheetsへready 3件・review 329件を追記。reviewは品質違反のまま隔離。
+3. 投稿台帳は朝 `https://item.rakuten.co.jp/lecdirect/e166_999tekuchi3px16`、昼 `https://item.rakuten.co.jp/f082121-hitachiota/aq1001`、晩 `https://item.rakuten.co.jp/lecdirect/4903320482647` が各1件だけ`posted`、failed 0。18:30 PostGuardは`confirmed_slots=[morning,noon,evening]`・`status=posted`・結果0。最終worker再評価も当日runで`new=0`・結果0。
+4. 12:00 AutoPosterが一時的に古い成功runを選んで昼枠を見送ったため、正しい当日runで昼枠だけを12:04に復旧。当日成功run限定・新しい順の選択と最大3回再取得を追加し、全177テスト合格、commit `024ea4e`をmainへpush済み。実ROOMの商品数109と3本文のartifact一致も確認済み。未投稿枠・未達交流なし。次回は翌日の当日証跡を新規確認する。
 
 ## 現在のフェーズ
 - 自動運用中。GitHub Actions 日次実行（`daily.yml`・日本時間07:00）で楽天ROOM投稿候補をGoogleスプレッドシートへ追記。
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-08-16 18:32: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions run `31912177502` / report `46adf3175517`の3枠ready・品質errors空、台帳3枠posted、18:30 PostGuard全枠確認、実ROOM3本文を確認。昼の古いrun一時選択を当日run限定・再取得で修正し、全177テスト合格、commit `024ea4e`をmainへpush。最終workerは`new=0`。
 - 2026-08-15 18:31: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions run `31846772088` / report `1e0e95b17cc1`の3枠ready・品質errors空、台帳3枠posted、18:30 PostGuard全枠確認、実ROOM3本文を確認。最終workerは`new=0`。コード修正なし。
 - 2026-08-14 19:34: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、最新Actions run `31751534562` / report `3a3cf53bdc5e`の3枠ready・品質errors空、台帳3枠posted、19:30 PostGuard全枠確認、実ROOM3本文を確認。07:00 run欠落はGenerationGuardが一度だけ安全回復し、遅延schedule runも成功。最終workerは`new=0`。コード修正なし。
 - 2026-08-13 22:32: PC停止で定刻タスク全欠落だった当日運用を回復。run `31648465326` / report `371169929399`の3枠ready・品質errors空、台帳3枠posted、PostGuard全枠確認、実ROOM3本文一致、交流50/50・失敗0、公開ページ当日表示まで完了。朝のChrome競合`TargetClosedError`と交流の一時的Errorはいずれも重複なく安全回復。コード修正なし。
@@ -119,7 +120,7 @@
 - git remote（dai-kun811/rakuten-room-agent・公開）・GitHub Actions は変更なしで稼働継続。
 
 ## 残タスク・次の一手
-- 2026-08-03は交流・生成品質・公開表示・朝昼晩3投稿・PostGuard・実ROOM表示まで完了。次回は翌日の当日証跡を同じ完了条件で確認する。
+- 2026-08-16は交流・生成品質・公開表示・朝昼晩3投稿・PostGuard・実ROOM表示まで完了。次回は翌日の当日証跡を同じ完了条件で確認する。
 - 2026-07-28は生成失敗で3枠とも未投稿のまま。品質修正 `3d972b3` は2026-07-29にmain反映済み。
 - 通常運用で毎日3枠readyと3枠postedを確認する。
 - `ROOM_Posts_Review` の69件は必要に応じて確認・破棄する。自動投稿対象ではない。
