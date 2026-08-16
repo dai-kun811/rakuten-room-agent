@@ -13,6 +13,7 @@ from local_room_worker import (
     actions_run_is_today,
     append_ledger_event,
     current_post_slot,
+    generation_run_candidates,
     load_claimed_post_slots,
     load_reserved_urls,
     parse_post_windows,
@@ -44,6 +45,37 @@ class LocalRoomWorkerTest(unittest.TestCase):
         self.assertTrue(actions_run_is_today({"created_at": "2026-07-04T22:00:00Z"}, now))
         self.assertFalse(actions_run_is_today({"created_at": "2026-07-03T22:00:00Z"}, now))
         self.assertFalse(actions_run_is_today({"created_at": "2026-07-04T16:52:00Z"}, now))
+
+    def test_generation_candidates_require_today_and_sort_newest_first(self) -> None:
+        jst = timezone(timedelta(hours=9))
+        now = datetime(2026, 8, 16, 12, 0, tzinfo=jst)
+        runs = [
+            {
+                "id": 1,
+                "conclusion": "success",
+                "created_at": "2026-08-14T22:30:00Z",
+            },
+            {
+                "id": 2,
+                "conclusion": "success",
+                "created_at": "2026-08-15T22:20:00Z",
+            },
+            {
+                "id": 3,
+                "conclusion": "success",
+                "created_at": "2026-08-15T22:40:00Z",
+            },
+            {
+                "id": 4,
+                "conclusion": "failure",
+                "created_at": "2026-08-15T22:50:00Z",
+            },
+        ]
+
+        self.assertEqual(
+            [run["id"] for run in generation_run_candidates(runs, require_today=True, now=now)],
+            [3, 2],
+        )
 
     def test_forced_slot_supports_safe_same_day_recovery(self) -> None:
         windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")

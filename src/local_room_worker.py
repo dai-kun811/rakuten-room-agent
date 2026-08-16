@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -57,10 +58,41 @@ def github_headers(token: str) -> dict[str, str]:
     }
 
 
+def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bool:
+    raw_timestamp = str(run.get("run_started_at") or run.get("created_at") or "")
+    if not raw_timestamp:
+        return False
+    try:
+        run_time = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    local_now = now or datetime.now().astimezone()
+    local_run_time = run_time.astimezone(local_now.tzinfo)
+    return local_run_time.date() == local_now.date() and local_run_time.hour >= 7
+
+
+def generation_run_candidates(
+    runs: list[dict[str, Any]],
+    *,
+    require_today: bool = False,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    candidates = [run for run in runs if run.get("conclusion") == "success"]
+    if require_today:
+        candidates = [run for run in candidates if actions_run_is_today(run, now)]
+    return sorted(
+        candidates,
+        key=lambda run: str(run.get("run_started_at") or run.get("created_at") or ""),
+        reverse=True,
+    )
+
+
 def fetch_latest_generation_report(
     session: Any,
     *,
     headers: dict[str, str],
+    require_today: bool = False,
+    now: datetime | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     runs_response = session.get(
         f"{REPO_API}/actions/workflows/daily.yml/runs",
@@ -69,11 +101,11 @@ def fetch_latest_generation_report(
         timeout=30,
     )
     runs_response.raise_for_status()
-    runs = [
-        run
-        for run in runs_response.json().get("workflow_runs", [])
-        if run.get("conclusion") == "success"
-    ]
+    runs = generation_run_candidates(
+        list(runs_response.json().get("workflow_runs", [])),
+        require_today=require_today,
+        now=now,
+    )
     if not runs:
         raise RuntimeError("Successful daily workflow run was not found.")
 
@@ -174,19 +206,6 @@ def resolve_post_slot(
     return f"{effective_date}:{forced_label}"
 
 
-def actions_run_is_today(run: dict[str, Any], now: datetime | None = None) -> bool:
-    raw_timestamp = str(run.get("run_started_at") or run.get("created_at") or "")
-    if not raw_timestamp:
-        return False
-    try:
-        run_time = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    local_now = now or datetime.now().astimezone()
-    local_run_time = run_time.astimezone(local_now.tzinfo)
-    return local_run_time.date() == local_now.date() and local_run_time.hour >= 7
-
-
 def load_claimed_post_slots(
     path: Path = LEDGER_PATH,
     *,
@@ -285,10 +304,19 @@ def main() -> int:
         import requests
 
         with requests.Session() as session:
-            run, report = fetch_latest_generation_report(
-                session,
-                headers=github_headers(token),
-            )
+            for attempt in range(3):
+                try:
+                    run, report = fetch_latest_generation_report(
+                        session,
+                        headers=github_headers(token),
+                        require_today=not bool(forced_post_date),
+                    )
+                    break
+                except RuntimeError:
+                    if forced_post_date or attempt == 2:
+                        raise
+                    logger.warning("Today's generation report was not selected; retrying.")
+                    time.sleep(2)
         all_ready_items = ready_items(report)
         items = ready_items(report, post_slot=slot_label)
         retry_failed_details = {
