@@ -21,16 +21,23 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-17 06:02 JST
+最終更新: 2026-08-18 18:33 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-08-17 06:02 JSTの当日状態:
+2026-08-18 18:33 JSTの当日状態:
 
-- Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照。`RakutenROOMDailyEngagement`は05:53に50/50・失敗0・`completed=true`・`published=true`・終了コード0。
-- 実ブラウザの公開上段は2026-08-17・自動フォロー50/50・自動いいね50/50・対応済み・失敗0・最終更新05:53:22。下段は2026-08-17候補・手動0/50の別表示。認証付き`routine-state/automation-progress.json`も同じ当日50/50。
-- 06:02は07:00/07:30の生成チェックポイント前のため手動dispatchせず。当日`post-ledger.jsonl`は0件、未投稿はmorning/noon/evening。
-- 次は07:00 runまたは07:30 GenerationGuardから再開し、当日artifactのrequired/ready 3枠・missing空・品質errors/review理由空を証明。時刻到来ごとに未投稿枠だけを回復し、台帳と3枠PostGuardまで確認する。Codex同日フォローアップ作成APIはタイムアウトし、追跡自動化は作成されていない。
+- 本日運用は責任完了。Windowsタスク4件はすべて有効で正しいrepo `.venv` / worker / working directoryを参照し、当日実行結果は0。交流は05:56に50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。
+- schedule run `32076250821` / report `f0397fff55b5` はsuccess。required/readyはmorning/noon/evening、missing空、ready品質85/85/85・errors空・review理由空・重複なし・本文類似度最大0.683。楽天API 931件・32/32成功・失敗0、Origin/Referer/accessKey実送信、既存URL204件を参照して252件と非ROOM60件を除外。Sheetsへready 3件・review 160件を追記。
+- 台帳は朝 `https://item.rakuten.co.jp/rakuten24/4903320167322`、昼 `https://item.rakuten.co.jp/sundrug/4903111247585x4`、晩 `https://item.rakuten.co.jp/nicobase/set3-5-00738` が各1件だけ`posted`、failed 0。18:30 PostGuardは`confirmed_slots=[morning,noon,evening]`・`status=posted`、最終worker再評価は`new=0`。
+- 実ブラウザの公開上段は2026-08-18・自動フォロー50/50・自動いいね50/50・対応済み・失敗0・最終更新06:45:02。実ROOMの商品数115と3本文のartifact一致も確認済み。未投稿枠・未達交流・要修正コードなし。次回は翌日の当日証跡を新規確認する。
+
+2026-08-18の完了証跡:
+
+1. 2026-08-18 18:33 JST時点、Windowsタスク4件は有効・正しい実行先で、当日実行結果は全件0。交流は65候補でフォロー50/50・いいね50/50・失敗0、公開更新も成功した。
+2. Actions run `32076250821` のjobと全stepはsuccess。report `f0397fff55b5` は3枠ready・missing空で、品質基準を緩めず3件とも投稿可能。160件のneeds_reviewはレビューシートに隔離され、投稿対象外。
+3. 投稿台帳はmorning/noon/eveningが各1件だけ`reserved`から`posted`へ遷移し、failed 0。18:30 PostGuardは当日run/reportで全3枠を確認し、18:31のworker再評価は`new=0`で重複なし。
+4. 公開進捗ページ上段と認証付き`routine-state/automation-progress.json`は当日50/50・失敗0。実ROOMプロフィールでも3本文先頭を一致確認。コード修正・テスト実行は不要だった。
 
 2026-08-16の完了証跡:
 
@@ -44,6 +51,7 @@
 - 通常運用は固定ルール生成のみ（OpenAI/LLM不使用・API課金0）。
 
 ## 直近の状況（移設直後）
+- 2026-08-18 18:33: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions run `32076250821` / report `f0397fff55b5`の3枠ready・品質errors空、台帳3枠posted、18:30 PostGuard全枠確認、実ROOM3本文を確認。最終workerは`new=0`。コード修正なし。
 - 2026-08-17 06:02: `room-2`日次運用の早朝チェック完了。タスク4件は有効・正しい実行先、交流50/50・失敗0・公開上段当日表示まで確認。07:30前のため生成手動dispatchはせず、当日台帳は0件・未投稿はmorning/noon/evening。次は07:00/07:30の生成証跡から再開する。
 - 2026-08-16 18:32: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions run `31912177502` / report `46adf3175517`の3枠ready・品質errors空、台帳3枠posted、18:30 PostGuard全枠確認、実ROOM3本文を確認。昼の古いrun一時選択を当日run限定・再取得で修正し、全177テスト合格、commit `024ea4e`をmainへpush。最終workerは`new=0`。
 - 2026-08-15 18:31: `room-2`日次運用を責任完了。交流50/50・失敗0、公開ページ当日表示、Actions run `31846772088` / report `1e0e95b17cc1`の3枠ready・品質errors空、台帳3枠posted、18:30 PostGuard全枠確認、実ROOM3本文を確認。最終workerは`new=0`。コード修正なし。
