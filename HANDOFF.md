@@ -21,9 +21,16 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-18 18:33 JST
+最終更新: 2026-08-19 06:04 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-08-19 06:04 JSTの当日状態:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directoryを参照。`StartWhenAvailable=true` / `IgnoreNew`も確認済み。
+- 交流は05:55にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`で完了し、タスク結果0。認証付き`routine-state/automation-progress.json`と実ブラウザ公開ページ上段は2026-08-19・自動50/50・対応済み・失敗0・最終更新05:55:37。下段の手動0/50は別表示。
+- 06:04時点は07:00/07:30より前のため`daily.yml`当日runはまだ無く、手動dispatchはしていない。当日投稿台帳も0件。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45再送結果、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なしを証明し、朝昼晩の時刻後に未投稿枠だけを復旧する。同じタスクの一時フォローアップ作成はアプリAPIが2回タイムアウトし、ファイル確認で作成なし。既存`room-2`の設定変更なし。
 
 2026-08-18 18:33 JSTの当日状態:
 
