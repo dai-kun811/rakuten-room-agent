@@ -21,9 +21,16 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-19 06:04 JST
+最終更新: 2026-08-20 06:02 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-08-20 06:02 JSTの当日状態:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directoryを参照。`StartWhenAvailable=true` / `IgnoreNew`も確認済み。05:02に交流を開始し、05:10の重複トリガーは想定どおり実行中インスタンスを置換しなかった。
+- 交流は05:57にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`で完了し、最終タスク結果0。認証付き`routine-state/automation-progress.json`も2026-08-20・50/50・失敗0・更新05:57:29 JST。実ブラウザ操作はブラウザ基盤の初期化制限で未確認だが、公開正本の更新成功は確認済み。
+- 06:02時点は07:00/07:30より前のため`daily.yml`当日runはまだ無く、手動dispatchはしていない。当日投稿台帳も0件。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45再送結果、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なしを証明し、朝昼晩の正規時刻後に未投稿枠だけを復旧する。Codex自動化APIは今回も応答せず、既存`room-2`の設定変更なし。
 
 2026-08-19 06:04 JSTの当日状態:
 
