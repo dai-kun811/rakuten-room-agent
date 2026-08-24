@@ -21,9 +21,26 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-22 06:01 JST
+最終更新: 2026-08-24 19:32 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-08-24 19:32 JSTの当日状態（責任完了）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。05:01に交流を開始し、05:10の重複トリガーは元実行を置換せず、最終結果0。
+- 交流は05:59にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。06:45再送も結果0。実ブラウザ公開ページ上段は2026-08-24・自動50/50・対応済み・失敗0・最終更新06:45:02。下段の手動0/50は別表示。
+- `daily.yml` schedule run `32670643555` / report `aaf443352023`はsuccess。required/readyはmorning/noon/evening、missing空、ready品質89/93/91、errors・review理由空、重複なし、構造類似度最大0.433。楽天APIは960件・32/32成功・失敗0、Origin/Referer/accessKey実送信はマスク済みログで確認。既存222 URLを参照し254件と非ROOM 64件を除外。Sheetsへready 3件・review 12件を追記。
+- 台帳は morning `https://item.rakuten.co.jp/kaigo/103-4901301425881-2`、noon `https://item.rakuten.co.jp/kiraku2017/m03`、evening `https://item.rakuten.co.jp/slotre/10000201` が各1件だけ`posted`。各枠は`reserved`から`posted`へ正常遷移し、failed 0。19:30 PostGuardは`status=posted`・`confirmed_slots=[morning,noon,evening]`・結果0。
+- 実ROOMで朝「外出準備にも おむつまわり」、昼「形づくりが広がる 磁石ブロック」、晩「食後にも使える 手口ふきストック」の本文一致と商品数133を確認。公開進捗上段も当日50/50・対応済み・失敗0を再確認。19:32の最終worker再評価は`new=0`・結果0で重複抑止を確認。
+- 同じCodexタスクの一時heartbeat作成は2回ともAPIが応答せず停止。自動化一覧に追加なしを確認し、既存`room-2`の設定変更なし。監視側で一時的に台帳列名を誤読したが、一次証跡を再確認して再投稿せず解消。コード修正・テスト実行なし。未投稿枠・未達交流・残作業なし。次回は翌日の証跡を新規確認する。
+
+2026-08-23 06:06 JSTの当日状態:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directoryを参照。`StartWhenAvailable=true` / `IgnoreNew`も確認済み。05:02に交流を開始し、05:10の重複トリガーは実行中インスタンスを置換せず、元タスクは結果0で完走した。
+- 交流は06:01にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`で完了。実ブラウザの公開ページ上段は2026-08-23・自動50/50・対応済み・失敗0・最終更新06:01:58。下段の手動0/50は別表示。
+- 前日2026-08-22の台帳はmorning/noon/eveningがすべて`posted`。06:06は07:00/07:30より前のため、`daily.yml`当日runはまだ0件で手動dispatchはしていない。当日投稿台帳も0件、投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45再送、07:00 scheduleまたは07:30 GenerationGuardから再開し、当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認。08:00/08:30、12:00/12:30、19:00/19:30で既投稿を再送せず未投稿枠だけ復旧し、当日3枠`posted`と実ROOM表示まで確認する。
+- 同じCodexタスクの追跡用自動化APIは今回も応答せず、確認処理を停止。追跡は作成せず、既存`room-2`の設定変更なし。コード修正・テスト実行なし。
 
 2026-08-22 06:01 JSTの当日状態:
 
