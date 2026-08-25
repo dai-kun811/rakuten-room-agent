@@ -1494,6 +1494,7 @@ def build_candidate(
             scored,
             attributes,
             attempt=attempt,
+            required_terms=pattern.title_required,
         )
     analysis = build_analysis(scored, attributes, pattern.pattern_id)
     post = GeneratedPost(
@@ -1894,6 +1895,7 @@ def add_distinctive_product_detail(
     attributes: ProductAttributes,
     *,
     attempt: int = DISTINCTIVE_REWRITE_START,
+    required_terms: tuple[str, ...] = (),
 ) -> tuple[str, str]:
     if scored.product.price <= 0:
         return title, body
@@ -1904,17 +1906,18 @@ def add_distinctive_product_detail(
     teaser = distinct_listing_teaser(listing_teaser(attributes), scored)
     feature = confirmed_feature_phrase(attributes)
     label = attributes.short_product_label
+    required_term = next((term for term in required_terms if term), label)
     price_text = f"{scored.product.price:,}円台"
     variant = max(0, attempt - DISTINCTIVE_REWRITE_START) % 8
     openings = [
-        f"{teaser}{label}を選ぶときは、使う場面と価格の両方が暮らしに合うか気になりますよね",
-        f"{teaser}{price_text}の{label}なら、{feature}を使う時間と置き場所を一緒に思い浮かべたいですよね",
-        f"{teaser}{feature}と{price_text}の組み合わせは、{label}を毎日のどこで使うか考えるきっかけになります",
-        f"{teaser}{label}を暮らしへ足すなら、{price_text}という予算と{feature}の使い道を先に整理したいですよね",
+        f"{teaser}{label}を選ぶときは、{required_term}の場面と価格の両方が暮らしに合うか気になりますよね",
+        f"{teaser}{price_text}の{label}なら、{feature}を{required_term}で使う時間と置き場所を一緒に思い浮かべたいですよね",
+        f"{teaser}{feature}と{price_text}の組み合わせは、毎日の{required_term}へ取り入れる場面を考えるきっかけになります",
+        f"{teaser}{label}を暮らしへ足すなら、{price_text}という予算と{required_term}での使い道を先に整理したいですよね",
     ]
     middles = [
-        f"{feature}なら、{label}を使う場面で、準備から片づけまでの動きを整えやすくなります",
-        f"{label}を取り入れられるため、必要な時に出して使い終わった後に戻す流れをまとめやすくなります",
+        "使う場所が定まると、必要な時に取り出して片づけるまでの動きを整えやすくなります",
+        "毎日の動線に置き場所を一つ決めると、準備して使い終わった後に戻す流れをまとめやすくなります",
     ]
     opening = ensure_sentence(openings[variant % len(openings)])
     middle = ensure_sentence(

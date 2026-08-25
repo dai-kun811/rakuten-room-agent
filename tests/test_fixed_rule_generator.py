@@ -772,6 +772,59 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             changed = replace(generated, title=title, body=body)
             self.assertEqual(validate_post(changed, changed.attributes), [])
 
+    def test_distinctive_rewrite_preserves_each_pattern_required_term(self) -> None:
+        product = product_for("magnetic_blocks")
+        scored = score_product(product, date(2026, 8, 25))
+        attributes = extract_attributes(product)
+
+        for pattern in PATTERNS["magnetic_blocks"]:
+            base = build_candidate(scored, attributes, pattern, 0)
+            title, body = add_distinctive_product_detail(
+                base.title,
+                base.body,
+                scored,
+                attributes,
+                attempt=15,
+                required_terms=pattern.title_required,
+            )
+            changed = replace(base, title=title, body=body)
+            errors = validate_post(changed, changed.attributes)
+            self.assertFalse(
+                any("タイトルと本文の商品タイプ不一致" in error for error in errors),
+                (pattern.pattern_id, errors, title, body),
+            )
+
+    def test_distinctive_rewrite_does_not_repeat_long_real_product_labels(self) -> None:
+        product = replace(
+            product_for("nursing_support"),
+            name="授乳クッション セルフミルク 哺乳瓶ホルダー 赤ちゃん 安定サポート",
+            caption="授乳クッション セルフミルク 哺乳瓶ホルダー ハンズフリー授乳",
+            catchcopy="授乳クッション 哺乳瓶ホルダー ハンズフリー授乳",
+            price=2880,
+        )
+        scored = score_product(product, date(2026, 8, 25))
+        generated = FixedRulePostGenerator().generate(
+            scored,
+            context=GenerationContext(),
+        )
+        pattern = next(
+            pattern
+            for pattern in PATTERNS["nursing_support"]
+            if pattern.pattern_id == generated.structure_pattern
+        )
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            scored,
+            generated.attributes,
+            attempt=15,
+            required_terms=pattern.title_required,
+        )
+        changed = replace(generated, title=title, body=body)
+        errors = validate_post(changed, changed.attributes)
+
+        self.assertFalse(any("duplicate_phrase" in error for error in errors), errors)
+
     def test_distinctive_rewrite_recovers_after_all_base_patterns_are_historical(self) -> None:
         product = product_for("wooden_blocks")
         scored = score_product(product, date(2026, 7, 26))
