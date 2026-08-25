@@ -21,17 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-25 06:02 JST
+最終更新: 2026-08-26 08:06 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-08-25 06:02 JSTの当日状態（未完了・時刻待ち）:
+2026-08-26 08:06 JSTの当日状態（未完了・昼晩の時刻待ち）:
 
-- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。05:02に交流を開始し、05:10の重複トリガー後も元実行が継続、最終結果0。
-- 交流は05:58にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。実ブラウザ公開ページ上段は2026-08-25・自動50/50・対応済み・失敗0・最終更新05:58:47。下段の手動0/50は別表示。
-- 06:02は07:00/07:30より前のため、`daily.yml`当日runは0件で手動dispatchしていない。当日投稿台帳も0件。投稿済み枠なし、未投稿はmorning/noon/evening。
-- 次は06:45再送、07:00 scheduleまたは07:30 GenerationGuardから再開し、当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認。08:00/08:30、12:00/12:30、19:00/19:30で既投稿を再送せず未投稿枠だけ復旧し、当日3枠`posted`と実ROOM表示まで確認する。
-- 同じCodexタスクの一時heartbeat作成APIは今回も応答せず停止。自動化一覧に追加なしを確認し、既存`room-2`の設定変更なし。コード修正・テスト実行なし。
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。交流は05:56にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`、06:45再送も結果0。実ブラウザ公開ページ上段は2026-08-26・自動50/50・対応済み・失敗0・最終更新06:45:03。下段の手動0/50は別表示。
+- 2026-08-25は生成run `32785129552` / `32785885666` がmorning/noonのみready、evening欠落で失敗し3枠未投稿だった。固定ルール再生成後半で必須語を落とし、商品名・特徴語を重ねて`title_content_mismatch` / `duplicate_phrase`を起こす原因を最小修正。対象70件・全179件テスト合格、commit `d637e7b`をmainへpushした。
+- 修正後の8月26日run `32906434376`と遅延schedule run `32906665306`はいずれも3枠ready・missing空・品質85/85/85・errors/review理由空・API 960件/32成功/失敗0。これを使い、8月25日の未投稿morning/noon/eveningだけを回復し、台帳で全3枠`posted`、実ROOM先頭3本文、商品数136を確認した。
+- 今日分は使用済みURLを除外するため07:38に1回だけ再生成し、run `32907100146` / report `11423b924994` がsuccess。required/readyは3枠、missing空、品質85/85/85、errors/review理由空、重複なし。API 960件・32/32成功・失敗0、`access_key_configured=True` / `referer_configured=True`、既存231 URLを参照し272件と非ROOM 80件を除外。コード上はRefererからOriginを生成し最新版APIへaccessKeyも送る。
+- 08:00 AutoPosterは結果0。今日morning `https://item.rakuten.co.jp/evolutiontogether/xc02-c8006` は台帳で`reserved`から`posted`へ遷移し、実ROOM先頭本文一致・商品数137を確認。未投稿はnoon `https://item.rakuten.co.jp/f213837-anpachi/53310338` と evening `https://item.rakuten.co.jp/myrepi-2/4987176203410-2`。12:00/12:30、19:00/19:30で既投稿枠を再送せず確認・必要時だけ復旧し、3枠posted、実ROOM、最終worker `new=0`まで継続する。
+- 同じCodexタスクの追跡heartbeat作成APIは今回も応答せず停止。重複作成せず既存`room-2`は変更していない。08:06時点で当日完了とは扱わない。
 
 2026-08-24 19:32 JSTの当日状態（責任完了）:
 
