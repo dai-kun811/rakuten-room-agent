@@ -21,9 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-28 06:03 JST
+最終更新: 2026-08-29 06:00 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-08-29 06:00 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。通常権限の照会はACLで拒否されたが、昇格した読み取り確認で4件の実体と設定を確認した。
+- 05:02に`RakutenROOMDailyEngagement`を開始。05:10の定刻トリガーは実行中ジョブを置換せず、05:56にフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`・最終結果0で完了した。
+- 実ブラウザの公開ページ上段は2026-08-29・自動フォロー50/50・自動いいね50/50・対応済み・失敗0・最終更新05:56:22。下段の手動0/50は別表示。
+- 8月28日は台帳でmorning/noon/eveningがすべて`posted`、19:30 PostGuardも`status=posted`・`confirmed_slots=[morning,noon,evening]`・結果0を確認済み。
+- 06:00時点は07:00/07:30より前。認証付きActions照会で当日`daily.yml` runは0件、手動dispatchはしていない。当日`post-ledger.jsonl`も0件で、投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で既投稿枠を再送せず未投稿枠だけ復旧する。最終的に台帳3枠`posted`、PostGuard、実ROOM、worker `new=0`まで確認する。
+- 同じCodexタスクを1時間ごとに再開する一時heartbeatの作成APIと既存automation照会APIは今回も応答せず停止。ファイル確認で新規自動化なし、既存`room-2`の変更なし。06:00時点では当日完了とは扱わない。
 
 2026-08-28 06:03 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
 
