@@ -21,9 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-08-30 06:05 JST
+最終更新: 2026-08-31 05:11 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-08-31 05:11 JSTの当日状態（未完了・エンゲージメント実行中、生成と3投稿は時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。通常権限ではACL拒否、昇格した読み取りで実体を確認した。05:03に`RakutenROOMDailyEngagement`を開始し、05:10の定刻重複は実行中ジョブを置換していない。05:09時点はフォロー9/50・いいね3/50で進行中、エラー/CAPTCHA/ログイン切れの記録なし。
+- 前日2026-08-30はmorning/eveningが通常どおり`posted`だった一方、noonは12:00に`reserved`後ログが途切れ、12:30/19:30 PostGuardが結果不確実として停止していた。生成run `33282256884` / report `82420db92023`はrequired/ready 3枠、missing空、昼品質85・errors/review理由空・重複なし。実ROOMで昼本文先頭`【1,773円台 外出準備にも おむつまわり】`を再読込を挟んで2回確認し、表示は1件、ROOM商品数151だった。再投稿せず、05:06に同じslot/URLへ`posted`と`detail=confirmed_visible_twice_after_uncertain_worker_exit`を追記したため、8月30日の台帳最新状態はmorning/noon/eveningすべて`posted`。
+- 05:10時点は07:00/07:30より前。認証付きActions照会で当日`daily.yml` runは0件、手動dispatchはしていない。当日`post-ledger.jsonl`も0件で、投稿済み枠なし、未投稿はmorning/noon/evening。
+- 実ブラウザの公開進捗ページ上段は当日処理中のため`-/50`・本日未報告、前回2026-08-30・最終更新06:45:03。下段は2026-08-31候補71件・手動0/50で別表示。当日エンゲージメント完了後に上段の日付・50/50・対応済み・失敗0を再確認する。
+- 次は実行中エンゲージメントの50/50・失敗0・`completed=true`・`published=true`、06:45再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、登録済みAutoPoster 08:00/12:00/19:00とPostGuard 08:30/12:30/19:30で既投稿枠を再送せず未投稿枠だけ復旧する。最終的に台帳3枠`posted`、PostGuard、実ROOM、worker `new=0`まで確認する。
+- 同じCodexタスクを毎時15分に再開する一時heartbeatの作成APIは応答せず停止。automation filesystem確認で新規作成なし、既存`room-2`変更なし。05:11時点では当日完了とは扱わない。コード変更・テストは不要だった。
 
 2026-08-30 06:05 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
 
