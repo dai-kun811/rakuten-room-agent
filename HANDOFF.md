@@ -21,9 +21,17 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-01 06:11 JST
+最終更新: 2026-09-02 16:21 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-02 16:21 JSTの当日状態（未完了・晩投稿の時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。最終結果は4件とも0。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。
+- 交流はフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。実ブラウザの公開ページ上段も2026-09-02・自動50/50・対応済み・失敗0・最終更新06:45:02。下段の手動0/50は別表示。
+- 最新当日schedule run `33573063308` / report `65d886dd3891` はsuccess。required/readyはmorning/noon/evening、missing空、品質85/85/85、errors/review理由空、duplicate_resultは全枠`重複なし`、構造類似度0.000/0.467/0.567。楽天APIは960件・32/32成功・失敗0で、Origin/Referer/accessKeyの実送信ヘッダー名を値マスク済みログで確認。既存273 URLを参照し282件と非ROOM 79件を除外、Sheetsへready 3件・review 41件を追記。
+- 台帳はmorning `https://item.rakuten.co.jp/sunjoy/compass1589369441`、noon `https://item.rakuten.co.jp/lecdirect/4903320486935` が各`reserved`から`posted`へ正常遷移。12:30 PostGuardは`status=posted`・`confirmed_slots=[morning,noon]`。実ROOMの先頭2投稿も当日artifact本文と一致し、商品数159を確認した。
+- 16:21時点の未投稿はeveningのみ。障害ではなく19:00 AutoPoster / 19:30 PostGuard前のため、前倒し・重複投稿はしていない。次は19:00以降にeveningだけの台帳遷移を確認し、未投稿なら原因を診断して当該枠だけ安全回復する。19:30 PostGuardで3枠確認、実ROOM晩本文、最終worker `new=0`まで確認して初めて当日完了とする。コード変更・テスト不要。
 
 2026-09-01 06:11 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
 
