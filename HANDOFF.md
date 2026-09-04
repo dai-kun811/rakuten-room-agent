@@ -21,9 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-03 19:34 JST
+最終更新: 2026-09-04 19:32 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-04 19:32 JSTの当日状態（完了）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。19:30後の最終結果は4件とも0。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。
+- 交流はフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。実ブラウザの公開ページ上段も2026-09-04・自動50/50・対応済み・失敗0・最終更新06:45:02。下段の手動0/50は別表示。
+- 07:01時点で当日schedule runが未着だったため、07:30 GenerationGuardが1回だけrun `33813337953` / report `2ffacb8cf60a` を起動してsuccess。required/readyはmorning/noon/evening、missing空、品質85/78/78、errors/review理由空、全枠`重複なし`、楽天API 960件・32/32成功・失敗0、Sheetsへready 3件・review 31件を追記。
+- 08:00のmorningは `https://item.rakuten.co.jp/rakutensokuhaimart/4902720144889` が楽天24エクスプレス専用画面へリダイレクトされ、ROOM投稿導線がないため`failed`。認証切れではないことを実画面で確認し、品質条件を緩めず再生成run `33815898292` / report `12be847631c8` を1回実行。新morningの通常商品ページでROOM導線を事前確認し、`https://item.rakuten.co.jp/f212199-gujo/c-42` を08:08に`posted`へ回復した。旧失敗URLは再投稿していない。
+- 後着したschedule run `33819481697` / report `a089111998b0` がsuccessとなり、12:00以降の正本。required/ready 3枠・missing空、品質85/85/85、errors/review理由空、全枠重複なし。楽天API 960件・32/32成功・失敗0、値マスク済みログでOrigin/Referer/accessKeyの実送信ヘッダー名、既存288 URL、299件と非ROOM 76件の除外、Sheetsへready 3件・review 98件の追記を確認。
+- 当日台帳は8イベント（旧morning失敗のreserved/failedを含む）で、各slotの最新状態はposted 3件。morning `https://item.rakuten.co.jp/f212199-gujo/c-42`、noon `https://item.rakuten.co.jp/momo-fuku-gift/ar-002583`、evening `https://item.rakuten.co.jp/yukashop02/kk1208`。eveningは18:58に未投稿枠だけ回復し、19:00 AutoPosterは`new=0`で重複抑止。19:30 PostGuardは`status=posted`・`confirmed_slots=[morning,noon,evening]`・結果0。
+- 実ROOMで朝・昼・晩のartifact本文先頭3件を確認し、商品数166。コード変更・テストはなく、次回は2026-09-05の当日分から通常運用を開始する。
 
 2026-09-03 19:34 JSTの当日状態（完了）:
 
