@@ -21,18 +21,24 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-07 05:15 JST
+最終更新: 2026-09-08 06:08 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-09-07 05:15 JSTの当日状態（未完了・交流実行中、生成と3投稿の時刻待ち）:
+2026-09-08 06:08 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
 
-- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。通常権限のACL拒否後、昇格した読み取りで確認した。
-- 05:02に`RakutenROOMDailyEngagement`を開始。05:10の定刻トリガーは結果`0x800710E0`相当となり、実行中ジョブを置換しなかった。05:15時点も元ジョブはRunningで、台帳は17候補・follow `already_following=17`・like `liked=8` / `like_button_not_found=9`・失敗0。ログイン切れ、CAPTCHA、候補枯渇の兆候はない。次は50/50・`completed=true`・`published=true`・最終結果0まで確認する。
-- 実ブラウザの公開ページ上段は本日未報告、前回2026-09-06・50/50・最終更新06:45:02。下段の手動0/50と本日候補50件は別表示。交流完了後、上段が2026-09-07・自動50/50・対応済み・失敗0へ更新されたことを確認する。
-- 05:05の認証付きActions照会では本日`daily.yml` runは0件。07:30前なので手動dispatchしていない。本日`post-ledger.jsonl`も0件で、投稿済み枠なし、未投稿はmorning/noon/evening。
-- 次は交流完了、06:45再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で既投稿枠を再送せず未投稿枠だけ復旧する。最終的に台帳3枠`posted`、PostGuard、実ROOMを確認するまで当日完了にしない。
-- 同じCodexタスクを本日中に再開する短期heartbeatの作成APIは応答せず停止。ファイル確認で新規自動化はなく、既存`room-2`も変更していない。コード変更・テストは不要だった。
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。
+- 前日2026-09-07は閉じ済み。交流50/50・失敗0・`completed=true` / `published=true`。run `34064192461` / report `62857ee4e6f3`はrequired/ready morning/noon/evening、missing空、品質88/85/85、ready errors/review理由空、重複なし。楽天API 929件・32/32成功・失敗0、マスク済みOrigin/Referer/accessKeyヘッダー名、既存303 URL、重複296件・非ROOM 63件除外、Sheets ready 3件・review 98件追記を確認。台帳はmorning `kurashidezainshouten/lds_20260514_9523`、noon `at-life/4987176136138-004`、evening `doraco/sleeper02`が各`posted`。19:30 PostGuardは3枠確認・結果0。実ROOMで3本文先頭と商品数175を確認。
+- 本日交流は05:04に開始、05:10の定刻起動は実行中ジョブを置換せず抑止。06:02に71候補でフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`・結果0。ログイン切れ、CAPTCHA、候補枯渇なし。
+- 公開上段は匿名GitHub APIレート上限とraw CDNキャッシュで一時的に前日表示。認証付き`routine-state/automation-progress.json`は当日50/50・失敗0・完了済みと確認後、追加ROOM操作なしで完了状態を1回再送。06:06に実ブラウザ上段も2026-09-08・自動50/50・対応済み・失敗0・最終更新06:03:41へ更新。下段手動0/50は別表示。
+- 06:07時点で当日`daily.yml` runは0件、`post-ledger.jsonl`も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45完了再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で期限到来済みの未投稿枠だけ復旧する。最終的に台帳3枠`posted`、PostGuard、実ROOMを確認するまで当日完了にしない。同日再開用heartbeat追加APIは応答せず停止し、新規自動化が作成されていないことを確認済み。
+
+2026-09-07 19:30 JSTの当日状態（完了）:
+
+- 交流はフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。公開ページ上段も2026-09-07・自動50/50・対応済み・失敗0を表示。
+- run `34064192461` / report `62857ee4e6f3`はrequired/ready 3枠・missing空、品質88/85/85、errors/review理由空、全枠重複なし。楽天API 929件・32/32成功・失敗0、Sheetsへready 3件・review 98件を追記。
+- 台帳はmorning `https://item.rakuten.co.jp/kurashidezainshouten/lds_20260514_9523`、noon `https://item.rakuten.co.jp/at-life/4987176136138-004`、evening `https://item.rakuten.co.jp/doraco/sleeper02`が各`posted`。19:30 PostGuardは`status=posted`・`confirmed_slots=[morning,noon,evening]`・結果0。実ROOMで3本文先頭と商品数175を確認。
 
 2026-09-06 19:30 JSTの当日状態（完了）:
 
