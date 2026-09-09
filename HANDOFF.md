@@ -21,9 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-09 06:13 JST
+最終更新: 2026-09-10 06:03 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-10 06:03 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。前日最終結果は4件とも0。
+- 前日2026-09-09は閉じ済み。交流50/50・失敗0・`completed=true` / `published=true`。run `34286213673` / report `e04fc35fe120` はrequired/ready morning/noon/evening、missing空、品質85/93/89、ready errors/review理由空、全枠重複なし。楽天API 960件・32/32成功・失敗0、マスク済みOrigin/Referer/accessKeyヘッダー名、既存309 URL、重複286件・非ROOM 59件除外、Sheets ready 3件・review 142件追記を確認。台帳はmorning `ustoy/nfnnb72201`、noon `kirado/kirado-094-ss`、evening `matsukageya/mk-0drvfjnkv` が各`posted`。19:30 PostGuardは3枠確認・結果0。実ROOMで3本文先頭と商品数181を確認。
+- 本日交流を05:03に開始。05:10の定刻起動は実行中ジョブを置換せず抑止され、06:00に71候補でフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`・結果0。内訳はfollow `already_following=50` / `goal_reached=21`、like `liked=50` / `like_button_not_found=21`。ログイン切れ、CAPTCHA、候補枯渇なし。
+- 認証付き`routine-state/automation-progress.json`と実ブラウザ上段はともに2026-09-10・自動50/50・対応済み・失敗0・最終更新06:00:32。下段手動0/50は別表示。
+- 06:02時点で当日`daily.yml` runは0件、`post-ledger.jsonl`も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 同じタスクを08:35/12:35/19:35に再開するheartbeat作成はアプリAPIが応答せず終了し、ファイルシステム確認でも作成なし。Windowsタスクは予定どおり継続する。次は06:45完了再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で期限到来済みの未投稿枠だけ復旧する。最終的に台帳3枠`posted`、PostGuard、実ROOMを確認するまで当日完了にしない。
 
 2026-09-09 06:13 JSTの当日状態（未完了・生成と3投稿の時刻待ち）:
 
