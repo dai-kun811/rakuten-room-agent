@@ -21,9 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-14 06:14 JST
+最終更新: 2026-09-15 06:14 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-15 06:14 JSTの当日状態（未完了・交流50/50完了、生成と3投稿の時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。交流タスクの最終結果は0、他3件は前日最終結果0。
+- 前日2026-09-14は閉じ済み。成功run `34786979731` / report `aeb6fc694f56`はrequired/ready morning/noon/evening、missing空、ready品質91/87/85、errors/review理由空、全枠重複なし。楽天API 960件・32/32成功・失敗0、マスク済みOrigin/Referer/accessKeyヘッダー名、既存330 URL・重複等283件・非ROOM 57件除外、Sheets ready 3件・review 17件追記。台帳はmorning `netbaby/4902720144902`、noon `muragen/10017217`、evening `enetroom/7263246`が各`posted`、19:30 PostGuardは3枠確認済み。実ROOMで3本文先頭を確認し、商品数196。
+- 本日交流を05:02に開始。05:10の定刻起動は実行中ジョブを置換せず`IgnoreNew`で抑止。補充候補1件を含む73候補で06:09にフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`・結果0まで完了。内訳はfollow `already_following=50` / `goal_reached=23`、like `liked=50` / `like_button_not_found=23`。ログイン切れ、CAPTCHA、候補枯渇、警告・エラーなし。
+- 公開上段は認証付き`routine-state/automation-progress.json`が当日50/50であることを確認し、完了済み高速経路で追加ROOM操作なしの再送を1回だけ実施。06:10に実Chromeで2026-09-15・自動50/50・対応済み・失敗0・最終更新06:10:29を確認。下段の手動0/50は別表示。
+- 06:13時点で認証付き当日`daily.yml` runは0件、`post-ledger.jsonl`も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45完了状態再送、07:00 schedule runまたは07:30 GenerationGuardから再開。当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で期限到来済みの未投稿枠だけ復旧する。台帳3枠`posted`、PostGuard、実ROOM、公開上段を確認するまで当日完了にしない。
 
 2026-09-14 06:14 JSTの当日状態（未完了・交流50/50完了、生成と3投稿の時刻待ち）:
 
