@@ -17,6 +17,7 @@ from fixed_rule_generator import (
     FixedRulePostGenerator,
     GenerationContext,
     HASHTAGS,
+    MAX_GENERATION_ATTEMPTS,
     PATTERNS,
     ProductAttributes,
     add_distinctive_product_detail,
@@ -718,8 +719,11 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         ):
             generated = generate("wipes")
         self.assertEqual(generated.status, "needs_review")
-        self.assertEqual(generated.rewrite_count, 15)
-        self.assertIn("最大16回の再生成で品質条件を満たせない", generated.quality_errors)
+        self.assertEqual(generated.rewrite_count, MAX_GENERATION_ATTEMPTS - 1)
+        self.assertIn(
+            f"最大{MAX_GENERATION_ATTEMPTS}回の再生成で品質条件を満たせない",
+            generated.quality_errors,
+        )
 
     def test_distinctive_rewrite_uses_price_evidence_without_adding_sentences(self) -> None:
         generated = generate("wooden_blocks")
@@ -851,6 +855,28 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertGreaterEqual(generated.rewrite_count, len(patterns))
         self.assertIn("円台", generated.title)
         self.assertIn("円台", generated.body)
+
+    def test_distinctive_rewrites_do_not_exhaust_after_repeated_similar_products(self) -> None:
+        context = GenerationContext()
+        generated_posts = []
+
+        for index in range(1, 19):
+            product = replace(
+                product_for("wipes", suffix=str(index)),
+                price=3_000 + index * 137,
+            )
+            generated_posts.append(
+                FixedRulePostGenerator().generate(
+                    score_product(product, date(2026, 9, 16)),
+                    context=context,
+                )
+            )
+
+        self.assertTrue(
+            all(post.status == "ready" for post in generated_posts),
+            [post.quality_errors for post in generated_posts],
+        )
+        self.assertTrue(any(post.rewrite_count >= 16 for post in generated_posts))
 
     def test_mismatched_hashtags_are_rejected(self) -> None:
         generated = generate("ring_toy")

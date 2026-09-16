@@ -11,7 +11,7 @@ from rakuten_api import Product
 from scoring import ScoredProduct
 
 GENERATION_MODE = "fallback"
-MAX_GENERATION_ATTEMPTS = 16
+MAX_GENERATION_ATTEMPTS = 64
 DISTINCTIVE_REWRITE_START = 8
 BRAND_TAG = "#とらパパ厳選"
 
@@ -1899,7 +1899,6 @@ def add_distinctive_product_detail(
 ) -> tuple[str, str]:
     if scored.product.price <= 0:
         return title, body
-    title = distinct_title(scored, attributes)
     sentences = split_sentences(body)
     if len(sentences) < 3:
         return title, body
@@ -1908,21 +1907,49 @@ def add_distinctive_product_detail(
     label = attributes.short_product_label
     required_term = next((term for term in required_terms if term), label)
     price_text = f"{scored.product.price:,}円台"
-    variant = max(0, attempt - DISTINCTIVE_REWRITE_START) % 8
+    variant = max(0, attempt - DISTINCTIVE_REWRITE_START)
+    use_case = next(
+        (value for value in attributes.confirmed_use_cases if value),
+        required_term,
+    )
+    scene_term = required_term if required_term != label else use_case
+    checkpoint = next(
+        (value for value in attributes.purchase_checkpoints if value),
+        "使う場所",
+    )
+    title = distinct_title(
+        scored,
+        attributes,
+        variant=variant,
+        required_term=scene_term,
+        use_case=use_case,
+    )
     openings = [
-        f"{teaser}{label}を選ぶときは、{required_term}の場面と価格の両方が暮らしに合うか気になりますよね",
-        f"{teaser}{price_text}の{label}なら、{feature}を{required_term}で使う時間と置き場所を一緒に思い浮かべたいですよね",
-        f"{teaser}{feature}と{price_text}の組み合わせは、毎日の{required_term}へ取り入れる場面を考えるきっかけになります",
-        f"{teaser}{label}を暮らしへ足すなら、{price_text}という予算と{required_term}での使い道を先に整理したいですよね",
+        f"{teaser}{label}を{use_case}へ取り入れるなら、{feature}と{price_text}の両方が暮らしに合うか気になりますよね",
+        f"{teaser}{price_text}の{label}は、{scene_term}で使う時間と{checkpoint}を一緒に思い浮かべたいですよね",
+        f"{teaser}{feature}という商品情報があれば、毎日の{use_case}へ無理なく足せるか具体的に考えられます",
+        f"{teaser}{label}を暮らしへ足す前に、{price_text}という予算と{checkpoint}を整理したくなりますよね",
+        f"{teaser}{use_case}で使う候補を探すときは、{feature}が必要な動きに合うかが気になりますよね",
+        f"{teaser}{scene_term}に使う{label}だからこそ、{price_text}と{checkpoint}を先に押さえておきたいですよね",
+        f"{teaser}{feature}を選べる{label}なら、{use_case}のどこへ置くかまで具体的に想像できます",
+        f"{teaser}{price_text}で選べる{feature}は、{scene_term}の準備を増やし過ぎないか見極めたいですよね",
+        f"{teaser}{checkpoint}で迷いやすい{label}は、{feature}と{price_text}を一緒に見ると使う場面が浮かびます",
+        f"{teaser}{use_case}を整えたい日は、{price_text}の{label}が毎日の流れへ合うか気になりますよね",
+        f"{teaser}{scene_term}の道具を増やすなら、{feature}を使う場所と{checkpoint}を先に決めたいですよね",
+        f"{teaser}{price_text}の{feature}は、{use_case}で探す手間を減らせる置き方まで考えたくなります",
     ]
     middles = [
-        "使う場所が定まると、必要な時に取り出して片づけるまでの動きを整えやすくなります",
-        "毎日の動線に置き場所を一つ決めると、準備して使い終わった後に戻す流れをまとめやすくなります",
+        f"{feature}なら、{use_case}で必要な時に取り出し、使い終わった後に戻す流れをまとめやすくなります",
+        f"{checkpoint}を決めておくと、{label}を準備してから片づけるまでの動きを家族で共有しやすくなります",
+        f"{price_text}と{checkpoint}を手がかりにすれば、{scene_term}で使う物を増やし過ぎずに整えられます",
+        f"{use_case}の動線へ{label}の定位置を作ると、必要な時に探す手間を抑えやすくなります",
+        f"{feature}を使う場面が決まれば、{checkpoint}で迷う時間を減らして準備へ移りやすくなります",
+        f"{label}の置き場所を{use_case}の近くに決めると、準備と片づけを同じ流れにまとめられます",
+        f"{scene_term}の前後で使う物として{feature}を整理すると、家族も必要な時に手に取りやすくなります",
+        f"{price_text}の候補でも、{checkpoint}と{use_case}が合えば毎日の動線へ無理なく置きやすくなります",
     ]
     opening = ensure_sentence(openings[variant % len(openings)])
-    middle = ensure_sentence(
-        middles[(variant + variant // len(openings)) % len(middles)]
-    )
+    middle = ensure_sentence(middles[(variant * 3 + variant // len(openings)) % len(middles)])
     candidate_sentences = [opening, middle, sentences[-1]]
     candidate_body = "".join(candidate_sentences)
     if 150 <= len(candidate_body) <= 260:
@@ -1941,8 +1968,29 @@ def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
     return f"【{teaser}】{body[match.end():]}"
 
 
-def distinct_title(scored: ScoredProduct, attributes: ProductAttributes) -> str:
-    return f"{scored.product.price:,}円台から選ぶ{attributes.short_product_label}"
+def distinct_title(
+    scored: ScoredProduct,
+    attributes: ProductAttributes,
+    *,
+    variant: int = 0,
+    required_term: str = "",
+    use_case: str = "",
+) -> str:
+    price_text = f"{scored.product.price:,}円台"
+    label = attributes.short_product_label
+    detail = required_term if required_term and required_term != label else use_case or label
+    feature = confirmed_feature_phrase(attributes)
+    titles = [
+        f"{price_text}から選ぶ{label}",
+        f"{detail}に使う{price_text}の{label}",
+        f"{feature}を{price_text}で選ぶ",
+        f"{price_text}の{label}を{detail}に",
+        f"{detail}の準備に{feature}",
+        f"{price_text}で整える{detail}の{label}",
+        f"{feature}を暮らしへ足す",
+        f"{detail}から選ぶ{price_text}の{label}",
+    ]
+    return titles[variant % len(titles)]
 
 
 def build_analysis(
