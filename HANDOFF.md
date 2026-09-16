@@ -21,9 +21,19 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-16 06:16 JST
+最終更新: 2026-09-17 06:13 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-17 06:13 JSTの当日状態（未完了・交流50/50完了、生成と3投稿の時刻待ち）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認済み。登録時刻は交流05:10/06:45、生成ガード07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。交流タスクの当日結果は0。他3件の前日結果1は下記の生成失敗が原因。
+- 2026-09-16は未クローズ。`daily.yml`は `35031269957` / `35031779448` / `35038446764` の3runが失敗、最新report `2563fd61f6a1`はrequiredが morning/noon/eveningだがreadyはmorningのみ、missingはnoon/evening、Sheetsはready 0件・review 550件。楽天APIは960件・32/32成功・失敗0、マスク済みOrigin/Referer/accessKeyヘッダー名、既存336 URL・重複290件・非ROOM 55件除外・残り551件で、APIやSheets障害ではない。`post-ledger.jsonl`は同日0件、実ROOMは商品199件で前日から増加なし。過去日artifactの無条件再送や当日生成への流用はしない。
+- 原因は固定ルール本文が30日履歴の類似度0.75未満を作り切れず、再生成16回で枯渇したこと。品質閾値は緩めず、確認済み特徴・使用場面・確認点・価格だけに根拠を限定した表現パターン拡張と最大試行64回化を実装。18件の類似商品を連続readyにする回帰テストを追加し、対象94件と全180件のテストがすべて成功。commit `f2a10b9` を `origin/main` へpush済み、divergence 0/0。
+- 本日交流を05:02に開始。05:10の定刻起動は実行中ジョブを置換せず`IgnoreNew`で抑止。補充候補を含む75候補で06:11にフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`・結果0まで完了。内訳はfollow `already_following=50` / `goal_reached=25`、like `liked=50` / `like_button_not_found=25`。ログイン切れ、CAPTCHA、候補枯渇、失敗なし。
+- 認証付き`routine-state/automation-progress.json`は2026-09-17・自動50/50・失敗0・`completed=true`・更新06:10:59。実ブラウザ上段も2026-09-17・自動フォロー50/50・自動いいね50/50・対応済み・失敗0を確認。下段の手動0/50は別表示。実ROOMは商品199件で、本日投稿前の状態と一致。
+- 06:11時点で認証付き当日`daily.yml` runは0件、`post-ledger.jsonl`も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は06:45完了状態再送、07:00 schedule runまたは07:30 GenerationGuardから再開。修正済みロジックで当日artifactのrequired/ready 3枠・missing空・品質errors/review理由/重複なし・楽天API/Sheets証跡を確認し、08:00/08:30、12:00/12:30、19:00/19:30で期限到来済みの未投稿枠だけ復旧する。台帳3枠`posted`、PostGuard、実ROOM、公開上段を確認するまで本日完了にしない。
 
 2026-09-16 06:16 JSTの当日状態（未完了・交流50/50完了、生成と3投稿の時刻待ち）:
 
