@@ -284,7 +284,7 @@ def run_post_worker(label: str, *, retry_detail: str = "") -> int:
             [sys.executable, str(LOCAL_WORKER)],
             cwd=PROJECT_ROOT,
             env=env,
-            timeout=5 * 60,
+            timeout=115 * 60,
             check=False,
         )
     except subprocess.TimeoutExpired:

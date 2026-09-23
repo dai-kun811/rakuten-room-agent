@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from room_poster import RoomPostError, RoomPoster, build_room_comment
+from room_profile_lock import room_profile_lock
 from sheets import normalize_product_url
 
 
@@ -25,6 +26,7 @@ DEFAULT_GIT = Path(
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATE_DIR = PROJECT_ROOT / ".local" / "room-worker"
 PROFILE_DIR = STATE_DIR / "chrome-profile"
+PROFILE_LOCK_PATH = STATE_DIR / "chrome-profile.lock"
 LEDGER_PATH = STATE_DIR / "post-ledger.jsonl"
 LOG_PATH = STATE_DIR / "worker.log"
 
@@ -317,63 +319,64 @@ def main() -> int:
                         raise
                     logger.warning("Today's generation report was not selected; retrying.")
                     time.sleep(2)
-        all_ready_items = ready_items(report)
-        items = ready_items(report, post_slot=slot_label)
-        retry_failed_details = {
-            detail.strip()
-            for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
-            if detail.strip()
-        }
-        reserved_urls = load_reserved_urls(retry_failed_details=retry_failed_details)
-        candidates = [
-            item
-            for item in items
-            if normalize_product_url(item["product_url"]) not in reserved_urls
-        ]
-        logger.info(
-            "Latest run=%s report_run_id=%s ready=%s new=%s",
-            run["id"],
-            report.get("run_id", ""),
-            len(all_ready_items),
-            len(candidates),
-        )
-        if not candidates:
-            logger.info("No unposted ready item assigned to slot=%s", slot_label)
-            return 0
-
-        if not forced_post_date and not actions_run_is_today(run):
-            logger.info("Latest successful workflow is not from today; no post attempted.")
-            return 0
-        if slot in load_claimed_post_slots(
-            retry_failed_details=retry_failed_details
-        ):
-            logger.info("ROOM post slot already claimed slot=%s", slot)
-            return 0
-
-        poster = RoomPoster(user_data_dir=PROFILE_DIR, headless=True)
-        failures = 0
-        for item in candidates[:1]:
-            normalized_url = normalize_product_url(item["product_url"])
-            base_event = {
-                "timestamp": datetime.now().astimezone().isoformat(),
-                "actions_run_id": run["id"],
-                "report_run_id": report.get("run_id", ""),
-                "normalized_url": normalized_url,
-                "product_name": str(item.get("product_name", ""))[:200],
-                "post_slot": slot,
+        with room_profile_lock(PROFILE_LOCK_PATH):
+            all_ready_items = ready_items(report)
+            items = ready_items(report, post_slot=slot_label)
+            retry_failed_details = {
+                detail.strip()
+                for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
+                if detail.strip()
             }
-            append_ledger_event({**base_event, "status": "reserved"})
-            try:
-                comment = build_room_comment(item["body"], item.get("hashtags", []))
-                poster.post(item["product_url"], comment)
-                append_ledger_event({**base_event, "status": "posted"})
-                logger.info("ROOM post completed url=%s", normalized_url)
-            except Exception as exc:
-                detail = str(exc) if isinstance(exc, RoomPostError) else type(exc).__name__
-                append_ledger_event({**base_event, "status": "failed", "detail": detail})
-                logger.error("ROOM post failed url=%s error=%s", normalized_url, detail)
-                failures += 1
-        return 1 if failures else 0
+            reserved_urls = load_reserved_urls(retry_failed_details=retry_failed_details)
+            candidates = [
+                item
+                for item in items
+                if normalize_product_url(item["product_url"]) not in reserved_urls
+            ]
+            logger.info(
+                "Latest run=%s report_run_id=%s ready=%s new=%s",
+                run["id"],
+                report.get("run_id", ""),
+                len(all_ready_items),
+                len(candidates),
+            )
+            if not candidates:
+                logger.info("No unposted ready item assigned to slot=%s", slot_label)
+                return 0
+
+            if not forced_post_date and not actions_run_is_today(run):
+                logger.info("Latest successful workflow is not from today; no post attempted.")
+                return 0
+            if slot in load_claimed_post_slots(
+                retry_failed_details=retry_failed_details
+            ):
+                logger.info("ROOM post slot already claimed slot=%s", slot)
+                return 0
+
+            poster = RoomPoster(user_data_dir=PROFILE_DIR, headless=True)
+            failures = 0
+            for item in candidates[:1]:
+                normalized_url = normalize_product_url(item["product_url"])
+                base_event = {
+                    "timestamp": datetime.now().astimezone().isoformat(),
+                    "actions_run_id": run["id"],
+                    "report_run_id": report.get("run_id", ""),
+                    "normalized_url": normalized_url,
+                    "product_name": str(item.get("product_name", ""))[:200],
+                    "post_slot": slot,
+                }
+                append_ledger_event({**base_event, "status": "reserved"})
+                try:
+                    comment = build_room_comment(item["body"], item.get("hashtags", []))
+                    poster.post(item["product_url"], comment)
+                    append_ledger_event({**base_event, "status": "posted"})
+                    logger.info("ROOM post completed url=%s", normalized_url)
+                except Exception as exc:
+                    detail = str(exc) if isinstance(exc, RoomPostError) else type(exc).__name__
+                    append_ledger_event({**base_event, "status": "failed", "detail": detail})
+                    logger.error("ROOM post failed url=%s error=%s", normalized_url, detail)
+                    failures += 1
+            return 1 if failures else 0
     except Exception as exc:
         logger.error("Local ROOM worker failed error=%s", type(exc).__name__)
         return 1

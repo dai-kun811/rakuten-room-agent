@@ -7,17 +7,22 @@ import os
 import random
 import re
 import sys
-import requests
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, urljoin, urlparse
 
+import requests
+
+from room_profile_lock import room_profile_lock
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATE_DIR = PROJECT_ROOT / ".local" / "room-worker"
 PROFILE_DIR = STATE_DIR / "chrome-profile"
+PROFILE_LOCK_PATH = STATE_DIR / "chrome-profile.lock"
 LEDGER_PATH = STATE_DIR / "engagement-ledger.jsonl"
 LOG_PATH = STATE_DIR / "engagement-worker.log"
 SUMMARY_PATH = STATE_DIR / "daily-routine-summary.json"
@@ -633,15 +638,17 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     queue = build_daily_candidate_queue(source_candidates, today_progress)
     driver = RoomEngagementDriver()
     failures = 0
-    with sync_playwright() as playwright:
-        context = playwright.chromium.launch_persistent_context(
-            str(PROFILE_DIR),
-            channel="chrome",
-            headless=headless,
-        )
-        work_page = context.new_page()
-        routine_page = context.new_page()
-        try:
+    with room_profile_lock(PROFILE_LOCK_PATH):
+        with ExitStack() as stack:
+            playwright = stack.enter_context(sync_playwright())
+            context = playwright.chromium.launch_persistent_context(
+                str(PROFILE_DIR),
+                channel="chrome",
+                headless=headless,
+            )
+            stack.callback(context.close)
+            work_page = context.new_page()
+            routine_page = context.new_page()
             initial_batch = list(today_progress)
             initial_batch.extend(
                 candidate.id for candidate in queue if candidate.id not in initial_batch
@@ -745,8 +752,6 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                 routine_page.reload(wait_until="domcontentloaded")
             except Exception as exc:
                 logger.warning("Routine page final sync failed error=%s", type(exc).__name__)
-        finally:
-            context.close()
 
     summary = {
         "routine_date": day,
