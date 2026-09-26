@@ -41,6 +41,7 @@ POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
 SEARCH_KEYWORDS_PER_CATEGORY = 4
 SEARCH_PAGES_PER_KEYWORD = 2
+MAX_DIVERSITY_CANDIDATES = 24
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 EXCLUDED_ROOM_CANDIDATE_TERMS = (
     "ペット",
@@ -470,20 +471,49 @@ def generate_until_ready(
     context: GenerationContext,
     target_ready: int,
 ):
-    results = []
-    ready_count = 0
-    for item in candidates:
+    """Generate three quality-safe posts without settling for a type repeat early.
+
+    A product can fail the text-quality rules after the initial product
+    selection has been diversified.  Keep looking through a bounded set of
+    candidates for another ready product type before using a same-type backup.
+    This protects the actual posted three items, not merely the input ranking.
+    """
+    accepted: list[tuple[ScoredProduct, object]] = []
+    deferred: list[tuple[ScoredProduct, object]] = []
+    reviewed: list[tuple[ScoredProduct, object]] = []
+    used_types: set[str] = set()
+    candidate_window = candidates[:MAX_DIVERSITY_CANDIDATES]
+
+    def has_unseen_type(start_index: int) -> bool:
+        return any(
+            classify_product_type(candidate.product) not in used_types
+            for candidate in candidate_window[start_index:]
+        )
+
+    for index, item in enumerate(candidate_window):
         generated = generator.generate(
             item,
             context=context,
             season="",
         )
-        results.append((item, generated))
-        if generated.status == "ready":
-            ready_count += 1
-            if ready_count >= target_ready:
+        if generated.status != "ready":
+            reviewed.append((item, generated))
+            continue
+
+        product_type = classify_product_type(item.product)
+        if product_type not in used_types or not has_unseen_type(index + 1):
+            accepted.append((item, generated))
+            used_types.add(product_type)
+            if len(accepted) >= target_ready:
                 break
-    return results
+        else:
+            deferred.append((item, generated))
+
+    for item, generated in deferred:
+        if len(accepted) >= target_ready:
+            break
+        accepted.append((item, generated))
+    return [*accepted, *reviewed]
 
 
 def normalize_product_name(name: str) -> str:

@@ -178,6 +178,33 @@ class MainSelectionTest(unittest.TestCase):
             3,
         )
 
+    def test_generate_until_ready_uses_a_later_distinct_type_before_backup(self) -> None:
+        candidates = [
+            scored("おしりふき 厚手 80枚", "https://example.com/wipes-a", 100),
+            scored("おしりふき 厚手 60枚", "https://example.com/wipes-b", 99),
+            scored("マグネットブロック 48ピース 知育", "https://example.com/blocks", 80),
+        ]
+
+        class Generated:
+            status = "ready"
+
+        class Generator:
+            def generate(self, item, *, context, season):
+                del item, context, season
+                return Generated()
+
+        results = generate_until_ready(
+            candidates,
+            generator=Generator(),
+            context=object(),
+            target_ready=2,
+        )
+
+        self.assertEqual(
+            [classify_product_type(item.product) for item, _generated in results],
+            ["wipes", "magnetic_blocks"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
