@@ -60,6 +60,16 @@ EXCLUDED_ROOM_CANDIDATE_TERMS = (
     "保護フィルム",
     "替えブラシ",
 )
+DAILY_NEED_PRODUCT_TYPES = {"wipes", "diaper", "formula", "baby_care"}
+PAIN_SOLVER_PRODUCT_TYPES = {
+    "swaddle",
+    "nursing_support",
+    "baby_bedding",
+    "baby_sleep",
+    "soothing_plush",
+    "sleep_light",
+    "stroller_storage",
+}
 
 
 
@@ -383,31 +393,47 @@ def diversify_products(
         for record in recent_history
         if record.get("商品タイプ")
     )
+    recent_axes = Counter(
+        selection_axis_for_type(record.get("商品タイプ", ""))
+        for record in recent_history
+        if record.get("商品タイプ")
+    )
     ranked = sorted(
         candidates,
         key=lambda item: (
             0 if is_supported_room_product(item.product) else 1,
             recent_types[classify_product_type(item.product)],
+            recent_axes[selection_axis(item)],
             -item.total_score,
         ),
     )
     selected: list[ScoredProduct] = []
     selected_types: Counter[str] = Counter()
+    selected_axes: Counter[str] = Counter()
 
-    def add_with_type_limit(max_per_type: int) -> None:
+    def add_with_limits(max_per_type: int, max_per_axis: int) -> None:
         for item in ranked:
             if len(selected) >= limit:
                 return
             if item in selected:
                 continue
             product_type = classify_product_type(item.product)
-            if selected_types[product_type] >= max_per_type:
+            axis = selection_axis(item)
+            if (
+                selected_types[product_type] >= max_per_type
+                or selected_axes[axis] >= max_per_axis
+            ):
                 continue
             selected.append(item)
             selected_types[product_type] += 1
+            selected_axes[axis] += 1
 
-    add_with_type_limit(1)
-    add_with_type_limit(2)
+    # Put one daily-need item, one explicit pain solver, and one discovery
+    # item near the top whenever the available products permit it.  Later
+    # passes retain recovery capacity without forcing a weak candidate.
+    add_with_limits(1, 1)
+    add_with_limits(1, 2)
+    add_with_limits(2, 2)
     for item in ranked:
         if len(selected) >= limit:
             break
@@ -418,6 +444,23 @@ def diversify_products(
 
 def is_supported_room_product(product: Product) -> bool:
     return classify_product_type(product) in SUPPORTED_ROOM_PRODUCT_TYPES
+
+
+def selection_axis_for_type(product_type: str) -> str:
+    if product_type in DAILY_NEED_PRODUCT_TYPES:
+        return "daily_need"
+    if product_type in PAIN_SOLVER_PRODUCT_TYPES:
+        return "pain_solver"
+    return "discovery"
+
+
+def selection_axis(item: ScoredProduct) -> str:
+    product_type = classify_product_type(item.product)
+    if product_type in DAILY_NEED_PRODUCT_TYPES or item.daily_use_score >= 6:
+        return "daily_need"
+    if product_type in PAIN_SOLVER_PRODUCT_TYPES or item.pain_solution_score >= 6:
+        return "pain_solver"
+    return "discovery"
 
 
 def generate_until_ready(

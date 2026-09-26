@@ -1805,29 +1805,31 @@ def remove_intention_phrases(text: str) -> str:
     return text
 
 def listing_teaser(attributes: ProductAttributes) -> str:
-    if attributes.product_type == "wipes" and attributes.short_product_label == "手口ふき":
-        return "【食後にも使える 手口ふきストック】"
-    teasers = {
-        "wipes": "買い忘れ対策に おしりふきストック",
-        "swaddle": "夜支度を整える おくるみ",
-        "nursing_support": "授乳まわりを整える クッション",
-        "baby_bedding": "洗い替えも見える ねんね寝具",
-        "baby_care": "毎日のケアに ベビー用品",
-        "baby_sleep": "夜のお世話に ベビー寝具",
-        "soothing_plush": "寝る前時間に 音と光のぬいぐるみ",
-        "diaper": "外出準備にも おむつまわり",
-        "formula": "夜の授乳準備に ミルクストック",
-        "sound_blocks": "音も楽しめる 木製つみき",
-        "wooden_blocks": "はじめて遊びに 木製つみき",
-        "magnetic_blocks": "形づくりが広がる 磁石ブロック",
+    contexts = {
+        "wipes": "食後やおむつ替えの補充",
+        "swaddle": "夜支度",
+        "nursing_support": "授乳まわり",
+        "baby_bedding": "洗い替え準備",
+        "baby_care": "毎日のケア",
+        "baby_sleep": "夜のお世話",
+        "soothing_plush": "寝る前時間",
+        "diaper": "外出前の準備",
+        "formula": "夜の授乳準備",
+        "sound_blocks": "おうち遊び",
+        "wooden_blocks": "はじめての遊び",
+        "magnetic_blocks": "組み立て遊び",
         "baby_walker_toy": "つかまり立ち期の室内遊び",
-        "activity_cube": "1台で遊べる 知育キューブ",
-        "ring_toy": "手先遊びが広がる リング玩具",
-        "kids_camera": "子ども目線を残す キッズカメラ",
-        "sleep_light": "夜のお世話に 音と灯り",
-        "stroller_storage": "外出荷物をまとめる ベビーカーバッグ",
+        "activity_cube": "手先遊び",
+        "ring_toy": "指先遊び",
+        "kids_camera": "子ども目線の思い出",
+        "sleep_light": "夜のお世話",
+        "stroller_storage": "外出荷物の整理",
     }
-    return f"【{teasers.get(attributes.product_type, attributes.short_product_label)}】"
+    label = attributes.short_product_label
+    context = contexts.get(attributes.product_type, "使う場面")
+    if attributes.product_type == "wipes" and label == "手口ふき":
+        context = "食後や外出先"
+    return f"【{label}｜{context}】"
 
 
 def add_listing_teaser(body: str, attributes: ProductAttributes) -> str:
@@ -1980,7 +1982,9 @@ def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
     match = re.match(r"^【([^】]{1,35})】", body)
     if price <= 0 or match is None:
         return body
-    teaser = f"{price:,}円台 {match.group(1)}"
+    # The first words are what a visitor sees in ROOM.  Preserve the product
+    # label at the front even when a later rewrite adds price context.
+    teaser = f"{match.group(1)}｜{price:,}円台"
     if len(teaser) > 35:
         return body
     return f"【{teaser}】{body[match.end():]}"

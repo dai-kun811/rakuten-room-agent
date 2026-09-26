@@ -546,6 +546,10 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             self.assertIsNotNone(match, (product_type, generated.body))
             self.assertLessEqual(len(match.group(1)), 35, generated.body)
             self.assertGreaterEqual(len(match.group(1)), 10, generated.body)
+            self.assertTrue(
+                match.group(1).startswith(f"{generated.attributes.short_product_label}｜"),
+                (product_type, generated.body),
+            )
 
     def test_ready_titles_name_the_product_type_for_list_scanning(self) -> None:
         for product_type in HASHTAGS:

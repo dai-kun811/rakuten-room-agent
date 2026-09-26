@@ -119,7 +119,7 @@ def build_selection_tiers_from_env() -> list[SelectionTier]:
     if os.getenv("ENABLE_RELAXED_FALLBACK", "true").lower() not in {"1", "true", "yes"}:
         return [strict]
 
-    return [
+    tiers = [
         SelectionTier(
             name="strict_priority",
             min_review_count=int(os.getenv("STRICT_PRIORITY_MIN_REVIEW_COUNT", "300")),
@@ -133,13 +133,20 @@ def build_selection_tiers_from_env() -> list[SelectionTier]:
             min_review_average=float(os.getenv("RELAXED_MIN_REVIEW_AVERAGE", "4.0")),
             min_total_score=int(os.getenv("RELAXED_MIN_TOTAL_SCORE", "40")),
         ),
-        SelectionTier(
-            name="debug_minimum",
-            min_review_count=int(os.getenv("DEBUG_MIN_REVIEW_COUNT", "0")),
-            min_review_average=float(os.getenv("DEBUG_MIN_REVIEW_AVERAGE", "0")),
-            min_total_score=int(os.getenv("DEBUG_MIN_TOTAL_SCORE", "0")),
-        ),
     ]
+    # A no-review tier is useful only while diagnosing the selector.  It must
+    # never silently enter normal ROOM publishing, where review proof is part
+    # of the purchase-confidence strategy.
+    if os.getenv("ENABLE_DEBUG_MINIMUM", "false").lower() in {"1", "true", "yes"}:
+        tiers.append(
+            SelectionTier(
+                name="debug_minimum",
+                min_review_count=int(os.getenv("DEBUG_MIN_REVIEW_COUNT", "0")),
+                min_review_average=float(os.getenv("DEBUG_MIN_REVIEW_AVERAGE", "0")),
+                min_total_score=int(os.getenv("DEBUG_MIN_TOTAL_SCORE", "0")),
+            )
+        )
+    return tiers
 
 
 def select_products(

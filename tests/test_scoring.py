@@ -97,7 +97,7 @@ class ScoringTest(unittest.TestCase):
         self.assertEqual(len(selected), 5)
         self.assertTrue(all(0 <= item.total_score <= 100 for item in selected))
 
-    def test_relaxed_fallback_can_select_at_least_one_debug_product(self) -> None:
+    def test_no_review_product_is_not_selected_in_normal_operation(self) -> None:
         selected = filter_and_score_products(
             [
                 product(
@@ -111,6 +111,24 @@ class ScoringTest(unittest.TestCase):
             ],
             date(2026, 6, 8),
         )
+
+        self.assertEqual(selected, [])
+
+    def test_debug_minimum_requires_an_explicit_opt_in(self) -> None:
+        with patch.dict("os.environ", {"ENABLE_DEBUG_MINIMUM": "true"}):
+            selected = filter_and_score_products(
+                [
+                    product(
+                        name="商品情報が少ないベビー用品",
+                        url="https://example.com/debug",
+                        review_count=0,
+                        review_average=0,
+                        caption="ベビー",
+                        category="ベビー用品",
+                    )
+                ],
+                date(2026, 6, 8),
+            )
 
         self.assertEqual(len(selected), 1)
         self.assertEqual(selected[0].selection_tier, "debug_minimum")

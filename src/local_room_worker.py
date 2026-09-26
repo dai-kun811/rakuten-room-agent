@@ -165,6 +165,7 @@ def select_candidates_for_slot(
     slot: str,
     reserved_urls: set[str],
     claimed_post_slots: set[str],
+    claimed_product_types: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Prefer ready items orphaned by a safe same-day regeneration.
 
@@ -196,7 +197,14 @@ def select_candidates_for_slot(
             continue
         seen_urls.add(normalized_url)
         selected.append(item)
-    return selected
+    claimed_product_types = claimed_product_types or set()
+    # A regenerated report can carry an unused earlier-slot item forward.
+    # Keep that recovery path, but prefer a different product type when one is
+    # available so the public ROOM does not become a same-type sequence.
+    return sorted(
+        selected,
+        key=lambda item: str(item.get("product_type", "")) in claimed_product_types,
+    )
 
 
 def parse_post_windows(value: str | None = None) -> list[tuple[str, int, int]]:
@@ -307,6 +315,40 @@ def load_reserved_urls(
     }
 
 
+def load_claimed_product_types(
+    post_date: str,
+    path: Path = LEDGER_PATH,
+    *,
+    retry_failed_details: set[str] | None = None,
+) -> set[str]:
+    """Return same-day claimed types from the latest event per slot."""
+    if not path.exists():
+        return set()
+    latest_events: dict[str, tuple[str, str, str]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        slot = str(event.get("post_slot", "")).strip()
+        if slot.startswith(f"{post_date}:"):
+            latest_events[slot] = (
+                str(event.get("status", "")),
+                str(event.get("detail", "")),
+                str(event.get("product_type", "")).strip(),
+            )
+    retry_failed_details = retry_failed_details or set()
+    return {
+        product_type
+        for status, detail, product_type in latest_events.values()
+        if product_type
+        and status in {"reserved", "posted", "failed"}
+        and not (status == "failed" and detail in retry_failed_details)
+    }
+
+
 def append_ledger_event(event: dict[str, Any], path: Path = LEDGER_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -378,6 +420,10 @@ def main() -> int:
                 slot=slot,
                 reserved_urls=reserved_urls,
                 claimed_post_slots=claimed_slots,
+                claimed_product_types=load_claimed_product_types(
+                    slot.rpartition(":")[0],
+                    retry_failed_details=retry_failed_details,
+                ),
             )
             logger.info(
                 "Latest run=%s report_run_id=%s ready=%s new=%s",
@@ -403,6 +449,7 @@ def main() -> int:
                     "report_run_id": report.get("run_id", ""),
                     "normalized_url": normalized_url,
                     "product_name": str(item.get("product_name", ""))[:200],
+                    "product_type": str(item.get("product_type", ""))[:80],
                     "post_slot": slot,
                 }
                 append_ledger_event({**base_event, "status": "reserved"})

@@ -21,6 +21,7 @@ from main import (
     generate_until_ready,
     is_supported_room_product,
     parse_blocked_urls,
+    selection_axis,
 )
 from rakuten_api import Product
 from scoring import score_product
@@ -126,6 +127,21 @@ class MainSelectionTest(unittest.TestCase):
         self.assertEqual(
             [classify_product_type(item.product) for item in selected],
             ["magnetic_blocks", "sleep_light", "diaper"],
+        )
+
+    def test_diversify_products_mixes_daily_pain_and_discovery_axes(self) -> None:
+        candidates = [
+            scored("おしりふき 厚手 80枚", "https://example.com/wipes", 100),
+            scored("紙おむつ パンツ Mサイズ", "https://example.com/diaper", 99),
+            scored("スワドル おくるみ モロー反射", "https://example.com/swaddle", 80),
+            scored("マグネットブロック 48ピース 知育", "https://example.com/blocks", 70),
+        ]
+
+        selected = diversify_products(candidates, recent_history=[], limit=3)
+
+        self.assertEqual(
+            {selection_axis(item) for item in selected},
+            {"daily_need", "pain_solver", "discovery"},
         )
 
     def test_generate_until_ready_fills_all_three_post_slots(self) -> None:

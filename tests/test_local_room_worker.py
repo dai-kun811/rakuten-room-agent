@@ -15,6 +15,7 @@ from local_room_worker import (
     current_post_slot,
     generation_run_candidates,
     load_claimed_post_slots,
+    load_claimed_product_types,
     load_reserved_urls,
     parse_post_windows,
     ready_items,
@@ -217,6 +218,50 @@ class LocalRoomWorkerTest(unittest.TestCase):
         )
 
         self.assertEqual([item["product_url"] for item in candidates], ["https://example.com/noon"])
+
+    def test_regeneration_prefers_a_type_not_already_claimed_today(self) -> None:
+        report = {
+            "items": [
+                {"status": "ready", "post_slot": "morning", "product_url": "https://example.com/wipes", "product_type": "wipes", "body": "朝"},
+                {"status": "ready", "post_slot": "noon", "product_url": "https://example.com/blocks", "product_type": "magnetic_blocks", "body": "昼"},
+            ]
+        }
+
+        candidates = select_candidates_for_slot(
+            report,
+            slot="2026-09-26:noon",
+            reserved_urls=set(),
+            claimed_post_slots={"2026-09-26:morning"},
+            claimed_product_types={"wipes"},
+        )
+
+        self.assertEqual(candidates[0]["product_url"], "https://example.com/blocks")
+
+    def test_claimed_product_types_uses_latest_same_day_events(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.jsonl"
+            events = [
+                {"post_slot": "2026-09-25:evening", "product_type": "wipes", "status": "posted"},
+                {"post_slot": "2026-09-26:morning", "product_type": "wipes", "status": "reserved"},
+                {"post_slot": "2026-09-26:noon", "product_type": "diaper", "status": "failed", "detail": "TimeoutError"},
+            ]
+            path.write_text(
+                "".join(json.dumps(event, ensure_ascii=False) + "\n" for event in events),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                load_claimed_product_types("2026-09-26", path),
+                {"wipes", "diaper"},
+            )
+            self.assertEqual(
+                load_claimed_product_types(
+                    "2026-09-26",
+                    path,
+                    retry_failed_details={"TimeoutError"},
+                ),
+                {"wipes"},
+            )
 
     def test_ledger_reserves_url_before_posting(self) -> None:
         with TemporaryDirectory() as directory:
