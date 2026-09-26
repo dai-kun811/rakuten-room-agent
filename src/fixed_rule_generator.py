@@ -1496,6 +1496,7 @@ def build_candidate(
             attempt=attempt,
             required_terms=pattern.title_required,
         )
+    title = buyer_clear_title(title, attributes)
     analysis = build_analysis(scored, attributes, pattern.pattern_id)
     post = GeneratedPost(
         title=title,
@@ -1833,6 +1834,20 @@ def add_listing_teaser(body: str, attributes: ProductAttributes) -> str:
     if body.startswith("【"):
         return body
     return f"{listing_teaser(attributes)}{body}"
+
+
+def buyer_clear_title(title: str, attributes: ProductAttributes) -> str:
+    """Keep the product category visible in a ROOM list before the hook.
+
+    Public ROOM research showed that strong posts make the item type and the
+    reader's situation understandable at a glance. The hook still carries the
+    situation; this guard adds only the already-verified short product label.
+    """
+    label = attributes.short_product_label.strip()
+    if not label or label in title:
+        return title
+    return f"{label}｜{title}"
+
 
 def strip_listing_teaser(text: str) -> str:
     return re.sub(r"^【[^】]{1,40}】", "", text)
