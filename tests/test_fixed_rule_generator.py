@@ -552,9 +552,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             generated = generate(product_type)
             if generated.status != "ready":
                 continue
-            self.assertIn(
-                generated.attributes.short_product_label,
-                generated.title,
+            self.assertTrue(
+                generated.title.startswith(generated.attributes.short_product_label),
                 (product_type, generated.title),
             )
 

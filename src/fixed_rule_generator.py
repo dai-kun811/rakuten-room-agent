@@ -1844,7 +1844,10 @@ def buyer_clear_title(title: str, attributes: ProductAttributes) -> str:
     situation; this guard adds only the already-verified short product label.
     """
     label = attributes.short_product_label.strip()
-    if not label or label in title:
+    # A label merely appearing at the end does not help a first-time visitor
+    # identify the item while scanning a ROOM list.  Keep the existing hook,
+    # but put the verified product label before it consistently.
+    if not label or title.startswith(label):
         return title
     return f"{label}｜{title}"
 
