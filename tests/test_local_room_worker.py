@@ -19,6 +19,7 @@ from local_room_worker import (
     parse_post_windows,
     ready_items,
     resolve_post_slot,
+    select_candidates_for_slot,
 )
 
 
@@ -182,6 +183,40 @@ class LocalRoomWorkerTest(unittest.TestCase):
             [item["product_url"] for item in ready_items(report, post_slot="noon")],
             ["https://example.com/noon"],
         )
+
+    def test_regeneration_promotes_unused_item_from_claimed_earlier_slot(self) -> None:
+        report = {
+            "items": [
+                {"status": "ready", "post_slot": "morning", "product_url": "https://example.com/discovery", "body": "知育"},
+                {"status": "ready", "post_slot": "noon", "product_url": "https://example.com/consumable", "body": "日用品"},
+            ]
+        }
+
+        candidates = select_candidates_for_slot(
+            report,
+            slot="2026-09-26:noon",
+            reserved_urls=set(),
+            claimed_post_slots={"2026-09-26:morning"},
+        )
+
+        self.assertEqual(candidates[0]["product_url"], "https://example.com/discovery")
+
+    def test_same_report_keeps_assigned_item_when_earlier_url_was_posted(self) -> None:
+        report = {
+            "items": [
+                {"status": "ready", "post_slot": "morning", "product_url": "https://example.com/morning", "body": "朝"},
+                {"status": "ready", "post_slot": "noon", "product_url": "https://example.com/noon", "body": "昼"},
+            ]
+        }
+
+        candidates = select_candidates_for_slot(
+            report,
+            slot="2026-09-26:noon",
+            reserved_urls={"https://example.com/morning"},
+            claimed_post_slots={"2026-09-26:morning"},
+        )
+
+        self.assertEqual([item["product_url"] for item in candidates], ["https://example.com/noon"])
 
     def test_ledger_reserves_url_before_posting(self) -> None:
         with TemporaryDirectory() as directory:

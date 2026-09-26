@@ -159,6 +159,46 @@ def ready_items(
     ]
 
 
+def select_candidates_for_slot(
+    report: dict[str, Any],
+    *,
+    slot: str,
+    reserved_urls: set[str],
+    claimed_post_slots: set[str],
+) -> list[dict[str, Any]]:
+    """Prefer ready items orphaned by a safe same-day regeneration.
+
+    When an earlier slot was posted from an older report, a fresh report can
+    assign a different item to that already-claimed slot. That item would
+    otherwise never be posted. Reuse it in the next open slot before the
+    normally assigned item, while retaining URL and slot duplicate guards.
+    """
+    slot_date, separator, slot_label = slot.rpartition(":")
+    if not separator:
+        return []
+    claimed_labels = {
+        claimed.rpartition(":")[2]
+        for claimed in claimed_post_slots
+        if claimed.startswith(f"{slot_date}:")
+    }
+    available = [
+        item
+        for item in ready_items(report)
+        if normalize_product_url(item["product_url"]) not in reserved_urls
+    ]
+    orphaned = [item for item in available if item.get("post_slot") in claimed_labels]
+    assigned = [item for item in available if item.get("post_slot") == slot_label]
+    selected: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for item in orphaned + assigned:
+        normalized_url = normalize_product_url(item["product_url"])
+        if normalized_url in seen_urls:
+            continue
+        seen_urls.add(normalized_url)
+        selected.append(item)
+    return selected
+
+
 def parse_post_windows(value: str | None = None) -> list[tuple[str, int, int]]:
     windows: list[tuple[str, int, int]] = []
     for raw_window in (value or DEFAULT_POST_WINDOWS).split(","):
@@ -321,18 +361,24 @@ def main() -> int:
                     time.sleep(2)
         with room_profile_lock(PROFILE_LOCK_PATH):
             all_ready_items = ready_items(report)
-            items = ready_items(report, post_slot=slot_label)
             retry_failed_details = {
                 detail.strip()
                 for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
                 if detail.strip()
             }
             reserved_urls = load_reserved_urls(retry_failed_details=retry_failed_details)
-            candidates = [
-                item
-                for item in items
-                if normalize_product_url(item["product_url"]) not in reserved_urls
-            ]
+            claimed_slots = load_claimed_post_slots(
+                retry_failed_details=retry_failed_details
+            )
+            if slot in claimed_slots:
+                logger.info("ROOM post slot already claimed slot=%s", slot)
+                return 0
+            candidates = select_candidates_for_slot(
+                report,
+                slot=slot,
+                reserved_urls=reserved_urls,
+                claimed_post_slots=claimed_slots,
+            )
             logger.info(
                 "Latest run=%s report_run_id=%s ready=%s new=%s",
                 run["id"],
@@ -347,12 +393,6 @@ def main() -> int:
             if not forced_post_date and not actions_run_is_today(run):
                 logger.info("Latest successful workflow is not from today; no post attempted.")
                 return 0
-            if slot in load_claimed_post_slots(
-                retry_failed_details=retry_failed_details
-            ):
-                logger.info("ROOM post slot already claimed slot=%s", slot)
-                return 0
-
             poster = RoomPoster(user_data_dir=PROFILE_DIR, headless=True)
             failures = 0
             for item in candidates[:1]:
