@@ -176,10 +176,17 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             ("マグネットブロック", "magnetic_blocks"),
             ("磁石ブロック", "magnetic_blocks"),
             ("マグビルド 磁気ブロック", "magnetic_blocks"),
+            ("マグネット ブロック 72ピース", "magnetic_blocks"),
         ]
         for name, expected in cases:
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertEqual(classify_product_type(product), expected, name)
+
+    def test_magnetic_learning_poster_is_not_classified_as_blocks(self) -> None:
+        name = "あいうえお表 ひらがな お風呂ポスター マグネットポスター"
+        product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
+
+        self.assertEqual(classify_product_type(product), "unknown")
 
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
