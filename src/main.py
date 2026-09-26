@@ -41,7 +41,10 @@ POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
 SEARCH_KEYWORDS_PER_CATEGORY = 4
 SEARCH_PAGES_PER_KEYWORD = 2
-MAX_DIVERSITY_CANDIDATES = 24
+# Most normal runs stop after the first three ready items.  When a repeated
+# type appears after quality filtering, this larger bounded search still fits
+# comfortably inside the Actions timeout while giving other types a chance.
+MAX_DIVERSITY_CANDIDATES = 48
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 EXCLUDED_ROOM_CANDIDATE_TERMS = (
     "ペット",
