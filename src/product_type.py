@@ -47,6 +47,23 @@ DIAPER_RELATED_ACCESSORIES = [
     "オムツ替えシート",
 ]
 
+BOOK_PRODUCT_TERMS = [
+    "布絵本",
+    "ぬのえほん",
+    "仕掛け絵本",
+    "しかけ絵本",
+    "絵本",
+]
+
+MAGNETIC_BLOCK_ACCESSORY_TERMS = [
+    "単品パーツ",
+    "追加パーツ",
+    "追加用",
+    "ばら売り",
+    "補充パック",
+    "お試しパック",
+]
+
 ROOM_PRODUCT_TYPE_PRIORITY = [
     "swaddle",
     "nursing_support",
@@ -118,6 +135,14 @@ def contains_any(text: str, words: list[str]) -> bool:
 
 def classify_room_product_type(product: Product) -> str:
     text = product.identity_text
+    # The supported copy assumes a complete play set or a feature-equipped
+    # soothing toy.  A cloth book that happens to mention a plush character,
+    # or a single replacement/add-on block part, needs its own copy model.
+    # Keep those products out of automatic posting until that model exists.
+    if contains_any(text, BOOK_PRODUCT_TERMS):
+        return "unknown"
+    if contains_any(text, MAGNETIC_BLOCK_ACCESSORY_TERMS):
+        return "unknown"
     if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
         text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
     ):

@@ -188,6 +188,24 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_magnetic_block_add_on_parts_are_not_treated_as_complete_sets(self) -> None:
+        name = (
+            "NEOFORMERS 磁石ブロック 単品 ばら売り 追加 お試しパック "
+            "補充パック 追加用 単品パーツ ブルドーザーパーツ"
+        )
+        product = replace(product_for("magnetic_blocks"), name=name, catchcopy=name)
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
+    def test_cloth_book_is_not_treated_as_soothing_plush(self) -> None:
+        name = (
+            "しかけ 布絵本 赤ちゃん カシャカシャ 音 ベビーカー "
+            "ぬいぐるみ ぬのえほん"
+        )
+        product = replace(product_for("soothing_plush"), name=name, catchcopy=name)
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
             "おくるみ スワドル 新生児",
