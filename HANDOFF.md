@@ -21,9 +21,64 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-18 06:13 JST
+最終更新: 2026-09-30 05:11 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
+
+2026-09-30 05:11 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
+
+- Windowsタスク4件はすべて有効。正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`、登録時刻（交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30）を昇格読み取りで確認した。
+- 前日2026-09-29は交流50/50・失敗0・`completed=true` / `published=true`。生成run `36492754711` / report `11f36e2ce4c8` と後着run `36509117948` / report `f86f332d3e5d` はともにsuccess、required/ready morning/noon/evening、missing空、品質85/85/85、readyのerrors/review理由空・重複なし、楽天API 960件・32/32成功・失敗0。
+- 9/29の実投稿はmorningスリーパー `yamabikoya/ibul_sleeper_emb`、noonおしりふき `cuppingroom/item-0022`、eveningスリーパー `akachan-yume/sleerer-s` が各`reserved -> posted`。19:30 PostGuardは3枠確認済み。公開ROOMは商品226件で3本文を実表示確認し、確認時点の公開いいねは朝4・昼2・晩6。購入数とは扱わない。公開進捗上段は9/29の50/50・対応済み・失敗0、下段手動0/50は別表示。
+- 9/29は消耗品1件と夜の寝具2件で、3件同一タイプではないが夜用途へ寄った。9/30 artifactでは、補充日用品・明確な困りごと解決・季節/発見の3軸を可能な範囲で優先して確認する。
+- 05:02に9/30交流を安全に開始。05:10定刻の重複起動は`0x800710E0`で既存ジョブを置換せず、05:10時点でフォロー10/50・いいね3/50まで継続、失敗兆候なし。認証済み専用プロファイルはこのジョブが使用中。
+- 05:10時点で認証付き当日`daily.yml` runは0件、当日台帳も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 既存Codex automation `room-2` は、同日19:30 PostGuard後に最終確認・復旧できるよう毎日19:40 JSTへ更新した。重複heartbeatは作成していない。朝の開始はWindowsタスクが担う。
+- 次は交流50/50・`completed=true`・失敗0と公開上段を確認。19:40の`room-2`で当日artifactのrequired/ready 3枠・missing空・品質・楽天API・Sheets証跡を確認し、未投稿枠だけを復旧する。台帳3枠`posted`、最終PostGuard、公開上段、認証済み実ROOMまで確認するまでは9/30完了にしない。
+
+2026-09-29 05:12 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
+
+- Windowsタスク4件はすべて有効。正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`、登録時刻（交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30）を昇格読み取りで確認した。
+- 前日2026-09-28は台帳・最終PostGuard・実ROOM上で閉じ済み。交流はフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`。生成run `36355498710` / report `d8b815ec6337` と後着run `36362297872` / report `7072f8854bf6` はともにsuccess、required/ready morning/noon/evening、missing空、楽天API 960件・32/32成功・失敗0。readyは品質85/85/85と78/78/85でerrors/review理由空・重複なし、Sheetsは各ready 3件を本番・review 21/26件をレビューシート向けに分離した。
+- 実投稿はmorningの粉ミルク `earth-mart-au/2670497-1`、noonのスリーパー `brilbe/l1-beiyong10`、eveningのベビー保湿剤 `babycresco/alobaby_01_gift`が各`reserved -> posted`。19:30 PostGuardは3枠確認済み。予算帯は7,299円台・2,480円台・3,058円台で、授乳在庫・夜の寝具・毎日の保湿と用途を分けた。公開進捗上段は9/28の50/50・対応済み・失敗0を示し、実ROOMは商品223件で3本文を実表示確認した。
+- 05:02に当日交流を安全に開始。05:10定刻の重複起動は`0x800710E0`で既存ジョブを置換せず、05:12時点で既存ジョブがフォロー12/50・いいね5/50まで継続、失敗兆候なし。認証済み専用プロファイルはこのジョブが使用中。
+- 05:12時点で認証付き当日`daily.yml` runは0件、当日台帳も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
+- 次は当日交流50/50・`completed=true`・失敗0と公開上段を確認。07:30以降にcommit `42da53e`以降の当日artifactのrequired/ready 3枠・missing空・品質・楽天API・Sheets証跡を確認し、期限到来済みの未投稿枠だけを回復する。台帳3枠`posted`、最終PostGuard、公開上段、認証済み実ROOMまで確認するまでは完了にしない。
+
+2026-09-27 05:05 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
+
+- Windowsタスク4件はすべて有効。正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`を昇格読み取りで確認した。登録時刻は交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。
+- 前日2026-09-26は閉じ済み。交流はフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`。最新生成run `36210690889` / report `7196cc097477`はsuccess、required/ready morning/noon/evening、missing空、ready品質85/85/85、errors/review理由空、楽天API 937件・32/32成功・失敗0。台帳はmorning `combimini/r00001-678232`、noon `h2brothers/magneticblock02`、evening `lecdirect-2/4560319042420`が各`reserved -> posted`、19:30 PostGuardは3枠確認済み。
+- 05:02に当日交流を安全に開始。05:05時点で実行中、フォロー1/50・いいね0/50、失敗兆候なし。05:10の重複起動は`IgnoreNew`で既存ジョブを置換しない。
+- 当日の生成run・投稿はまだ時刻前。07:30前なので`daily.yml`の手動dispatchや投稿前倒しはしていない。当日台帳の`posted`はまだ0枠、未投稿はmorning/noon/evening。
+- 次は当日交流50/50・`completed=true`・失敗0と公開上段を確認。07:30以降に当日artifactのrequired/ready 3枠・missing空・品質・楽天API・Sheets証跡を確認し、期限到来済みの未投稿枠だけを回復する。台帳3枠`posted`、最終PostGuard、公開上段、認証済み実ROOMまで確認するまでは完了にしない。
+
+2026-09-26 05:05 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
+
+- Windowsタスク4件はすべて有効。正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`を昇格読み取りで確認した。登録時刻は交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30。
+- 前日2026-09-25は閉じ済み。交流はフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`。最新生成run `36077287031` / report `09ac6860961e`はsuccess、required/ready morning/noon/evening、missing空、ready品質78/87/85、errors/review理由空、楽天API 960件・32/32成功・失敗0、ready 3件は本番シート向け、review 5件はレビューシート向け。台帳はmorning `lapis1021/puzzle-erabitori-parts`、noon `f372056-kanonji/58501467`、evening `llic/q-sleeper`が各`reserved -> posted`、19:30 PostGuardは3枠確認済み。
+- 05:03に当日交流を安全に開始。05:05時点で実行中、フォロー1/50・いいね0/50、失敗兆候なし。05:10の重複起動は`IgnoreNew`で既存ジョブを置換しない。
+- 当日の生成run・投稿はまだ時刻前。07:30前なので`daily.yml`の手動dispatchや投稿前倒しはしていない。当日台帳の`posted`はまだ0枠、未投稿はmorning/noon/evening。
+- 次は当日交流50/50・`completed=true`・失敗0と公開上段を確認。07:30以降に当日artifactのrequired/ready 3枠・missing空・品質・楽天API・Sheets証跡を確認し、期限到来済みの未投稿枠だけを回復する。台帳3枠`posted`、最終PostGuard、公開上段、可能なら実ROOMまで確認するまで完了にしない。
+
+2026-09-24 18:50 JSTの当日状態（完了・交流50/50、3枠posted、最終PostGuard/公開/実ROOM確認済み）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認。PC停止期間のため交流・GenerationGuardの当日定刻が欠落し、次回が9/25へ進んでいたので、07:44にこの2件だけ安全に起動した。重複起動結果`0x800710E0`は`IgnoreNew`で実行中ジョブを置換していない。
+- 交流は72候補でフォロー50/50・いいね50/50・失敗0、`completed=true` / `published=true`・タスク結果0まで完了。ログイン切れ、CAPTCHA、候補枯渇なし。途中の補充候補ブラウザ探索1件はTimeoutでskipされたが、目標数は安全に達成した。
+- GenerationGuardは欠落を検知し、当日run `35929976227`を1回だけdispatchして結果0。report `f719656ec4f4`はrequired/ready morning/noon/evening、missing空、ready品質85/85/93、errors/review理由空、重複なし。後着のschedule run `35937973559` / report `ccefcf1af853`も成功し、required/ready 3枠、missing空、品質85/85/87、ready errors/review理由空・重複なし、楽天API 960件・32/32成功・失敗0。昼はこの新しいreportを使用した。
+- 08:00 AutoPosterと08:30 PostGuardは共有Chromeプロフィールの排他ロックで交流完了を待ち、朝だけを安全に処理した。台帳はmorning `auc-infuc/kmw-001`が`reserved -> posted`、08:50 PostGuardは`confirmed_slots=[morning]`。12:00 AutoPosterはnoon `luckybabygoods/n0380`を`reserved -> posted`、結果0。12:30 PostGuardは朝・昼を確認して結果0。18:15経過時点で晩が未投稿だったため、18:20に既投稿枠を台帳で除外してAutoPosterを1回だけ起動し、evening `classort/mag100`が`reserved -> posted`、結果0。18:50の最終PostGuardは3枠すべてを確認し、`confirmed_slots=[morning,noon,evening]`・結果0。既投稿枠の重複投稿なし。
+- 実ブラウザ公開上段は2026-09-24・自動フォロー50/50・自動いいね50/50・対応済み・失敗0・最終更新08:49:45を確認。下段の手動0/50は別表示。実ROOMは商品数211で、台帳の3商品ショップ/URLに対応する朝「5,480円台 夜の授乳準備に ミルクストック」、昼「3,300円台 夜のお世話に ベビー寝具」、晩「形づくりが広がる 磁石ブロック」の本文と商品画像を照合済み。
+- 未達枠なし。当日フォロー用heartbeat `room`は完了のため停止対象。
+
+2026-09-23 18:38 JSTの当日状態（完了・3枠posted、交流50/50、公開/実ROOM確認済み）:
+
+- Windowsタスク4件はすべて有効で、正しいrepo `.venv` / worker / working directory、`StartWhenAvailable=true` / `IgnoreNew`を確認。PC停止期間後の17:28遅延起動で4件が同時開始し、共有Chromeプロフィール競合により朝・晩の初回投稿が`TargetClosedError`になったが、実ROOM商品数205件・対象本文なしから実投稿前失敗と確認して復旧した。
+- 当日交流は70候補でフォロー50/50・いいね50/50・失敗0・`completed=true` / `published=true`・タスク結果0。内訳はfollow `already_following=50` / `goal_reached=20`、like `liked=50` / `like_button_not_found=20`。ログイン切れ、CAPTCHA、候補枯渇なし。
+- 当日`daily.yml` run `35801056695` / report `aaf224bb71a7`はrequired/ready morning/noon/evening、missing空。ready品質78/85/85、errors/review理由空・重複なし。楽天APIは960件・32/32成功・失敗0、マスク済みOrigin/Referer/accessKeyヘッダー名、既存360 URL・重複等289件・非ROOM55件除外・残り554件。Sheetsはready 3件・review 11件追記。
+- 台帳最新状態はmorning `gift-bmcjapan/o20250403`、noon `yoshiyuki/mf30`、evening `bcbabycare/sj2010`が各`posted`。18:32 PostGuardは`confirmed_slots=[morning,noon,evening]`。実ROOMは205件から208件へ増え、晩「おしりふきストック」・昼「240円台 磁石ブロック」・朝「1,580円台 スリーパー」の本文を確認した。
+- 公開上段は2026-09-23・自動フォロー50/50・自動いいね50/50・対応済み・最終更新18:26:50。下段の手動0/50は別表示。
+- 再発防止として交流・投稿ワーカーに共有Chromeプロフィールの排他ロックを追加し、待機後に台帳を再読して重複投稿を防ぐよう修正。PostGuardの子ワーカー待機上限もタスク実行上限内へ延長。全181テスト成功、秘密値なしを確認し、commit `efe64d6` を`origin/main`へpush済み、divergence 0/0。
+- 本日は未達枠なし。次回は通常どおり当日交流、生成artifact、各枠台帳、PostGuard、公開上段/実ROOMを確認する。
 
 2026-09-18 06:13 JSTの当日状態（未完了・交流50/50完了、生成と3投稿の時刻待ち）:
 
