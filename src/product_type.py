@@ -142,6 +142,7 @@ def contains_any(text: str, words: list[str]) -> bool:
 
 def classify_room_product_type(product: Product) -> str:
     text = product.identity_text
+    name_text = product.name.lower()
     # The supported copy assumes a complete play set or a feature-equipped
     # soothing toy.  A cloth book that happens to mention a plush character,
     # or a single replacement/add-on block part, needs its own copy model.
@@ -152,6 +153,11 @@ def classify_room_product_type(product: Product) -> str:
         return "unknown"
     if contains_any(text, BATH_TOWEL_PRODUCT_TERMS):
         return "unknown"
+    # The listed product is formula even when a bonus pack of wipes is named
+    # in the same title.  Prefer the core product named explicitly over the
+    # included freebie or adjacent care terms.
+    if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["formula"]):
+        return "formula"
     if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
         text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
     ):

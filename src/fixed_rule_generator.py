@@ -1286,7 +1286,7 @@ def hashtags_for(
         add("#手押し車", "手押し車" in attributes.short_product_label or "手押し車" in attributes.source_product_text)
         add("#ファーストウォーカー", "ファーストウォーカー" in attributes.short_product_label or "ファーストウォーカー" in attributes.source_product_text)
         add("#ベビーウォーカー", "ベビーウォーカー" in attributes.short_product_label or "ベビーウォーカー" in attributes.source_product_text)
-        add("#つかまり立ち期", "つかまり立ち" in attributes.source_product_text or "つかまり立ち" in combined)
+        add("#つかまり立ち期", "つかまり立ち" in attributes.source_product_text)
         add("#おうち遊び")
         add("#室内遊び")
         add("#ベビーおもちゃ")
@@ -1822,7 +1822,7 @@ def listing_teaser(attributes: ProductAttributes) -> str:
         "sound_blocks": "おうち遊び",
         "wooden_blocks": "はじめての遊び",
         "magnetic_blocks": "組み立て遊び",
-        "baby_walker_toy": "つかまり立ち期の室内遊び",
+        "baby_walker_toy": "押して遊ぶ室内遊び",
         "activity_cube": "手先遊び",
         "ring_toy": "指先遊び",
         "kids_camera": "子ども目線の思い出",
@@ -1833,6 +1833,8 @@ def listing_teaser(attributes: ProductAttributes) -> str:
     context = contexts.get(attributes.product_type, "使う場面")
     if attributes.product_type == "wipes" and label == "手口ふき":
         context = "食後や外出先"
+    if attributes.product_type == "baby_walker_toy" and "standing_support_play" in attributes.confirmed_features:
+        context = "つかまり立ち期の室内遊び"
     return f"【{label}｜{context}】"
 
 

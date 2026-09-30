@@ -215,6 +215,17 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_formula_with_bonus_wipes_keeps_formula_identity(self) -> None:
+        name = "雪印 粉ミルク 820g 4缶 おしりふき80枚付き"
+        product = replace(
+            product_for("formula"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+        )
+
+        self.assertEqual(classify_product_type(product), "formula")
+
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
             "おくるみ スワドル 新生児",
@@ -579,6 +590,25 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertEqual(generated.status, "ready", generated.quality_errors)
         self.assertNotIn("持ち運びやすい", generated.body)
         self.assertNotIn("#子連れ外出", generated.hashtags)
+
+    def test_walker_without_standing_claim_uses_grounded_tags_and_teaser(self) -> None:
+        name = "知育玩具 MODU 室内遊び 手押し車 乗り物 1歳 2歳"
+        product = replace(
+            product_for("baby_walker_toy"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/walker/grounded-tags",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 9, 30)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("#つかまり立ち期", generated.hashtags)
+        self.assertTrue(generated.body.startswith("【手押し車｜押して遊ぶ室内遊び】"))
 
     def test_new_product_types_generate_ready_without_diaper_context(self) -> None:
         for product_type in ["swaddle", "nursing_support", "baby_bedding", "baby_care", "baby_sleep", "soothing_plush"]:
