@@ -178,6 +178,39 @@ class MainSelectionTest(unittest.TestCase):
             3,
         )
 
+    def test_generate_until_ready_searches_beyond_former_48_candidate_window(self) -> None:
+        candidates = [
+            scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
+            for index in range(52)
+        ]
+
+        class Generated:
+            def __init__(self, status: str) -> None:
+                self.status = status
+
+        class Generator:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def generate(self, item, *, context, season):
+                del item, context, season
+                self.calls += 1
+                return Generated("needs_review" if self.calls <= 48 else "ready")
+
+        generator = Generator()
+        results = generate_until_ready(
+            candidates,
+            generator=generator,
+            context=object(),
+            target_ready=TARGET_READY_POSTS,
+        )
+
+        self.assertEqual(generator.calls, 51)
+        self.assertEqual(
+            sum(generated.status == "ready" for _, generated in results),
+            3,
+        )
+
     def test_generate_until_ready_uses_a_later_distinct_type_before_backup(self) -> None:
         candidates = [
             scored("おしりふき 厚手 80枚", "https://example.com/wipes-a", 100),
