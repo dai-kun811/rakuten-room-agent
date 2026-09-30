@@ -509,6 +509,50 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertTrue(any("product_type_keyword_conflict" in error for error in errors), errors)
 
+    def test_fabric_sound_blocks_may_also_be_described_as_plush(self) -> None:
+        name = (
+            "布のおもちゃ 布製 音が鳴る積み木 "
+            "ふわふわアニマルブロック ぬいぐるみ 1歳"
+        )
+        product = replace(
+            product_for("sound_blocks"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/sound-blocks/fabric-plush",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 9, 30)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.attributes.product_type, "sound_blocks")
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+
+    def test_diaper_pouch_does_not_invent_portability(self) -> None:
+        name = (
+            "おむつポーチ L 大容量 おしりふきケース "
+            "撥水 軽量 仕切り 保育園 出産祝い"
+        )
+        product = replace(
+            product_for("diaper"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/diaper/pouch-no-portable-claim",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 9, 30)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.attributes.product_type, "diaper")
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("持ち運びやすい", generated.body)
+        self.assertNotIn("#子連れ外出", generated.hashtags)
+
     def test_new_product_types_generate_ready_without_diaper_context(self) -> None:
         for product_type in ["swaddle", "nursing_support", "baby_bedding", "baby_care", "baby_sleep", "soothing_plush"]:
             generated = generate(product_type)

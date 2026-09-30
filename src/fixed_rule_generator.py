@@ -1238,7 +1238,11 @@ def hashtags_for(
         elif "diaper_pouch" in features or "diaper_storage" in features:
             add("#おむつ替え")
             add("#おむつ収納")
-            add("#子連れ外出", "外出" in combined)
+            add(
+                "#子連れ外出",
+                "外出" in attributes.source_product_text
+                or any("外出" in use_case for use_case in attributes.confirmed_use_cases),
+            )
             add("#荷物整理")
             add("#ストック管理")
         else:
@@ -1588,7 +1592,7 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
             title = "外出用のおむつを探したくない"
             problem = "子連れ外出でおむつやおしりふきがバッグの中に散らばると、替える前の準備に手間取りますよね。"
             scene = f"{feature}なら、おむつ替えに使う小物を一つにまとめやすくなります。"
-            closing = "持ち運びやすいサイズを選べば、外出先で必要な物を探す時間を減らせるアイテムです。"
+            closing = "普段のバッグに収まるサイズを選べば、外出先で必要な物を探す時間を減らせるアイテムです。"
         else:
             title = "おむつ替えの置き場を整えたい"
             problem = "家の中でおむつ替え用品の置き場が分かれると、交換前に必要な物を探しがちですよね。"
@@ -2298,6 +2302,11 @@ def classification_consistency_errors(
     }
     for expected_type, keywords in conflict_types.items():
         if expected_type == attributes.product_type:
+            continue
+        # Exact sound-block evidence is more specific than a generic plush
+        # keyword.  Fabric blocks can be described as plush toys while still
+        # requiring block copy rather than bedtime-plush copy.
+        if attributes.product_type == "sound_blocks" and expected_type == "soothing_plush":
             continue
         if any(keyword.lower() in source_text for keyword in keywords):
             errors.append(
