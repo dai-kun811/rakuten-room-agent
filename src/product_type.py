@@ -64,6 +64,13 @@ MAGNETIC_BLOCK_ACCESSORY_TERMS = [
     "お試しパック",
 ]
 
+BATH_TOWEL_PRODUCT_TERMS = [
+    "バスタオル",
+    "バスローブ",
+    "フード付きタオル",
+    "タオルポンチョ",
+]
+
 ROOM_PRODUCT_TYPE_PRIORITY = [
     "swaddle",
     "nursing_support",
@@ -142,6 +149,8 @@ def classify_room_product_type(product: Product) -> str:
     if contains_any(text, BOOK_PRODUCT_TERMS):
         return "unknown"
     if contains_any(text, MAGNETIC_BLOCK_ACCESSORY_TERMS):
+        return "unknown"
+    if contains_any(text, BATH_TOWEL_PRODUCT_TERMS):
         return "unknown"
     if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
         text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]

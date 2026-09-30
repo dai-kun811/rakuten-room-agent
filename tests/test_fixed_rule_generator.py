@@ -206,6 +206,15 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_hooded_bath_towel_is_not_treated_as_swaddle(self) -> None:
+        name = (
+            "フード付き バスタオル バスローブ 子供 ベビー "
+            "ワンオペ ポンチョ おくるみ 風呂上がり"
+        )
+        product = replace(product_for("swaddle"), name=name, catchcopy=name)
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
             "おくるみ スワドル 新生児",
@@ -528,6 +537,24 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         )
 
         self.assertEqual(generated.attributes.product_type, "sound_blocks")
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+
+    def test_explicit_swaddle_may_also_be_described_as_sleeper(self) -> None:
+        name = "スワドル おくるみ 新生児 スリーパー コットン モロー反射"
+        product = replace(
+            product_for("swaddle"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/swaddle/also-sleeper",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 9, 30)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.attributes.product_type, "swaddle")
         self.assertEqual(generated.status, "ready", generated.quality_errors)
 
     def test_diaper_pouch_does_not_invent_portability(self) -> None:

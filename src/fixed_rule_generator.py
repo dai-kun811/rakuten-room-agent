@@ -2308,6 +2308,15 @@ def classification_consistency_errors(
         # requiring block copy rather than bedtime-plush copy.
         if attributes.product_type == "sound_blocks" and expected_type == "soothing_plush":
             continue
+        # "Sleeper" is often included alongside an explicitly named swaddle.
+        # Strong swaddle identity wins; generic "okurumi" alone does not get
+        # this exception and remains review-only when the identity is mixed.
+        if (
+            attributes.product_type == "swaddle"
+            and expected_type == "baby_sleep"
+            and any(term in source_text for term in ["スワドル", "モロー反射", "ねくるみ"])
+        ):
+            continue
         if any(keyword.lower() in source_text for keyword in keywords):
             errors.append(
                 f"product_type_keyword_conflict: {expected_type}系キーワードを含む商品が{attributes.product_type}に分類されています"
