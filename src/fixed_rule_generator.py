@@ -2458,6 +2458,15 @@ def classification_consistency_errors(
         # requiring block copy rather than bedtime-plush copy.
         if attributes.product_type == "sound_blocks" and expected_type == "soothing_plush":
             continue
+        # Rakuten category/caption text can call formula a generic "授乳用品".
+        # Exact formula evidence is more specific and must not be mistaken for
+        # a nursing pillow or bottle-holder product.
+        if (
+            attributes.product_type == "formula"
+            and expected_type == "nursing_support"
+            and any(term in source_text for term in ["粉ミルク", "液体ミルク", "フォローアップミルク"])
+        ):
+            continue
         # "Sleeper" is often included alongside an explicitly named swaddle.
         # Strong swaddle identity wins; generic "okurumi" alone does not get
         # this exception and remains review-only when the identity is mixed.

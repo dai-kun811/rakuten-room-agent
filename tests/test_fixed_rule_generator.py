@@ -529,6 +529,26 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertTrue(any("product_type_keyword_conflict" in error for error in errors), errors)
 
+    def test_explicit_formula_is_not_rejected_by_generic_nursing_category(self) -> None:
+        product = replace(
+            product_for("formula"),
+            name="粉ミルク 800g 3缶セット 授乳用品",
+            caption="粉ミルク 800g 3缶セット 授乳用品",
+            catchcopy="粉ミルク まとめ買い",
+            url="https://example.com/formula/nursing-category",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 1)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.attributes.product_type, "formula")
+        self.assertFalse(
+            any("product_type_keyword_conflict" in error for error in generated.quality_errors),
+            generated.quality_errors,
+        )
+
     def test_fabric_sound_blocks_may_also_be_described_as_plush(self) -> None:
         name = (
             "布のおもちゃ 布製 音が鳴る積み木 "
