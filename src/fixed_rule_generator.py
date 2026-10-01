@@ -1974,16 +1974,58 @@ def add_distinctive_product_detail(
     # The price used to make otherwise-similar rewrites look different.  Use
     # a product-URL-seeded, reader-facing scene instead, so prices never
     # become the list cue while repeated candidates still get distinct copy.
-    closing_scenes = [
-        "朝の支度中に",
-        "帰宅後に",
-        "食後の片づけ中に",
-        "お風呂上がりに",
-        "夜の支度中に",
-        "外出前に",
-        "週末の補充時に",
-        "家族で使う時に",
+    replenish_scenes = [
+        "使う前に", "外出前に", "週末の補充時に", "収納へ戻す時に",
+        "残量を確認する時に", "家族で分ける時に", "買い足し前に", "次を開ける時に",
     ]
+    sleep_scenes = [
+        "寝る前に", "夜の支度中に", "お風呂上がりに", "洗濯物を戻す時に",
+        "着替えを用意する時に", "寝室を整える時に", "洗い替えを選ぶ時に", "家族で夜支度をする時に",
+    ]
+    play_scenes = [
+        "遊び始める前に", "片づける時に", "雨の日に", "休日の遊び時間に",
+        "リビングへ出す時に", "親子で遊ぶ時に", "遊び方を変える時に", "収納へ戻す時に",
+    ]
+    care_scenes = [
+        "お風呂上がりに", "朝のケア時に", "外出前に", "週末の補充時に",
+        "着替えの後に", "家族で使う時に", "置き場所へ戻す時に", "使う量を確認する時に",
+    ]
+    nursing_scenes = [
+        "授乳前に", "夜の支度中に", "外出前に", "授乳後に",
+        "哺乳瓶を用意する時に", "家族で交代する時に", "洗浄後に", "授乳場所を整える時に",
+    ]
+    stroller_scenes = [
+        "外出前に", "帰宅後に", "荷物を戻す時に", "週末の補充時に",
+        "ベビーカーへ付ける時に", "持ち物を分ける時に", "玄関で支度する時に", "家族で外出する時に",
+    ]
+    camera_scenes = [
+        "外出前に", "帰宅後に", "写真を見返す時に", "休日の外出時に",
+        "親子で撮る時に", "充電する時に", "保存先を決める時に", "持ち物へ入れる時に",
+    ]
+    closing_scenes_by_type = {
+        "wipes": replenish_scenes,
+        "diaper": replenish_scenes,
+        "formula": replenish_scenes,
+        "baby_care": care_scenes,
+        "nursing_support": nursing_scenes,
+        "stroller_storage": stroller_scenes,
+        "swaddle": sleep_scenes,
+        "baby_bedding": sleep_scenes,
+        "baby_sleep": sleep_scenes,
+        "soothing_plush": sleep_scenes,
+        "sleep_light": sleep_scenes,
+        "sound_blocks": play_scenes,
+        "wooden_blocks": play_scenes,
+        "magnetic_blocks": play_scenes,
+        "baby_walker_toy": play_scenes,
+        "activity_cube": play_scenes,
+        "ring_toy": play_scenes,
+        "kids_camera": camera_scenes,
+    }
+    closing_scenes = closing_scenes_by_type.get(
+        attributes.product_type,
+        ["朝の支度中に", "帰宅後に", "外出前に", "家族で使う時に"],
+    )
     closing_angles = [
         "使う順番を思い浮かべて",
         "置く場所になじむか考えて",

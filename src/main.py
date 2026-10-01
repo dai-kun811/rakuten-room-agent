@@ -43,9 +43,9 @@ SEARCH_KEYWORDS_PER_CATEGORY = 4
 SEARCH_PAGES_PER_KEYWORD = 2
 # Most normal runs stop after the first three ready items.  When quality
 # filtering rejects a broad first pass, keep searching without weakening any
-# content rule.  Ninety-six candidates remains bounded for the Actions timeout
-# while avoiding a false daily failure at the former 48-candidate boundary.
-MAX_DIVERSITY_CANDIDATES = 96
+# content rule.  The larger window lets the ready set retain distinct product
+# types instead of falling back to a repeated night-use type near the boundary.
+MAX_DIVERSITY_CANDIDATES = 160
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 EXCLUDED_ROOM_CANDIDATE_TERMS = (
     "ペット",

@@ -946,6 +946,34 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("と使い方", title)
         self.assertNotIn("があるもの", title)
 
+    def test_distinctive_scene_stays_with_the_product_use_case(self) -> None:
+        generated = generate("swaddle")
+        _title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("swaddle"), date(2026, 10, 1)),
+            generated.attributes,
+            attempt=56,
+        )
+
+        self.assertNotIn("食後", body)
+        self.assertNotIn("帰宅後", body)
+        self.assertTrue(
+            any(
+                scene in body
+                for scene in [
+                    "寝る前",
+                    "夜の支度",
+                    "お風呂上がり",
+                    "洗濯物",
+                    "着替え",
+                    "寝室",
+                    "洗い替え",
+                ]
+            ),
+            body,
+        )
+
     def test_distinctive_rewrite_preserves_each_pattern_required_term(self) -> None:
         product = product_for("magnetic_blocks")
         scored = score_product(product, date(2026, 8, 25))
