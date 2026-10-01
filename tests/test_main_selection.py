@@ -51,13 +51,14 @@ class MainSelectionTest(unittest.TestCase):
     def test_excludes_non_room_candidates_before_selection(self) -> None:
         candidates = [
             scored("パンパース 新生児 紙おむつ", "https://example.com/baby-diaper", 100).product,
+            scored("ふるさと納税 おしりふき まとめ買い", "https://example.com/furusato-wipes", 99).product,
             scored("ペット おむつ 犬用 紙おむつ", "https://example.com/pet-diaper", 99).product,
             scored("大人用紙おむつ 介護 パンツ", "https://example.com/adult-diaper", 98).product,
         ]
 
         kept, removed = exclude_non_room_candidates(candidates)
 
-        self.assertEqual(removed, 2)
+        self.assertEqual(removed, 3)
         self.assertEqual([item.url for item in kept], ["https://example.com/baby-diaper"])
 
     def test_parse_blocked_urls_normalizes_recovery_exclusions(self) -> None:

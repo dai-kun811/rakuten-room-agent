@@ -48,6 +48,10 @@ SEARCH_PAGES_PER_KEYWORD = 2
 MAX_DIVERSITY_CANDIDATES = 160
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 EXCLUDED_ROOM_CANDIDATE_TERMS = (
+    # Furusato tax listings do not expose the Rakuten ROOM post control.  They
+    # can look like useful daily-stock items in search results, but cannot be
+    # reliably published from ROOM.
+    "ふるさと納税",
     "ペット",
     "犬用",
     "猫",
