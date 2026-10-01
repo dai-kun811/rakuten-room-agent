@@ -918,6 +918,34 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             changed = replace(generated, title=title, body=body)
             self.assertEqual(validate_post(changed, changed.attributes), [])
 
+    def test_late_distinctive_rewrite_keeps_scene_grammar_natural(self) -> None:
+        generated = generate("baby_sleep")
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("baby_sleep"), date(2026, 10, 1)),
+            generated.attributes,
+            attempt=56,
+        )
+
+        self.assertNotIn("にの支度", body)
+        self.assertNotIn("中にの支度", body)
+        self.assertIn("選ぶと、使う流れを想像しやすくなります", body)
+        self.assertNotIn("があるもの", title)
+
+    def test_distinctive_title_uses_purchase_decision_not_vague_existence(self) -> None:
+        generated = generate("baby_walker_toy")
+        title, _body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("baby_walker_toy"), date(2026, 10, 1)),
+            generated.attributes,
+            attempt=24,
+        )
+
+        self.assertIn("と使い方", title)
+        self.assertNotIn("があるもの", title)
+
     def test_distinctive_rewrite_preserves_each_pattern_required_term(self) -> None:
         product = product_for("magnetic_blocks")
         scored = score_product(product, date(2026, 8, 25))

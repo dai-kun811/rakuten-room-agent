@@ -2042,7 +2042,7 @@ def add_distinctive_product_detail(
             f"{feature}という商品情報から、{checkpoint}が暮らしに合うか商品ページで見分けられます"
         )
         direct_scene = ensure_sentence(
-            f"{closing_scene}の支度では、{closing_angle}選ぶと使う流れを想像しやすくなります"
+            f"{closing_scene}{closing_angle}選ぶと、使う流れを想像しやすくなります"
         )
         candidate_sentences = [
             direct_opening,
@@ -2107,7 +2107,7 @@ def distinct_title(
         f"{label}｜{checkpoint}から考える",
         f"{label}｜{detail}を整える",
         f"{label}｜{use_case}に備える",
-        f"{label}｜{feature}があるもの",
+        f"{label}｜{checkpoint}と使い方",
         f"{label}｜{detail}のために",
         f"{label}｜{use_case}へ取り入れる",
         f"{label}｜{checkpoint}に合わせる",
