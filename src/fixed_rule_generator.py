@@ -1811,22 +1811,22 @@ def remove_intention_phrases(text: str) -> str:
 def listing_teaser(attributes: ProductAttributes) -> str:
     contexts = {
         "wipes": "食後やおむつ替えの補充",
-        "swaddle": "夜支度",
+        "swaddle": "夜の着替え準備",
         "nursing_support": "授乳まわり",
         "baby_bedding": "洗い替え準備",
         "baby_care": "毎日のケア",
         "baby_sleep": "夜のお世話",
         "soothing_plush": "寝る前時間",
-        "diaper": "外出前の準備",
-        "formula": "夜の授乳準備",
-        "sound_blocks": "おうち遊び",
+        "diaper": "外出前のおむつ替え準備",
+        "formula": "夜の授乳ストック準備",
+        "sound_blocks": "おうちで音遊び",
         "wooden_blocks": "はじめての遊び",
         "magnetic_blocks": "組み立て遊び",
         "baby_walker_toy": "押して遊ぶ室内遊び",
-        "activity_cube": "手先遊び",
-        "ring_toy": "指先遊び",
+        "activity_cube": "手先を使う室内遊び",
+        "ring_toy": "指先を使う室内遊び",
         "kids_camera": "子ども目線の思い出",
-        "sleep_light": "夜のお世話",
+        "sleep_light": "夜のお世話準備",
         "stroller_storage": "外出荷物の整理",
     }
     label = attributes.short_product_label
@@ -1923,8 +1923,6 @@ def add_distinctive_product_detail(
     attempt: int = DISTINCTIVE_REWRITE_START,
     required_terms: tuple[str, ...] = (),
 ) -> tuple[str, str]:
-    if scored.product.price <= 0:
-        return title, body
     sentences = split_sentences(body)
     if len(sentences) < 3:
         return title, body
@@ -1932,7 +1930,6 @@ def add_distinctive_product_detail(
     feature = confirmed_feature_phrase(attributes)
     label = attributes.short_product_label
     required_term = next((term for term in required_terms if term), label)
-    price_text = f"{scored.product.price:,}円台"
     variant = max(0, attempt - DISTINCTIVE_REWRITE_START)
     use_case = next(
         (value for value in attributes.confirmed_use_cases if value),
@@ -1951,32 +1948,120 @@ def add_distinctive_product_detail(
         use_case=use_case,
     )
     openings = [
-        f"{teaser}{label}を{use_case}へ取り入れるなら、{feature}と{price_text}の両方が暮らしに合うか気になりますよね",
-        f"{teaser}{price_text}の{label}は、{scene_term}で使う時間と{checkpoint}を一緒に思い浮かべたいですよね",
+        f"{teaser}{label}を{use_case}へ取り入れるなら、{feature}が暮らしに合うか気になりますよね",
+        f"{teaser}{label}は、{scene_term}で使う時間と{checkpoint}を一緒に思い浮かべたいですよね",
         f"{teaser}{feature}という商品情報があれば、毎日の{use_case}へ無理なく足せるか具体的に考えられます",
-        f"{teaser}{label}を暮らしへ足す前に、{price_text}という予算と{checkpoint}を整理したくなりますよね",
+        f"{teaser}{label}を暮らしへ足す前に、{checkpoint}と使う頻度を整理したくなりますよね",
         f"{teaser}{use_case}で使う候補を探すときは、{feature}が必要な動きに合うかが気になりますよね",
-        f"{teaser}{scene_term}に使う{label}だからこそ、{price_text}と{checkpoint}を先に押さえておきたいですよね",
+        f"{teaser}{scene_term}に使う{label}だからこそ、{checkpoint}を先に押さえておきたいですよね",
         f"{teaser}{feature}を選べる{label}なら、{use_case}のどこへ置くかまで具体的に想像できます",
-        f"{teaser}{price_text}で選べる{feature}は、{scene_term}の準備を増やし過ぎないか見極めたいですよね",
-        f"{teaser}{checkpoint}で迷いやすい{label}は、{feature}と{price_text}を一緒に見ると使う場面が浮かびます",
-        f"{teaser}{use_case}を整えたい日は、{price_text}の{label}が毎日の流れへ合うか気になりますよね",
+        f"{teaser}{feature}を選べる{label}は、{scene_term}の準備を増やし過ぎないか見極めたいですよね",
+        f"{teaser}{checkpoint}で迷いやすい{label}は、{feature}を見ると使う場面が浮かびます",
+        f"{teaser}{use_case}を整えたい日は、{label}が毎日の流れへ合うか気になりますよね",
         f"{teaser}{scene_term}の道具を増やすなら、{feature}を使う場所と{checkpoint}を先に決めたいですよね",
-        f"{teaser}{price_text}の{feature}は、{use_case}で探す手間を減らせる置き方まで考えたくなります",
+        f"{teaser}{feature}は、{use_case}で探す手間を減らせる置き方まで考えたくなります",
     ]
     middles = [
         f"{feature}なら、{use_case}で必要な時に取り出し、使い終わった後に戻す流れをまとめやすくなります",
         f"{checkpoint}を決めておくと、{label}を準備してから片づけるまでの動きを家族で共有しやすくなります",
-        f"{price_text}と{checkpoint}を手がかりにすれば、{scene_term}で使う物を増やし過ぎずに整えられます",
+        f"{checkpoint}を手がかりにすれば、{scene_term}で使う物を増やし過ぎずに整えられます",
         f"{use_case}の動線へ{label}の定位置を作ると、必要な時に探す手間を抑えやすくなります",
         f"{feature}を使う場面が決まれば、{checkpoint}で迷う時間を減らして準備へ移りやすくなります",
         f"{label}の置き場所を{use_case}の近くに決めると、準備と片づけを同じ流れにまとめられます",
         f"{scene_term}の前後で使う物として{feature}を整理すると、家族も必要な時に手に取りやすくなります",
-        f"{price_text}の候補でも、{checkpoint}と{use_case}が合えば毎日の動線へ無理なく置きやすくなります",
+        f"{label}でも、{checkpoint}と{use_case}が合えば毎日の動線へ無理なく置きやすくなります",
+    ]
+    # The price used to make otherwise-similar rewrites look different.  Use
+    # a product-URL-seeded, reader-facing scene instead, so prices never
+    # become the list cue while repeated candidates still get distinct copy.
+    closing_scenes = [
+        "朝の支度中に",
+        "帰宅後に",
+        "食後の片づけ中に",
+        "お風呂上がりに",
+        "夜の支度中に",
+        "外出前に",
+        "週末の補充時に",
+        "家族で使う時に",
+    ]
+    closing_angles = [
+        "使う順番を思い浮かべて",
+        "置く場所になじむか考えて",
+        "手に取る瞬間を想像して",
+        "準備の流れへ合わせて",
+        "使った後まで見通して",
+        "次の支度を考えて",
+        "家の動線に合わせて",
+        "使う回数を見ながら",
     ]
     opening = ensure_sentence(openings[variant % len(openings)])
     middle = ensure_sentence(middles[(variant * 3 + variant // len(openings)) % len(middles)])
-    candidate_sentences = [opening, middle, sentences[-1]]
+    closing_index = (stable_index(scored.product.url, len(closing_scenes) * len(closing_angles)) + variant) % (len(closing_scenes) * len(closing_angles))
+    closing_scene = closing_scenes[closing_index % len(closing_scenes)]
+    closing_angle = closing_angles[closing_index // len(closing_scenes)]
+    closing_benefits = {
+        "wipes": "必要な時に探す手間を減らせるアイテムです",
+        "swaddle": "夜の準備で迷う時間を減らせる一枚です",
+        "nursing_support": "授乳前の支度を整えられるアイテムです",
+        "baby_bedding": "寝かしつけ前の準備を整えられるアイテムです",
+        "baby_care": "毎日のケアで探す手間を減らせるアイテムです",
+        "baby_sleep": "夜のお世話で探す時間を減らせるアイテムです",
+        "soothing_plush": "寝る前に用意する物を減らせるアイテムです",
+        "diaper": "おむつ替えで探す手間を減らせるアイテムです",
+        "formula": "夜の授乳準備を整えられるアイテムです",
+        "sound_blocks": "おうち遊びを増やせるおもちゃです",
+        "wooden_blocks": "親子の遊びを増やせるおもちゃです",
+        "magnetic_blocks": "室内遊びを増やせるおもちゃです",
+        "baby_walker_toy": "室内遊びを増やせるおもちゃです",
+        "activity_cube": "手先を使う遊びを増やせるおもちゃです",
+        "ring_toy": "指先を使う遊びを増やせるおもちゃです",
+        "kids_camera": "子ども目線の思い出を増やせるアイテムです",
+        "sleep_light": "夜のお世話で探す時間を減らせるアイテムです",
+        "stroller_storage": "外出前の荷物を整えられるアイテムです",
+    }
+    closing = ensure_sentence(
+        f"{closing_scene}{closing_angle}{label}を選べば、"
+        f"{closing_benefits[attributes.product_type]}"
+    )
+    # For heavily repeated candidates, switch to a four-sentence structure.
+    # This keeps the copy readable while genuinely changing its construction,
+    # instead of exposing a changing price merely to evade similarity checks.
+    if variant >= 48:
+        direct_openings = [
+            f"{teaser}{scene_term}で{label}を探す時間が重なると、支度が慌ただしくなりがちです",
+            f"{teaser}{use_case}の前に{label}の置き場所が決まらないと、必要な時に手が止まりやすくなります",
+            f"{teaser}{scene_term}で使う物が増えると、{label}を選ぶ順番にも迷いやすくなります",
+            f"{teaser}{use_case}で{label}を取り出す場面を想像できないと、準備が後回しになりがちです",
+            f"{teaser}{scene_term}の支度で{label}が見つからないと、家族の流れが慌ただしくなります",
+            f"{teaser}{use_case}に使う{label}は、忙しい時ほど置き場と使い方を決めておきたいです",
+            f"{teaser}{scene_term}で必要な{label}は、使う時間を決めると選びやすくなります",
+            f"{teaser}{use_case}に{label}を足すなら、毎日の動きに合うか先に整理できます",
+        ]
+        direct_opening = ensure_sentence(direct_openings[variant % len(direct_openings)])
+        direct_middle = ensure_sentence(
+            f"{feature}という商品情報から、{checkpoint}が暮らしに合うか商品ページで見分けられます"
+        )
+        direct_scene = ensure_sentence(
+            f"{closing_scene}の支度では、{closing_angle}選ぶと使う流れを想像しやすくなります"
+        )
+        candidate_sentences = [
+            direct_opening,
+            direct_middle,
+            direct_scene,
+            ensure_sentence(closing_benefits[attributes.product_type]),
+        ]
+    elif variant >= 32:
+        scene_sentence = ensure_sentence(
+            f"{closing_scene}{closing_angle}{label}を選べます"
+        )
+        candidate_sentences = [
+            opening,
+            middle,
+            scene_sentence,
+            ensure_sentence(closing_benefits[attributes.product_type]),
+        ]
+    else:
+        candidate_sentences = [opening, middle, closing]
     candidate_body = "".join(candidate_sentences)
     if 150 <= len(candidate_body) <= 260:
         return title, candidate_body
@@ -1984,16 +2069,10 @@ def add_distinctive_product_detail(
 
 
 def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
-    price = scored.product.price
-    match = re.match(r"^【([^】]{1,35})】", body)
-    if price <= 0 or match is None:
-        return body
-    # The first words are what a visitor sees in ROOM.  Preserve the product
-    # label at the front even when a later rewrite adds price context.
-    teaser = f"{match.group(1)}｜{price:,}円台"
-    if len(teaser) > 35:
-        return body
-    return f"【{teaser}】{body[match.end():]}"
+    # The first words are what a visitor sees in ROOM.  Keep the existing
+    # product-type and problem/scene label intact; a volatile price is not a
+    # useful primary cue for browsing.
+    return body
 
 
 def distinct_title(
@@ -2004,19 +2083,46 @@ def distinct_title(
     required_term: str = "",
     use_case: str = "",
 ) -> str:
-    price_text = f"{scored.product.price:,}円台"
     label = attributes.short_product_label
     detail = required_term if required_term and required_term != label else use_case or label
     feature = confirmed_feature_phrase(attributes)
+    checkpoint = next(
+        (value for value in attributes.purchase_checkpoints if value),
+        "使う場所",
+    )
     titles = [
-        f"{price_text}から選ぶ{label}",
-        f"{detail}に使う{price_text}の{label}",
-        f"{feature}を{price_text}で選ぶ",
-        f"{price_text}の{label}を{detail}に",
-        f"{detail}の準備に{feature}",
-        f"{price_text}で整える{detail}の{label}",
-        f"{feature}を暮らしへ足す",
-        f"{detail}から選ぶ{price_text}の{label}",
+        f"{label}｜{detail}に",
+        f"{label}｜{use_case}で使う",
+        f"{label}｜{feature}",
+        f"{label}｜{detail}の準備に",
+        f"{label}｜{detail}向け",
+        f"{label}｜{checkpoint}を確認",
+        f"{label}｜暮らしへ足す",
+        f"{label}｜{use_case}から選ぶ",
+        f"{label}｜{detail}で役立つ",
+        f"{label}｜{use_case}のそばに",
+        f"{label}｜{feature}を選ぶ",
+        f"{label}｜{detail}の前に",
+        f"{label}｜{use_case}の支度に",
+        f"{label}｜{checkpoint}から考える",
+        f"{label}｜{detail}を整える",
+        f"{label}｜{use_case}に備える",
+        f"{label}｜{feature}があるもの",
+        f"{label}｜{detail}のために",
+        f"{label}｜{use_case}へ取り入れる",
+        f"{label}｜{checkpoint}に合わせる",
+        f"{label}｜{detail}を支える",
+        f"{label}｜{use_case}で迷わない",
+        f"{label}｜{feature}を暮らしに",
+        f"{label}｜{detail}に使いやすい",
+        f"{label}｜{use_case}を見直す",
+        f"{label}｜{checkpoint}を決める",
+        f"{label}｜{detail}の候補に",
+        f"{label}｜{use_case}を助ける",
+        f"{label}｜{feature}を手がかりに",
+        f"{label}｜{detail}で使う",
+        f"{label}｜{use_case}に合う",
+        f"{label}｜{checkpoint}も確認",
     ]
     return titles[variant % len(titles)]
 

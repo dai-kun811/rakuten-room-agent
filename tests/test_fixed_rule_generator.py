@@ -866,7 +866,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             generated.quality_errors,
         )
 
-    def test_distinctive_rewrite_uses_price_evidence_without_adding_sentences(self) -> None:
+    def test_distinctive_rewrite_prioritizes_product_and_use_case_without_price_anchor(self) -> None:
         generated = generate("wooden_blocks")
         title, body = add_distinctive_product_detail(
             generated.title,
@@ -875,8 +875,9 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             generated.attributes,
         )
 
-        self.assertIn("円台", title)
-        self.assertIn("円台", body)
+        self.assertNotIn("円台", title)
+        self.assertNotIn("円台", body)
+        self.assertTrue(title.startswith(generated.attributes.short_product_label))
         self.assertNotIn("レビュー", title)
         self.assertNotIn("レビュー", body)
         self.assertIn(len(split_sentences(body)), {3, 4})
@@ -994,8 +995,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(generated.status, "ready", generated.quality_errors)
         self.assertGreaterEqual(generated.rewrite_count, len(patterns))
-        self.assertIn("円台", generated.title)
-        self.assertIn("円台", generated.body)
+        self.assertNotIn("円台", generated.title)
+        self.assertNotIn("円台", generated.body)
 
     def test_distinctive_rewrites_do_not_exhaust_after_repeated_similar_products(self) -> None:
         context = GenerationContext()
