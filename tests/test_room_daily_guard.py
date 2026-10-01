@@ -329,6 +329,32 @@ class RoomDailyGuardTest(unittest.TestCase):
         probe.assert_called_once_with("https://example.com/m")
         run_worker.assert_called_once_with("morning", retry_detail="TimeoutError")
 
+    @patch("room_daily_guard.run_post_worker", return_value=0)
+    @patch("room_daily_guard.run_no_post_probe", return_value=True)
+    @patch("room_daily_guard.read_latest_slot_events")
+    def test_missing_room_button_retries_a_different_ready_url(
+        self,
+        read_events,
+        probe,
+        run_worker,
+    ) -> None:
+        slot = "2026-07-06:noon"
+        detail = "楽天商品ページにROOM投稿ボタンが見つかりません。"
+        read_events.side_effect = [
+            {slot: {"status": "failed", "detail": detail}},
+            {slot: {"status": "posted"}},
+        ]
+
+        ensure_slot_posted(
+            self.ready_report(),
+            "noon",
+            now=datetime(2026, 7, 6, 12, 30),
+            logger=logging.getLogger("test"),
+        )
+
+        probe.assert_called_once_with("https://example.com/n")
+        run_worker.assert_called_once_with("noon", retry_detail=detail)
+
 
 if __name__ == "__main__":
     unittest.main()

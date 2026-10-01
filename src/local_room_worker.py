@@ -357,6 +357,20 @@ def append_ledger_event(event: dict[str, Any], path: Path = LEDGER_PATH) -> None
         os.fsync(handle.fileno())
 
 
+DEFINITIVE_PRE_SUBMIT_FAILURE_DETAILS = {
+    "楽天商品ページにROOM投稿ボタンが見つかりません。",
+}
+
+
+def configured_retry_failed_details(value: str | None = None) -> set[str]:
+    configured = {
+        detail.strip()
+        for detail in (value if value is not None else os.getenv("ROOM_RETRY_FAILED_DETAILS", "")).split(",")
+        if detail.strip()
+    }
+    return DEFINITIVE_PRE_SUBMIT_FAILURE_DETAILS | configured
+
+
 def configure_logging() -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
@@ -403,11 +417,7 @@ def main() -> int:
                     time.sleep(2)
         with room_profile_lock(PROFILE_LOCK_PATH):
             all_ready_items = ready_items(report)
-            retry_failed_details = {
-                detail.strip()
-                for detail in os.getenv("ROOM_RETRY_FAILED_DETAILS", "").split(",")
-                if detail.strip()
-            }
+            retry_failed_details = configured_retry_failed_details()
             reserved_urls = load_reserved_urls(retry_failed_details=retry_failed_details)
             claimed_slots = load_claimed_post_slots(
                 retry_failed_details=retry_failed_details

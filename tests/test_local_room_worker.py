@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from local_room_worker import (
     actions_run_is_today,
     append_ledger_event,
+    configured_retry_failed_details,
     current_post_slot,
     generation_run_candidates,
     load_claimed_post_slots,
@@ -305,6 +306,19 @@ class LocalRoomWorkerTest(unittest.TestCase):
                 retry_failed_details={"ModuleNotFoundError"},
             )
             self.assertEqual(reserved, {"https://example.com/keep"})
+
+    def test_missing_room_button_is_a_default_retryable_pre_submit_failure(self) -> None:
+        self.assertEqual(
+            configured_retry_failed_details(""),
+            {"楽天商品ページにROOM投稿ボタンが見つかりません。"},
+        )
+        self.assertEqual(
+            configured_retry_failed_details("TimeoutError"),
+            {
+                "TimeoutError",
+                "楽天商品ページにROOM投稿ボタンが見つかりません。",
+            },
+        )
 
     def test_ledger_event_is_json_without_auth_material(self) -> None:
         with TemporaryDirectory() as directory:

@@ -31,7 +31,10 @@ LOG_PATH = STATE_DIR / "daily-guard.log"
 SUMMARY_PATH = STATE_DIR / "daily-guard-summary.json"
 RECOVERY_STATE_PATH = STATE_DIR / "daily-guard-recovery.json"
 REQUIRED_SLOTS = ("morning", "noon", "evening")
-SAFE_RETRY_DETAILS = {"TimeoutError"}
+SAFE_RETRY_DETAILS = {
+    "TimeoutError",
+    "楽天商品ページにROOM投稿ボタンが見つかりません。",
+}
 
 
 class DailyGuardError(RuntimeError):
