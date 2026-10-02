@@ -1030,6 +1030,22 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         errors = validate_post(changed, changed.attributes)
         self.assertFalse(any("marketing_missing_pain" in error for error in errors), errors)
 
+    def test_early_baby_sleep_rewrite_uses_a_natural_scene(self) -> None:
+        generated = generate("baby_sleep")
+        pattern = next(value for value in PATTERNS["baby_sleep"] if value.pattern_id == "baby_sleep_02")
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("baby_sleep"), date(2026, 10, 2)),
+            generated.attributes,
+            attempt=8,
+            required_terms=pattern.title_required,
+        )
+        changed = replace(generated, title=title, body=body)
+
+        self.assertNotIn("寝冷えへ", body)
+        self.assertEqual(validate_post(changed, changed.attributes), [])
+
     def test_distinctive_title_uses_purchase_decision_not_vague_existence(self) -> None:
         generated = generate("baby_walker_toy")
         title, _body = add_distinctive_product_detail(

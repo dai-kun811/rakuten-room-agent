@@ -157,12 +157,26 @@ def main() -> int:
         if output_sheet_name != source_sheet_name:
             existing_urls.update(sheets_client.read_existing_urls(source_sheet_name))
         blocked_urls = parse_blocked_urls(os.getenv("ROOM_BLOCKED_URLS"))
+        reuse_urls = parse_blocked_urls(os.getenv("ROOM_REUSE_URLS"))
+        existing_urls = apply_recovery_reuse(
+            existing_urls,
+            reuse_urls,
+            event_name=os.getenv("GITHUB_EVENT_NAME", ""),
+        )
+        if blocked_urls & reuse_urls:
+            raise RuntimeError("Recovery URL cannot be both blocked and reusable.")
         existing_urls.update(blocked_urls)
         if blocked_urls:
             LOGGER.info(
                 "復旧用の投稿不可URLを除外します run_id=%s blocked_urls=%s",
                 run_id,
                 len(blocked_urls),
+            )
+        if reuse_urls:
+            LOGGER.info(
+                "未投稿の当日候補URLを復旧対象へ戻します run_id=%s reuse_urls=%s",
+                run_id,
+                len(reuse_urls),
             )
         recent_history = sheets_client.read_recent_history(
             output_sheet_name,
@@ -366,6 +380,24 @@ def parse_blocked_urls(value: str | None) -> set[str]:
         )
         if normalized
     }
+
+
+def apply_recovery_reuse(
+    existing_urls: set[str],
+    reuse_urls: set[str],
+    *,
+    event_name: str,
+) -> set[str]:
+    """Allow explicit, unposted same-day candidates only in a manual recovery.
+
+    Normal scheduled runs keep the full historical URL guard. The operator
+    must first prove locally that these URLs have no posted ledger state.
+    """
+    if not reuse_urls:
+        return set(existing_urls)
+    if event_name != "workflow_dispatch":
+        raise RuntimeError("ROOM_REUSE_URLS is allowed only for workflow_dispatch recovery.")
+    return set(existing_urls) - set(reuse_urls)
 
 
 def exclude_non_room_candidates(products: list[Product]) -> tuple[list[Product], int]:

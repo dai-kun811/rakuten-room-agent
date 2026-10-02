@@ -1931,9 +1931,21 @@ def add_distinctive_product_detail(
     label = attributes.short_product_label
     required_term = next((term for term in required_terms if term), label)
     variant = max(0, attempt - DISTINCTIVE_REWRITE_START)
+    default_use_cases = {
+        "wipes": "おむつ替え",
+        "swaddle": "夜の準備",
+        "nursing_support": "授乳準備",
+        "baby_bedding": "寝かしつけ前",
+        "baby_care": "毎日のケア",
+        "baby_sleep": "夜の準備",
+        "soothing_plush": "寝る前",
+        "diaper": "おむつ替え",
+        "formula": "授乳準備",
+        "sleep_light": "夜のお世話",
+    }
     use_case = next(
         (value for value in attributes.confirmed_use_cases if value),
-        required_term,
+        default_use_cases.get(attributes.product_type, required_term),
     )
     scene_term = required_term if required_term != label else use_case
     checkpoint = next(
@@ -1961,6 +1973,21 @@ def add_distinctive_product_detail(
         f"{teaser}{scene_term}の道具を増やすなら、{feature}を使う場所と{checkpoint}を先に決めたいですよね",
         f"{teaser}{feature}は、{use_case}で探す手間を減らせる置き方まで考えたくなります",
     ]
+    if attributes.product_type == "baby_sleep":
+        openings = [
+            f"{teaser}夜中に布団を蹴っていないか気になると、寝る前に何を着せるか迷いますよね",
+            f"{teaser}寝冷えが気になる夜は、布団だけでよいか着せる物にも迷いますよね",
+            f"{teaser}夜に布団を掛け直すことが続くと、寝る前に着せる一枚を決めたくなりますよね",
+            f"{teaser}夜中の寝冷えが気になる時期は、布団と着せる物の組み合わせに迷いますよね",
+            f"{teaser}寝る前に布団と着せる物を毎晩選び直すと、夜の支度に迷いやすいですよね",
+            f"{teaser}夜の洗い替えが足りないと、寝る前に着せる物を探す時間が増えますよね",
+            f"{teaser}布団を蹴る夜が続くと、寝冷えを考えて何を着せるか迷いますよね",
+            f"{teaser}夜中のお世話に備える時、布団に加えて着せる物まで決めるのは手間ですよね",
+            f"{teaser}寝冷えを考えて着せる物を増やすと、夜に使う布団との組み合わせに迷いますよね",
+            f"{teaser}夜の布団と着せる一枚を毎回選び直すと、寝る前の支度が長くなりますよね",
+            f"{teaser}夜中に布団を直す回数が増えると、寝冷えに備えて何を着せるか迷いますよね",
+            f"{teaser}寝る前に着せる物が決まらないと、夜の布団準備まで慌ただしくなりますよね",
+        ]
     middles = [
         f"{feature}なら、{use_case}で必要な時に取り出し、使い終わった後に戻す流れをまとめやすくなります",
         f"{checkpoint}を決めておくと、{label}を準備してから片づけるまでの動きを家族で共有しやすくなります",

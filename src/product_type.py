@@ -165,6 +165,10 @@ def classify_room_product_type(product: Product) -> str:
         name_text, DIAPER_RELATED_ACCESSORIES
     ):
         return "wipes"
+    if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
+        text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
+    ):
+        return "sleep_light"
     # A listing can mention both "sleeper" and generic okurumi wording. Keep
     # explicitly named swaddles first, then treat a named sleeper as sleepwear
     # instead of letting cross-sell care terms change its identity.
@@ -172,10 +176,6 @@ def classify_room_product_type(product: Product) -> str:
         return "swaddle"
     if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["baby_sleep"]):
         return "baby_sleep"
-    if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
-        text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
-    ):
-        return "sleep_light"
     if contains_any(text, ["ゴミ箱", "ごみ箱", "ダストボックス", "おむつ入れ", "オムツ入れ"]):
         return "unknown"
     if "ベビーカー" in text and ("バッグ" in text or "収納" in text):

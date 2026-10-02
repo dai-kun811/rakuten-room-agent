@@ -16,6 +16,7 @@ from main import (
     SEARCH_KEYWORDS_PER_CATEGORY,
     SEARCH_PAGES_PER_KEYWORD,
     TARGET_READY_POSTS,
+    apply_recovery_reuse,
     diversify_products,
     exclude_non_room_candidates,
     generate_until_ready,
@@ -74,6 +75,24 @@ class MainSelectionTest(unittest.TestCase):
                 "https://item.rakuten.co.jp/shop/other",
             },
         )
+
+    def test_recovery_reuse_is_manual_only_and_keeps_other_history(self) -> None:
+        existing = {"https://example.com/keep", "https://example.com/reuse"}
+
+        self.assertEqual(
+            apply_recovery_reuse(
+                existing,
+                {"https://example.com/reuse"},
+                event_name="workflow_dispatch",
+            ),
+            {"https://example.com/keep"},
+        )
+        with self.assertRaises(RuntimeError):
+            apply_recovery_reuse(
+                existing,
+                {"https://example.com/reuse"},
+                event_name="schedule",
+            )
 
     def test_diversify_products_prefers_unique_product_types_per_day(self) -> None:
         candidates = [
