@@ -242,6 +242,23 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         )
         self.assertEqual(generated.status, "ready", generated.quality_errors)
 
+        scored = score_product(product, date(2026, 10, 2))
+        attributes = extract_attributes(product)
+        pattern = next(value for value in PATTERNS["wipes"] if value.pattern_id == "wipes_05")
+        base = build_candidate(scored, attributes, pattern, 0)
+        title, body = add_distinctive_product_detail(
+            base.title,
+            base.body,
+            scored,
+            attributes,
+            attempt=8,
+            required_terms=pattern.title_required,
+        )
+        changed = replace(base, title=title, body=body)
+        self.assertNotIn("買い足に", title)
+        self.assertNotIn("買い足へ", body)
+        self.assertEqual(validate_post(changed, attributes), [])
+
     def test_named_sleeper_beats_generic_care_and_okurumi_terms(self) -> None:
         name = "6重ガーゼ スリーパー ベビー おくるみ 綿 寝冷え対策"
         product = replace(
