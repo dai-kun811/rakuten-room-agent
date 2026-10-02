@@ -226,6 +226,38 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "formula")
 
+    def test_lotion_infused_wipes_keep_wipes_identity(self) -> None:
+        name = "おしりふき ベビーローション入 80枚 36個セット"
+        product = replace(
+            product_for("wipes"),
+            name=name,
+            caption="保湿ケア ベビーローション",
+            catchcopy="赤ちゃんの毎日に",
+        )
+
+        self.assertEqual(classify_product_type(product), "wipes")
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 2)),
+            context=GenerationContext(),
+        )
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+
+    def test_named_sleeper_beats_generic_care_and_okurumi_terms(self) -> None:
+        name = "6重ガーゼ スリーパー ベビー おくるみ 綿 寝冷え対策"
+        product = replace(
+            product_for("baby_sleep"),
+            name=name,
+            caption="保湿性のあるガーゼ 寝冷え対策",
+            catchcopy="洗い替えにも",
+        )
+
+        self.assertEqual(classify_product_type(product), "baby_sleep")
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 2)),
+            context=GenerationContext(),
+        )
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
             "おくるみ スワドル 新生児",
@@ -301,6 +333,20 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             catchcopy="ナイトライト コードレス タイマー付き",
         )
         self.assertEqual(classify_product_type(product), "sleep_light")
+
+    def test_sleep_light_with_night_light_overlap_stays_quality_ready(self) -> None:
+        product = replace(
+            product_for("sleep_light"),
+            name="ホワイトノイズマシン 授乳ライト ナイトライト",
+            caption="寝かしつけ前の夜のお世話に",
+            catchcopy="音量調整付き",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 2)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
 
     def test_diaper_compatible_trash_bin_is_not_paper_diaper(self) -> None:
         product = replace(
@@ -952,6 +998,20 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertNotIn("中にの支度", body)
         self.assertIn("選ぶと、使う流れを想像しやすくなります", body)
         self.assertNotIn("があるもの", title)
+
+    def test_late_baby_sleep_rewrite_keeps_specific_reader_pain(self) -> None:
+        generated = generate("baby_sleep")
+        title, body = add_distinctive_product_detail(
+            generated.title,
+            generated.body,
+            score_product(product_for("baby_sleep"), date(2026, 10, 2)),
+            generated.attributes,
+            attempt=63,
+        )
+        changed = replace(generated, title=title, body=body)
+
+        errors = validate_post(changed, changed.attributes)
+        self.assertFalse(any("marketing_missing_pain" in error for error in errors), errors)
 
     def test_distinctive_title_uses_purchase_decision_not_vague_existence(self) -> None:
         generated = generate("baby_walker_toy")

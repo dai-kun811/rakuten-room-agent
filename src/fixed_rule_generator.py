@@ -2079,6 +2079,17 @@ def add_distinctive_product_detail(
             f"{teaser}{scene_term}で必要な{label}は、使う時間を決めると選びやすくなります",
             f"{teaser}{use_case}に{label}を足すなら、毎日の動きに合うか先に整理できます",
         ]
+        if attributes.product_type == "baby_sleep":
+            direct_openings = [
+                f"{teaser}夜中に布団を蹴っていないか気になると、寝る前に何を着せるか迷いますよね",
+                f"{teaser}寝冷えが気になる夜は、布団だけでよいか着せる物にも迷いますよね",
+                f"{teaser}夜に布団を掛け直すことが続くと、寝る前に着せる一枚を決めたくなりますよね",
+                f"{teaser}夜中の寝冷えが気になる時期は、布団と着せる物の組み合わせに迷いますよね",
+                f"{teaser}寝る前に布団と着せる物を毎晩選び直すと、夜の支度に迷いやすいですよね",
+                f"{teaser}夜の洗い替えが足りないと、寝る前に着せる物を探す時間が増えますよね",
+                f"{teaser}布団を蹴る夜が続くと、寝冷えを考えて何を着せるか迷いますよね",
+                f"{teaser}夜中のお世話に備える時、布団に加えて着せる物まで決めるのは手間ですよね",
+            ]
         direct_opening = ensure_sentence(direct_openings[variant % len(direct_openings)])
         direct_middle = ensure_sentence(
             f"{feature}という商品情報から、{checkpoint}が暮らしに合うか商品ページで見分けられます"
@@ -2127,6 +2138,22 @@ def distinct_title(
 ) -> str:
     label = attributes.short_product_label
     detail = required_term if required_term and required_term != label else use_case or label
+    required_feature = {
+        "ゲームなし": "game_free",
+        "音が鳴る": "sound",
+        "木製": "wood",
+        "名入れ": "name_option",
+        "コードレス": "cordless",
+        "防水": "waterproof",
+        "軽量": "lightweight",
+        "モロー反射": "moro_reflex",
+        "ハンズフリー": "hands_free",
+        "プラネタリウム": "projector",
+        "投影": "projector",
+        "音楽": "music",
+    }.get(detail)
+    if required_feature and required_feature not in attributes.confirmed_features:
+        detail = use_case or label
     feature = confirmed_feature_phrase(attributes)
     checkpoint = next(
         (value for value in attributes.purchase_checkpoints if value),
@@ -2474,6 +2501,33 @@ def classification_consistency_errors(
             attributes.product_type == "swaddle"
             and expected_type == "baby_sleep"
             and any(term in source_text for term in ["スワドル", "モロー反射", "ねくるみ"])
+        ):
+            continue
+        # A named sleeper sometimes also uses the generic word "okurumi" in
+        # its listing. Without explicit swaddle evidence, the more precise
+        # sleeper identity should win.
+        if (
+            attributes.product_type == "baby_sleep"
+            and expected_type == "swaddle"
+            and "スリーパー" in source_text
+            and not any(term in source_text for term in ["スワドル", "モロー反射", "ねくるみ"])
+        ):
+            continue
+        # White-noise/nursing-light products legitimately include generic
+        # night-light or bedtime words. The dedicated light identity is more
+        # specific than the broad baby-sleep bucket.
+        if (
+            attributes.product_type == "sleep_light"
+            and expected_type == "baby_sleep"
+            and any(term in source_text for term in TYPE_KEYWORDS["sleep_light"])
+        ):
+            continue
+        # Lotion-infused wipes can truthfully mention baby lotion or moisture
+        # while the named product remains a disposable wipe.
+        if (
+            attributes.product_type == "wipes"
+            and expected_type == "baby_care"
+            and any(term in attributes.normalized_product_name for term in TYPE_KEYWORDS["wipes"])
         ):
             continue
         if any(keyword.lower() in source_text for keyword in keywords):

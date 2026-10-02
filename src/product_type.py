@@ -158,6 +158,20 @@ def classify_room_product_type(product: Product) -> str:
     # included freebie or adjacent care terms.
     if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["formula"]):
         return "formula"
+    # Prefer the product identity stated in the listing name over adjacent
+    # lotion/care wording from captions. Lotion-infused wipes are still
+    # wipes, not a leave-on baby moisturizer.
+    if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["wipes"]) and not contains_any(
+        name_text, DIAPER_RELATED_ACCESSORIES
+    ):
+        return "wipes"
+    # A listing can mention both "sleeper" and generic okurumi wording. Keep
+    # explicitly named swaddles first, then treat a named sleeper as sleepwear
+    # instead of letting cross-sell care terms change its identity.
+    if contains_any(name_text, ["スワドル", "モロー反射", "ねくるみ"]):
+        return "swaddle"
+    if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["baby_sleep"]):
+        return "baby_sleep"
     if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS["sleep_light"]) and not contains_any(
         text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
     ):
