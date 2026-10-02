@@ -37,11 +37,11 @@ from sheets import (
 
 JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
-POST_SLOTS = ("morning", "noon", "evening")
+POST_SLOTS = ("morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2")
 TARGET_READY_POSTS = len(POST_SLOTS)
 SEARCH_KEYWORDS_PER_CATEGORY = 4
 SEARCH_PAGES_PER_KEYWORD = 2
-# Most normal runs stop after the first three ready items.  When quality
+# Most normal runs stop after the first six ready items.  When quality
 # filtering rejects a broad first pass, keep searching without weakening any
 # content rule.  The larger window lets the ready set retain distinct product
 # types instead of falling back to a repeated night-use type near the boundary.

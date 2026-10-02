@@ -2,27 +2,27 @@
 
 このプロジェクトを担当する全エージェントは、楽天ROOM投稿について「候補生成が動いた」「投稿タスクが終了コード0だった」だけで完了扱いにしてはいけない。
 
-毎日、朝・昼・晩の各1投稿、合計3投稿が楽天ROOMへ正確に投稿され、品質条件を満たし、投稿台帳で `posted` まで確認できた状態を完了条件とする。
+毎日、朝・昼・晩の各2投稿、合計6投稿が楽天ROOMへ正確に投稿され、品質条件を満たし、投稿台帳で `posted` まで確認できた状態を完了条件とする。
 
 必ず確認すること:
 
 - GitHub Actions `daily.yml` の当日runが成功していること。
-- `room-generation-report` で `required_post_slots=["morning","noon","evening"]`、`ready_slots` が3枠すべて揃い、`missing_post_slots=[]` であること。
+- `room-generation-report` で `required_post_slots=["morning_1","morning_2","noon_1","noon_2","evening_1","evening_2"]`、`ready_slots` が6枠すべて揃い、`missing_post_slots=[]` であること。
 - ready候補が品質合格であり、重複・本文類似・短縮名未確定・タイトル不一致などで `needs_review` に落ちていないこと。
-- Windows投稿タスク `RakutenROOMAutoPoster` / `RakutenROOMPostGuard` の結果だけで判断せず、`.local\room-worker\post-ledger.jsonl` に当日 `morning` / `noon` / `evening` の `posted` があること。
+- Windows投稿タスク `RakutenROOMAutoPoster` / `RakutenROOMPostGuard` の結果だけで判断せず、`.local\room-worker\post-ledger.jsonl` に当日6枠すべての `posted` があること。
 - 可能な範囲で実際のROOM表示または公開進捗表示も確認すること。ただしCodex環境の外部サイト制約がある場合は、台帳・Actions artifact・ログを一次証跡とする。
 
 未達の場合の責任:
 
 - 朝・昼・晩のいずれか1枠でも未投稿なら、完了報告をしてはいけない。
 - 生成が失敗した場合は、当日失敗runの artifact を確認し、`ready_slots` / `missing_post_slots` / `review_reasons` / `duplicate_result` / `quality.errors` を原因別に特定する。
-- 品質を落として無理に投稿してはいけない。品質条件を満たす候補が3枠揃うまで、候補選定・生成ロジック・重複判定・再生成条件を安全に修正し、テストし、再実行する。
+- 品質を落として無理に投稿してはいけない。品質条件を満たす候補が6枠揃うまで、候補選定・生成ロジック・重複判定・再生成条件を安全に修正し、テストし、再実行する。
 - 既に投稿済みの枠を重複投稿してはいけない。投稿台帳とslotを見て、未投稿枠だけを回復する。
-- その日の3投稿が `posted` で確認できるまで、各エージェントは責任を持って復旧・検証を継続する。未投稿・生成run失敗・ガード停止を理由に作業を終了しない。
-- 楽天ROOM投稿に失敗した場合、単に停止・待機・失敗報告で終わってはいけない。各エージェントは必ず原因を調査し、朝8時・昼12時・晩19時の各1投稿、合計3投稿が毎日 `posted` になるまで、生成artifact確認、品質原因の修正、再生成、未投稿slotだけの投稿回復、台帳検証を継続する。
+- その日の6投稿が `posted` で確認できるまで、各エージェントは責任を持って復旧・検証を継続する。未投稿・生成run失敗・ガード停止を理由に作業を終了しない。
+- 楽天ROOM投稿に失敗した場合、単に停止・待機・失敗報告で終わってはいけない。各エージェントは必ず原因を調査し、朝8時・昼12時・晩19時の各2投稿、合計6投稿が毎日 `posted` になるまで、生成artifact確認、品質原因の修正、再生成、未投稿slotだけの投稿回復、台帳検証を継続する。
 - 生成run失敗で停止した場合は、必要な修正、テスト、再実行、未投稿slotだけの投稿回復、post-ledger確認までを一連の復旧作業として扱う。
 - その場で外部承認や権限が必要になって復旧を完了できない場合でも、そこで曖昧に終えず、未達slot、失敗run、原因、実施済み修正、次に許可が必要な具体操作を `HANDOFF.md` に残す。
-- 次回以降のエージェントは `HANDOFF.md` の未達slotから再開し、同じ調査を繰り返さず、3枠 `posted` まで継続する。
+- 次回以降のエージェントは `HANDOFF.md` の未達slotから再開し、同じ調査を繰り返さず、6枠 `posted` まで継続する。
 - ユーザーへの報告は「できていない」で止めず、未達枠、原因、実施した復旧、残りの一手を必ず示す。
 
 # rakuten-room — Codex/AI 作業ガイド（AGENTS.md）
@@ -87,7 +87,7 @@
 
 ## プロジェクト概要（rakuten-room）
 
-- **何をするか**: 楽天市場商品検索APIで育児商品を取得 → 朝・昼・晩の3枠すべてで品質合格した商品を各1件選定 → 楽天ROOM向け投稿候補を Googleスプレッドシートへ毎朝追記する収益化エージェント。
+- **何をするか**: 楽天市場商品検索APIで育児商品を取得 → 朝・昼・晩の6枠すべてで品質合格した商品を各1件選定 → 楽天ROOM向け投稿候補を Googleスプレッドシートへ毎朝追記する収益化エージェント。
 - **生成方式**: 通常運用は**固定ルール生成のみ**。OpenAI API / LLM / Structured Outputs は呼ばない（API課金0の設計）。`USE_OPENAI=true` かつ `GENERATION_MODE=openai` を両方明示しない限りLLMは無効。
 - **出力先**: `ready` 行 → 当日分以降を本番シートへ追記 / `needs_review`・ERROR行 → レビュー用シートへ（人間確認対象）。
 - **自動実行**: GitHub Actions `daily.yml`（cron `0 22 * * *` UTC＝**日本時間07:00**）。手動は `workflow_dispatch`。

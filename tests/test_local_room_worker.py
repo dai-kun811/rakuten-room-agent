@@ -18,6 +18,7 @@ from local_room_worker import (
     load_claimed_post_slots,
     load_claimed_product_types,
     load_reserved_urls,
+    next_open_post_slot,
     parse_post_windows,
     ready_items,
     resolve_post_slot,
@@ -41,6 +42,21 @@ class LocalRoomWorkerTest(unittest.TestCase):
             "2026-07-05:evening",
         )
         self.assertEqual(current_post_slot(datetime(2026, 7, 5, 16, 0), windows=windows), "")
+
+    def test_next_open_post_slot_advances_to_second_slot_in_same_period(self) -> None:
+        windows = parse_post_windows(
+            "morning_1:8-11,morning_2:8-11,noon_1:11-16,noon_2:11-16"
+        )
+        now = datetime(2026, 7, 5, 8, 15)
+
+        self.assertEqual(
+            next_open_post_slot(set(), now, windows=windows),
+            "2026-07-05:morning_1",
+        )
+        self.assertEqual(
+            next_open_post_slot({"2026-07-05:morning_1"}, now, windows=windows),
+            "2026-07-05:morning_2",
+        )
 
     def test_actions_run_must_be_today_in_local_timezone(self) -> None:
         jst = timezone(timedelta(hours=9))

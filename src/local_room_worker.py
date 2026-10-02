@@ -19,7 +19,7 @@ from sheets import normalize_product_url
 
 JST_OFFSET = "+09:00"
 REPO_API = "https://api.github.com/repos/dai-kun811/rakuten-room-agent"
-DEFAULT_POST_WINDOWS = "morning:8-11,noon:11-16,evening:17-22"
+DEFAULT_POST_WINDOWS = "morning_1:8-11,morning_2:8-11,noon_1:11-16,noon_2:11-16,evening_1:17-22,evening_2:17-22"
 DEFAULT_GIT = Path(
     r"C:\Users\daiku\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd\git.exe"
 )
@@ -237,6 +237,23 @@ def current_post_slot(
     return ""
 
 
+def next_open_post_slot(
+    claimed_post_slots: set[str],
+    now: datetime | None = None,
+    *,
+    windows: list[tuple[str, int, int]] | None = None,
+    post_date: str | None = None,
+) -> str:
+    """Return the first unclaimed active slot, preserving slot order."""
+    local_now = now or datetime.now().astimezone()
+    effective_date = post_date or local_now.date().isoformat()
+    for label, start, end in windows or parse_post_windows(os.getenv("ROOM_POST_WINDOWS")):
+        slot = f"{effective_date}:{label}"
+        if start <= local_now.hour < end and slot not in claimed_post_slots:
+            return slot
+    return ""
+
+
 def resolve_post_slot(
     now: datetime | None = None,
     *,
@@ -388,8 +405,9 @@ def main() -> int:
         return 1
 
     forced_post_date = os.getenv("ROOM_FORCE_POST_DATE", "").strip() or None
+    forced_post_slot = os.getenv("ROOM_FORCE_POST_SLOT", "").strip()
     slot = resolve_post_slot(
-        override=os.getenv("ROOM_FORCE_POST_SLOT"),
+        override=forced_post_slot,
         post_date=forced_post_date,
     )
     if not slot:
@@ -422,6 +440,12 @@ def main() -> int:
             claimed_slots = load_claimed_post_slots(
                 retry_failed_details=retry_failed_details
             )
+            if not forced_post_slot:
+                slot = next_open_post_slot(claimed_slots, post_date=forced_post_date)
+                if not slot:
+                    logger.info("All active ROOM post slots are already claimed.")
+                    return 0
+                slot_label = slot.rsplit(":", 1)[-1]
             if slot in claimed_slots:
                 logger.info("ROOM post slot already claimed slot=%s", slot)
                 return 0

@@ -29,38 +29,52 @@ class RoomDailyGuardTest(unittest.TestCase):
     def ready_report() -> dict:
         return {
             "run_id": "report-1",
-            "required_post_slots": ["morning", "noon", "evening"],
+            "required_post_slots": [
+                "morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2",
+            ],
             "missing_post_slots": [],
             "items": [
-                {"status": "ready", "post_slot": "morning", "product_url": "https://example.com/m"},
-                {"status": "ready", "post_slot": "noon", "product_url": "https://example.com/n"},
-                {"status": "ready", "post_slot": "evening", "product_url": "https://example.com/e"},
+                {"status": "ready", "post_slot": "morning_1", "product_url": "https://example.com/m1"},
+                {"status": "ready", "post_slot": "morning_2", "product_url": "https://example.com/m2"},
+                {"status": "ready", "post_slot": "noon_1", "product_url": "https://example.com/n1"},
+                {"status": "ready", "post_slot": "noon_2", "product_url": "https://example.com/n2"},
+                {"status": "ready", "post_slot": "evening_1", "product_url": "https://example.com/e1"},
+                {"status": "ready", "post_slot": "evening_2", "product_url": "https://example.com/e2"},
             ],
         }
 
-    def test_report_requires_all_three_ready_slots(self) -> None:
+    def test_report_requires_all_six_ready_slots(self) -> None:
         report = {
-            "required_post_slots": ["morning", "noon", "evening"],
+            "required_post_slots": [
+                "morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2",
+            ],
             "missing_post_slots": [],
             "items": [
-                {"status": "ready", "post_slot": "morning"},
-                {"status": "ready", "post_slot": "noon"},
-                {"status": "ready", "post_slot": "evening"},
+                {"status": "ready", "post_slot": "morning_1"},
+                {"status": "ready", "post_slot": "morning_2"},
+                {"status": "ready", "post_slot": "noon_1"},
+                {"status": "ready", "post_slot": "noon_2"},
+                {"status": "ready", "post_slot": "evening_1"},
+                {"status": "ready", "post_slot": "evening_2"},
             ],
         }
         self.assertTrue(report_has_all_slots(report))
-        report["missing_post_slots"] = ["evening"]
+        report["missing_post_slots"] = ["evening_2"]
         self.assertFalse(report_has_all_slots(report))
 
     def test_due_slots_accumulate_for_same_day_catch_up(self) -> None:
-        windows = [("morning", 8, 11), ("noon", 11, 16), ("evening", 17, 22)]
+        windows = [
+            ("morning_1", 8, 11), ("morning_2", 8, 11),
+            ("noon_1", 11, 16), ("noon_2", 11, 16),
+            ("evening_1", 17, 22), ("evening_2", 17, 22),
+        ]
         self.assertEqual(
             due_slot_labels(datetime(2026, 7, 6, 8, 30), windows=windows),
-            ["morning"],
+            ["morning_1", "morning_2"],
         )
         self.assertEqual(
             due_slot_labels(datetime(2026, 7, 6, 18, 30), windows=windows),
-            ["morning", "noon", "evening"],
+            ["morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2"],
         )
 
     def test_latest_slot_event_wins(self) -> None:
@@ -313,7 +327,7 @@ class RoomDailyGuardTest(unittest.TestCase):
         probe,
         run_worker,
     ) -> None:
-        slot = "2026-07-06:morning"
+        slot = "2026-07-06:morning_1"
         read_events.side_effect = [
             {slot: {"status": "failed", "detail": "TimeoutError"}},
             {slot: {"status": "posted"}},
@@ -321,13 +335,13 @@ class RoomDailyGuardTest(unittest.TestCase):
 
         ensure_slot_posted(
             self.ready_report(),
-            "morning",
+            "morning_1",
             now=datetime(2026, 7, 6, 8, 30),
             logger=logging.getLogger("test"),
         )
 
-        probe.assert_called_once_with("https://example.com/m")
-        run_worker.assert_called_once_with("morning", retry_detail="TimeoutError")
+        probe.assert_called_once_with("https://example.com/m1")
+        run_worker.assert_called_once_with("morning_1", retry_detail="TimeoutError")
 
     @patch("room_daily_guard.run_post_worker", return_value=0)
     @patch("room_daily_guard.run_no_post_probe", return_value=True)
@@ -338,7 +352,7 @@ class RoomDailyGuardTest(unittest.TestCase):
         probe,
         run_worker,
     ) -> None:
-        slot = "2026-07-06:noon"
+        slot = "2026-07-06:noon_1"
         detail = "楽天商品ページにROOM投稿ボタンが見つかりません。"
         read_events.side_effect = [
             {slot: {"status": "failed", "detail": detail}},
@@ -347,13 +361,13 @@ class RoomDailyGuardTest(unittest.TestCase):
 
         ensure_slot_posted(
             self.ready_report(),
-            "noon",
+            "noon_1",
             now=datetime(2026, 7, 6, 12, 30),
             logger=logging.getLogger("test"),
         )
 
-        probe.assert_called_once_with("https://example.com/n")
-        run_worker.assert_called_once_with("noon", retry_detail=detail)
+        probe.assert_called_once_with("https://example.com/n1")
+        run_worker.assert_called_once_with("noon_1", retry_detail=detail)
 
 
 if __name__ == "__main__":

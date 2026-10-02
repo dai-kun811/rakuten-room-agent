@@ -164,10 +164,10 @@ class MainSelectionTest(unittest.TestCase):
             {"daily_need", "pain_solver", "discovery"},
         )
 
-    def test_generate_until_ready_fills_all_three_post_slots(self) -> None:
+    def test_generate_until_ready_fills_all_six_post_slots(self) -> None:
         candidates = [
             scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
-            for index in range(7)
+            for index in range(9)
         ]
 
         class Generated:
@@ -191,17 +191,20 @@ class MainSelectionTest(unittest.TestCase):
             target_ready=TARGET_READY_POSTS,
         )
 
-        self.assertEqual(POST_SLOTS, ("morning", "noon", "evening"))
-        self.assertEqual(len(results), 5)
+        self.assertEqual(
+            POST_SLOTS,
+            ("morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2"),
+        )
+        self.assertEqual(len(results), 8)
         self.assertEqual(
             sum(generated.status == "ready" for _, generated in results),
-            3,
+            6,
         )
 
     def test_generate_until_ready_searches_beyond_former_48_candidate_window(self) -> None:
         candidates = [
             scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
-            for index in range(52)
+            for index in range(56)
         ]
 
         class Generated:
@@ -225,10 +228,10 @@ class MainSelectionTest(unittest.TestCase):
             target_ready=TARGET_READY_POSTS,
         )
 
-        self.assertEqual(generator.calls, 51)
+        self.assertEqual(generator.calls, 54)
         self.assertEqual(
             sum(generated.status == "ready" for _, generated in results),
-            3,
+            6,
         )
 
     def test_generate_until_ready_uses_a_later_distinct_type_before_backup(self) -> None:
