@@ -146,7 +146,7 @@ WEAK_ROOM_COPY_PHRASES = [
     "続けやすいです",
     "同じ道具でも",
 ]
-MARKETING_REQUIRED_TYPES = {"nursing_support", "swaddle", "baby_care", "baby_sleep", "soothing_plush", "baby_walker_toy"}
+MARKETING_REQUIRED_TYPES = {"nursing_support", "swaddle", "baby_bedding", "baby_care", "baby_sleep", "soothing_plush", "baby_walker_toy"}
 
 FORBIDDEN_MARKETING_ENDINGS = [
     "確認したいです",
@@ -677,7 +677,7 @@ def _toy_patterns(
     closings = [
         "親子で一緒に手を動かせるので、雨の日のおうち時間に遊び方を増やせるおもちゃです。",
         "出しっぱなしでも部屋になじむデザインなら、はじめての知育おもちゃやギフトにも選びやすいです。",
-        "ピース数があるタイプなら遊び方の幅も広がるので、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "商品ページにある遊び方を親子で試せるので、はじめての知育おもちゃとして取り入れやすいです。",
         "パーツをまとめて扱いやすいタイプなら、遊んだ後の片づけまで親子で進めやすいです。",
         "遊ぶ場所に合うサイズなら、家でも出しやすく、誕生日ギフトにも選びやすいです。",
     ]
@@ -1045,19 +1045,16 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         prefix = "・".join(unique_details[:3])
         return f"{prefix}を備えた{attributes.short_product_label}"
     if attributes.product_type == "baby_bedding":
-        details = [
-            label
-            for key, label in [
-                ("hug_futon", "抱っこ布団"),
-                ("sleep_cushion", "ねんねクッション"),
-                ("baby_futon", "ベビー布団"),
-                ("double_gauze", "ダブルガーゼ"),
-                ("cotton", "コットン素材"),
-            ]
-            if key in features
-        ]
-        prefix = "・".join(dict.fromkeys(details))
-        return prefix or attributes.short_product_label
+        # SEO-rich listings often name adjacent bedding categories together.
+        # Use the classified product label once, then add only material facts.
+        material = (
+            "ダブルガーゼの"
+            if "double_gauze" in features
+            else "コットン素材の"
+            if "cotton" in features
+            else ""
+        )
+        return f"{material}{attributes.short_product_label}"
     if attributes.product_type == "baby_care":
         if "moisturizing" in features and ("baby_lotion" in features or "baby_cream" in features):
             return "保湿ケアに使うベビー保湿剤"
@@ -1536,7 +1533,7 @@ def uses_marketing_copy(attributes: ProductAttributes) -> bool:
         )
     if attributes.product_type == "diaper":
         return bool(features & {"diaper_sheet", "diaper_pouch", "diaper_storage"})
-    if attributes.product_type in {"baby_care", "baby_sleep", "baby_walker_toy"}:
+    if attributes.product_type in {"baby_bedding", "baby_care", "baby_sleep", "baby_walker_toy"}:
         return bool(features)
     return attributes.product_type in {"swaddle", "soothing_plush"}
 
@@ -1611,6 +1608,13 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
             "今の月齢に合うサイズと素材を選べば、"
             "夜中に着せる物を毎回選び直す時間を減らせる一枚です。"
         )
+        return title, problem + scene + closing
+
+    if attributes.product_type == "baby_bedding":
+        title = "寝かしつけ前の寝具を決めたい"
+        problem = "寝かしつけ前に使う寝具の置き場所が寝室とリビングに分かれていると、赤ちゃんを抱えたまま取りに戻るのは手間ですよね。"
+        scene = f"{feature}なら、ねんね前に使う寝具を一つに絞り、使う場所へ準備しやすくなります。"
+        closing = "本体サイズと素材を見て選べば、寝かしつけ前に寝具を探し直す手間を減らせるアイテムです。"
         return title, problem + scene + closing
 
     if attributes.product_type == "baby_care":
@@ -1708,6 +1712,8 @@ def purchase_check_phrase(attributes: ProductAttributes) -> str:
             checks.append("カバーのお手入れ")
     elif attributes.product_type == "swaddle":
         checks = ["対象サイズ", "素材"]
+    elif attributes.product_type == "baby_bedding":
+        checks = ["本体サイズ", "素材"]
     elif attributes.product_type == "baby_care":
         checks = ["対象月齢", "使う部位"]
     elif attributes.product_type == "baby_sleep":
@@ -1941,14 +1947,25 @@ def add_distinctive_product_detail(
         "soothing_plush": "寝る前",
         "diaper": "おむつ替え",
         "formula": "授乳準備",
+        "baby_walker_toy": "室内遊び",
+        "activity_cube": "手先遊び",
         "sleep_light": "夜のお世話",
     }
     use_case = next(
         (value for value in attributes.confirmed_use_cases if value),
         default_use_cases.get(attributes.product_type, required_term),
     )
+    # Verb-like use-case labels are useful metadata, but appending the case
+    # particle "で" to them creates copy such as "押して遊ぶで使う".  Use a
+    # natural noun phrase in sentence templates for these product types.
+    if attributes.product_type in {"baby_walker_toy", "activity_cube", "baby_bedding"}:
+        use_case = default_use_cases[attributes.product_type]
     required_phrase = "と".join(term for term in required_terms if term)
     scene_term = required_phrase or (required_term if required_term != label else use_case)
+    if attributes.product_type == "baby_walker_toy" and scene_term in {"押して", "押して遊ぶ"}:
+        scene_term = "押して遊ぶ場面"
+    if attributes.product_type == "activity_cube" and scene_term in {"型はめ", "ルーピング"}:
+        scene_term = f"{scene_term}遊び"
     if attributes.product_type == "magnetic_blocks" and scene_term in {
         "組み立て", "平面", "立体", "形", "磁石", "マグネット"
     }:
@@ -2316,6 +2333,22 @@ def validate_post(
         errors.append("marketing_weak_cta: 投稿文が確認・比較中心の弱い表現を含む")
     if "です、" in post.body or "ます、" in post.body:
         errors.append("不自然な文接続を使用")
+    awkward_copy = [
+        "押して遊ぶで探す手間",
+        "押して遊ぶで使う",
+        "ピース数があるタイプなら",
+    ]
+    if any(value in post.body for value in awkward_copy):
+        errors.append("marketing_awkward_condition: 不自然または根拠の弱い定型表現を使用")
+    if attributes.product_type == "baby_bedding" and any(
+        value in post.body
+        for value in [
+            "抱っこ布団やねんねクッションは、家のどこで使うか",
+            "抱っこ布団・ねんねクッション",
+            "ねんねクッション・ベビー布団",
+        ]
+    ):
+        errors.append("marketing_generic_copy: 寝具の商品名列挙または一般論を使用")
     noise_check_text = f"{post.title}{strip_listing_teaser(post.body)}"
     if any(re.search(pattern, noise_check_text, flags=re.IGNORECASE) for pattern in NOISE_PATTERNS):
         errors.append("商品名ノイズが残っている")
@@ -2465,6 +2498,7 @@ def has_reader_pain(product_type: str, body: str) -> bool:
     required = {
         "nursing_support": ["授乳", "クッション", "置き場所", "集め", "哺乳瓶", "ミルク", "支え"],
         "swaddle": ["夜", "何を着せる", "洗い替え", "着替え"],
+        "baby_bedding": ["寝かしつけ前", "寝具", "取りに戻る", "ねんね前", "探し直す"],
         "baby_care": ["ケア", "保湿", "お風呂上がり", "爪", "鼻", "体温"],
         "baby_sleep": ["夜", "布団", "着せる", "寝冷え", "灯り"],
         "diaper": ["おむつ替え", "外出", "交換", "探す", "敷く物"],
@@ -2478,6 +2512,7 @@ def has_daily_scene(product_type: str, body: str) -> bool:
     required = {
         "nursing_support": ["授乳", "いつもの授乳場所", "クッション"],
         "swaddle": ["新生児期", "夜", "着替え", "家族"],
+        "baby_bedding": ["寝かしつけ前", "寝室", "リビング", "ねんね前"],
         "baby_care": ["お風呂上がり", "朝", "毎日", "必要な時"],
         "baby_sleep": ["夜", "寝る前", "夜中", "夜のお世話"],
         "diaper": ["外出先", "おむつ替え", "家の中", "交換前"],
@@ -2491,6 +2526,7 @@ def has_life_change(product_type: str, body: str) -> bool:
     required = {
         "nursing_support": ["手間を減らせる", "迷う時間を減らせます", "迷いを減らせる", "準備しやすく"],
         "swaddle": ["迷う時間を減らせる", "考える時間を減らせる", "選び直す時間を減らせる", "シンプルにできる"],
+        "baby_bedding": ["探し直す手間を減らせる", "取りに戻る手間を減らせる", "準備しやすく"],
         "baby_care": ["迷う時間を減らせる", "探す手間を減らせる", "取り入れやすい", "そろえやすく"],
         "baby_sleep": ["布ものを減らせる", "探す時間を減らせる", "迷う時間を減らせる", "一つ決めやすく"],
         "diaper": ["探す手間を減らせる", "探す時間を減らせる", "まとめやすく", "決めやすく"],

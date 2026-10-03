@@ -413,6 +413,54 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             self.assertLessEqual(len(split_sentences(generated.body)), 3, generated.body)
             self.assertFalse(any(term in generated.body for term in forbidden), generated.body)
 
+    def test_baby_walker_distinctive_rewrites_keep_natural_particles(self) -> None:
+        product = product_for("baby_walker_toy")
+        scored = score_product(product, date(2026, 10, 3))
+        attributes = extract_attributes(product)
+        generated = generate("baby_walker_toy")
+
+        for attempt in range(8, MAX_GENERATION_ATTEMPTS):
+            _title, body = add_distinctive_product_detail(
+                generated.title,
+                generated.body,
+                scored,
+                attributes,
+                attempt=attempt,
+                required_terms=("押して",),
+            )
+            self.assertNotIn("押して遊ぶで", body, (attempt, body))
+
+    def test_baby_bedding_copy_uses_one_product_identity_and_concrete_pain(self) -> None:
+        generated = generate("baby_bedding")
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("寝かしつけ前", generated.body)
+        self.assertIn("探し直す手間を減らせる", generated.body)
+        self.assertNotIn("抱っこ布団・ねんねクッション", generated.body)
+        self.assertNotIn("家のどこで使うか決め", generated.body)
+
+    def test_quality_gate_rejects_known_awkward_generated_phrases(self) -> None:
+        cases = [
+            ("baby_walker_toy", "押して遊ぶで使う"),
+            ("baby_walker_toy", "押して遊ぶで探す手間"),
+            ("activity_cube", "ピース数があるタイプなら"),
+        ]
+        for product_type, phrase in cases:
+            generated = generate(product_type)
+            changed = replace(generated, body=generated.body + phrase)
+            self.assertIn(
+                "marketing_awkward_condition: 不自然または根拠の弱い定型表現を使用",
+                validate_post(changed, changed.attributes),
+                (product_type, phrase),
+            )
+
+        bedding = generate("baby_bedding")
+        changed = replace(bedding, body=bedding.body + "抱っこ布団・ねんねクッション・ベビー布団なら使いやすいです。")
+        self.assertIn(
+            "marketing_generic_copy: 寝具の商品名列挙または一般論を使用",
+            validate_post(changed, changed.attributes),
+        )
+
     def test_block_posts_do_not_end_with_weak_room_copy(self) -> None:
         weak_phrases = [
             "確認したい",
@@ -460,6 +508,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("遊び方を増やせる", generated.body)
         for weak_phrase in ["確認しておきたい", "見ておきたい", "比べたい", "判断したい", "選びたい"]:
             self.assertNotIn(weak_phrase, generated.body)
+        self.assertNotIn("ピース数があるタイプなら", generated.body)
 
     def test_magnetic_blocks_do_not_mix_conflicting_quantities(self) -> None:
         generated = generate("magnetic_blocks")
