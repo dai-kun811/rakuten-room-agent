@@ -1947,7 +1947,18 @@ def add_distinctive_product_detail(
         (value for value in attributes.confirmed_use_cases if value),
         default_use_cases.get(attributes.product_type, required_term),
     )
-    scene_term = required_term if required_term != label else use_case
+    required_phrase = "と".join(term for term in required_terms if term)
+    scene_term = required_phrase or (required_term if required_term != label else use_case)
+    if attributes.product_type == "magnetic_blocks" and scene_term in {
+        "組み立て", "平面", "立体", "形", "磁石", "マグネット"
+    }:
+        scene_term = f"{scene_term}遊び"
+    if attributes.product_type == "wipes":
+        scene_term = {
+            "残り": "残り枚数",
+            "備え": "備える場面",
+            "消耗品": "消耗品の補充",
+        }.get(scene_term, scene_term)
     checkpoint = next(
         (value for value in attributes.purchase_checkpoints if value),
         "使う場所",
@@ -1992,10 +2003,10 @@ def add_distinctive_product_detail(
         f"{feature}なら、{use_case}で必要な時に取り出し、使い終わった後に戻す流れをまとめやすくなります",
         f"{checkpoint}を決めておくと、{label}を準備してから片づけるまでの動きを家族で共有しやすくなります",
         f"{checkpoint}を手がかりにすれば、{scene_term}で使う物を増やし過ぎずに整えられます",
-        f"{use_case}の動線へ{label}の定位置を作ると、必要な時に探す手間を抑えやすくなります",
+        f"{use_case}で使う場所へ{label}の定位置を作ると、必要な時に探す手間を抑えやすくなります",
         f"{feature}を使う場面が決まれば、{checkpoint}で迷う時間を減らして準備へ移りやすくなります",
         f"{label}の置き場所を{use_case}の近くに決めると、準備と片づけを同じ流れにまとめられます",
-        f"{scene_term}の前後で使う物として{feature}を整理すると、家族も必要な時に手に取りやすくなります",
+        f"{scene_term}を手がかりに、{use_case}で使う{feature}を整理すると、家族も必要な時に手に取りやすくなります",
         f"{label}でも、{checkpoint}と{use_case}が合えば毎日の動線へ無理なく置きやすくなります",
     ]
     # The price used to make otherwise-similar rewrites look different.  Use
@@ -2008,6 +2019,10 @@ def add_distinctive_product_detail(
     sleep_scenes = [
         "寝る前に", "夜の支度中に", "お風呂上がりに", "洗濯物を戻す時に",
         "着替えを用意する時に", "寝室を整える時に", "洗い替えを選ぶ時に", "家族で夜支度をする時に",
+    ]
+    sleep_light_scenes = [
+        "夜の授乳前に", "寝かしつけ前に", "寝室を整える時に", "音量を決める時に",
+        "充電後に", "手元の灯りを使う時に", "置き場所を決める時に", "夜のお世話前に",
     ]
     play_scenes = [
         "遊び始める前に", "片づける時に", "雨の日に", "休日の遊び時間に",
@@ -2040,7 +2055,7 @@ def add_distinctive_product_detail(
         "baby_bedding": sleep_scenes,
         "baby_sleep": sleep_scenes,
         "soothing_plush": sleep_scenes,
-        "sleep_light": sleep_scenes,
+        "sleep_light": sleep_light_scenes,
         "sound_blocks": play_scenes,
         "wooden_blocks": play_scenes,
         "magnetic_blocks": play_scenes,

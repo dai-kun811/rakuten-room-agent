@@ -1046,6 +1046,31 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertNotIn("寝冷えへ", body)
         self.assertEqual(validate_post(changed, changed.attributes), [])
 
+    def test_distinctive_rewrites_keep_product_specific_scene_grammar(self) -> None:
+        cases = [
+            ("magnetic_blocks", "magnetic_blocks_02", 9),
+            ("wipes", "wipes_07", 10),
+            ("sleep_light", "sleep_light_02", 9),
+        ]
+        forbidden = ["組み立てで使う時間", "残りの前後", "洗い替えを選ぶ時"]
+        for product_type, pattern_id, attempt in cases:
+            product = product_for(product_type)
+            scored = score_product(product, date(2026, 10, 2))
+            attributes = extract_attributes(product)
+            pattern = next(value for value in PATTERNS[product_type] if value.pattern_id == pattern_id)
+            base = build_candidate(scored, attributes, pattern, 0)
+            title, body = add_distinctive_product_detail(
+                base.title,
+                base.body,
+                scored,
+                attributes,
+                attempt=attempt,
+                required_terms=pattern.title_required,
+            )
+            changed = replace(base, title=title, body=body)
+            self.assertFalse(any(value in body for value in forbidden), (product_type, body))
+            self.assertEqual(validate_post(changed, attributes), [], (product_type, title, body))
+
     def test_distinctive_title_uses_purchase_decision_not_vague_existence(self) -> None:
         generated = generate("baby_walker_toy")
         title, _body = add_distinctive_product_detail(
