@@ -192,6 +192,12 @@ def classify_room_product_type(product: Product) -> str:
         return "baby_sleep"
     if contains_any(text, ["ゴミ箱", "ごみ箱", "ダストボックス", "おむつ入れ", "オムツ入れ"]):
         return "unknown"
+    # A maternity pillow can advertise nursing as one later use while the
+    # listed product is still primarily a pregnancy/body pillow.  The current
+    # nursing copy assumes a dedicated feeding support product, so keep the
+    # mixed-purpose item in review until it has its own copy model.
+    if "妊娠枕" in name_text and contains_any(name_text, ["抱き枕", "抱きまくら"]):
+        return "unknown"
     if "ベビーカー" in text and ("バッグ" in text or "収納" in text):
         return "stroller_storage"
     if ("積み木" in text or "つみき" in text) and (

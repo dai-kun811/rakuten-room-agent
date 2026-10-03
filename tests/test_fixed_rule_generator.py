@@ -215,6 +215,60 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_maternity_body_pillow_is_not_treated_as_dedicated_nursing_cushion(self) -> None:
+        product = replace(
+            product_for("nursing_support"),
+            name="妊娠枕 抱き枕 C型 授乳クッション マタニティ ロング",
+            caption="妊娠中の抱き枕 産後は授乳にも使える",
+            catchcopy="C字型 体圧分散",
+        )
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
+    def test_specific_listing_facts_survive_quality_rewrites(self) -> None:
+        cases = [
+            (
+                replace(
+                    product_for("formula"),
+                    name="粉ミルク ステップ2 6〜12カ月 800g 6缶 海外通販",
+                    catchcopy="粉ミルク 6〜12カ月 800g 6缶 授乳 夜間 残量管理 海外通販",
+                ),
+                ["6〜12カ月", "800g", "6缶", "海外通販", "賞味期限"],
+            ),
+            (
+                replace(
+                    product_for("baby_sleep"),
+                    name="6重ガーゼ スリーパー 日本製 新生児",
+                    catchcopy="6重ガーゼ スリーパー 綿 夜 寝冷え 洗える",
+                ),
+                ["6重ガーゼ", "サイズ", "素材"],
+            ),
+            (
+                replace(
+                    product_for("baby_care"),
+                    name="ベビー保湿剤 250g 顔 全身 ポンプ",
+                    catchcopy="ベビーローション ベビークリーム 保湿 250g 全身 ポンプ",
+                ),
+                ["250g", "ポンプ", "全身"],
+            ),
+            (
+                replace(
+                    product_for("swaddle"),
+                    name="スワドル 新生児 綿100% 上下ファスナー",
+                    catchcopy="モロー反射 スワドル 夜 綿100% ファスナー",
+                ),
+                ["綿100", "ファスナー", "サイズ"],
+            ),
+        ]
+        for product, required in cases:
+            generated = FixedRulePostGenerator().generate(
+                score_product(product, date(2026, 10, 4)),
+                context=GenerationContext(),
+            )
+            self.assertEqual(generated.status, "ready", (product.name, generated.quality_errors))
+            for value in required:
+                self.assertIn(value, generated.body, (product.name, generated.body))
+
     def test_formula_with_bonus_wipes_keeps_formula_identity(self) -> None:
         name = "雪印 粉ミルク 820g 4缶 おしりふき80枚付き"
         product = replace(

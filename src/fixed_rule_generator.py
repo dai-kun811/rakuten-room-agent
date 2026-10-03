@@ -1008,11 +1008,14 @@ def select_checkpoints(product_type: str, text: str) -> list[str]:
 def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
     features = set(attributes.confirmed_features)
     quantity = attributes.confirmed_quantity_features[0] if attributes.confirmed_quantity_features else ""
+    source = attributes.source_product_text
     if attributes.product_type == "wipes":
         prefix = "厚手の" if "thick" in features else ""
         quantity_text = f"{quantity}入りの" if quantity else ""
         return f"{prefix}{quantity_text}{attributes.short_product_label}"
     if attributes.product_type == "swaddle":
+        if "綿100" in source and "ファスナー" in source:
+            return "綿100％で上下ファスナー式のスワドル"
         parts = []
         if "sleeper" in features:
             parts.append("スリーパー型")
@@ -1024,6 +1027,9 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             return f"{'・'.join(parts)}{attributes.short_product_label}"
         return attributes.short_product_label
     if attributes.product_type == "nursing_support":
+        if any(term in source for term in ["妊娠枕", "抱き枕", "抱きまくら"]):
+            shape = "C字型" if any(term in source for term in ["c型", "c字"]) else ""
+            return f"授乳にも使える{shape}ロング抱き枕"
         details = [
             label
             for key, label in [
@@ -1062,6 +1068,8 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         return f"{material}{attributes.short_product_label}"
     if attributes.product_type == "baby_care":
         if "moisturizing" in features and ("baby_lotion" in features or "baby_cream" in features):
+            if quantity and "ポンプ" in source and "全身" in source:
+                return f"顔と全身に使える{quantity}のポンプ式ベビー保湿剤"
             return "保湿ケアに使うベビー保湿剤"
         if "nail_care" in features:
             return "赤ちゃんの爪まわりに使うケア用品"
@@ -1071,6 +1079,8 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             return "毎日の体調確認に使う体温計"
         return attributes.short_product_label
     if attributes.product_type == "baby_sleep":
+        if "6重" in source and "sleeper" in features and "gauze" in features:
+            return "6重ガーゼのスリーパー"
         if "sleeper" in features and "gauze" in features:
             return "ガーゼ素材のスリーパー"
         if "sleeper" in features:
@@ -2215,7 +2225,40 @@ def product_specific_distinctive_copy(
     label = attributes.short_product_label
     feature = confirmed_feature_phrase(attributes)
 
-    if product_type == "activity_cube":
+    if product_type == "formula":
+        quantities = list(attributes.confirmed_quantity_features)
+        can_size = next((value for value in quantities if value.lower().endswith("g")), "")
+        can_count = next((value for value in quantities if value.endswith("缶")), "")
+        age_match = re.search(r"(\d+)\s*[〜~～\-]\s*(\d+)\s*(?:カ月|か月|ヶ月)", attributes.source_product_text)
+        age_text = f"{age_match.group(1)}〜{age_match.group(2)}カ月" if age_match else "月齢に合う段階"
+        pack_text = "×".join(value for value in [can_size, can_count] if value) or feature
+        overseas = "海外通販" in attributes.source_product_text
+        titles = [
+            f"{label}｜{age_text}向けを補充",
+            f"{label}｜{pack_text}を使い切れる量か確認",
+            f"{label}｜授乳ペースに合うまとめ買い",
+            f"{label}｜賞味期限までに使える量を選ぶ",
+        ]
+        pains = [
+            "粉ミルクをまとめて買う時は、月齢に合う種類か、賞味期限までに使い切れる量かが気になりますよね。",
+            "夜間授乳のストックは安心ですが、缶数が多いほど保管場所と使い切る時期まで考えたいですよね。",
+            "買い足し回数を減らしたくても、今の授乳ペースより多過ぎるセットは避けたいですよね。",
+            "未開封の粉ミルクを備えるなら、次の段階へ移る前に使える量か確かめたいですよね。",
+        ]
+        scenes = [
+            f"{age_text}向け・{pack_text}の粉ミルクなら、授乳回数から一缶を使う日数と未開封分の残りを家族で見通せます。",
+            f"{pack_text}のセットなら、一缶を開けた日と次の買い足し時期をそろえて管理しやすくなります。",
+            f"{age_text}向けの{feature}なら、今の授乳量を基に必要な缶数を具体的に考えられます。",
+            f"{pack_text}というセット内容が分かるので、普段の消費量と収納場所に収まるかを先に比べられます。",
+        ]
+        delivery_check = "海外通販の配送条件・" if overseas else ""
+        closings = [
+            f"{delivery_check}賞味期限・保管場所を商品ページで確認し、家庭の消費ペースに合えば夜の授乳ストックをまとめて整えられるセットです。",
+            f"{delivery_check}賞味期限と一度に届く缶数を確かめれば、使い切れる量だけを備えて買い足し忘れを減らせます。",
+            f"対象月齢・賞味期限・保管場所を確認すれば、次の段階へ移る時期までに使える量を選びやすいセットです。",
+            f"{delivery_check}賞味期限までに消費できる量なら、夜間授乳用の未開封ストックを切らしにくくできます。",
+        ]
+    elif product_type == "activity_cube":
         actions = [
             value
             for key, value in [("shape_sorter", "型はめ"), ("looping", "ルーピング")]
@@ -2510,7 +2553,7 @@ def distinct_title(
         f"{label}｜{checkpoint}を決める",
         f"{label}｜{detail}の候補に",
         f"{label}｜{use_case}を助ける",
-        f"{label}｜{feature}を手がかりに",
+        f"{label}｜{feature}の仕様から選ぶ",
         f"{label}｜{detail}で使う",
         f"{label}｜{use_case}に合う",
         f"{label}｜{checkpoint}も確認",
@@ -2663,6 +2706,27 @@ def validate_post(
         for marker in FEATURE_MARKERS.get(feature, [])
     ) and not any(quantity in body_for_claims for quantity in attributes.confirmed_quantity_features):
         errors.append("confirmed_feature_missing: 商品固有の確認済み特徴がない")
+    source_text = attributes.source_product_text
+    if attributes.product_type == "formula":
+        age_match = re.search(r"(\d+)\s*[〜~～\-]\s*(\d+)\s*(?:カ月|か月|ヶ月)", source_text)
+        if age_match:
+            age_text = f"{age_match.group(1)}〜{age_match.group(2)}カ月"
+            if age_text not in body_for_claims:
+                errors.append("product_specific_fact_missing: 粉ミルクの対象月齢が本文にない")
+        quantities = list(attributes.confirmed_quantity_features[:2])
+        if len(quantities) >= 2 and not all(value in body_for_claims for value in quantities):
+            errors.append("product_specific_fact_missing: 粉ミルクの容量と缶数が本文にない")
+        if "海外通販" in source_text and "海外通販" not in body_for_claims:
+            errors.append("product_specific_fact_missing: 海外通販の配送確認が本文にない")
+    if attributes.product_type == "baby_sleep" and "6重" in source_text and "6重" not in body_for_claims:
+        errors.append("product_specific_fact_missing: スリーパーの6重ガーゼ仕様が本文にない")
+    if attributes.product_type == "baby_care" and "ポンプ" in source_text:
+        quantity = next(iter(attributes.confirmed_quantity_features), "")
+        if "ポンプ" not in body_for_claims or (quantity and quantity not in body_for_claims):
+            errors.append("product_specific_fact_missing: 保湿剤の容量とポンプ仕様が本文にない")
+    if attributes.product_type == "swaddle" and "綿100" in source_text and "ファスナー" in source_text:
+        if "綿100" not in body_for_claims or "ファスナー" not in body_for_claims:
+            errors.append("product_specific_fact_missing: スワドルの素材と開閉仕様が本文にない")
     used_features = {
         feature
         for feature, markers in FEATURE_MARKERS.items()

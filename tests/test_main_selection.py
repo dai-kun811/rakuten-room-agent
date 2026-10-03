@@ -46,8 +46,8 @@ def scored(name: str, url: str, total_score: int):
 
 class MainSelectionTest(unittest.TestCase):
     def test_daily_search_uses_additional_keywords_and_pages(self) -> None:
-        self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 4)
-        self.assertEqual(SEARCH_PAGES_PER_KEYWORD, 2)
+        self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 6)
+        self.assertEqual(SEARCH_PAGES_PER_KEYWORD, 3)
 
     def test_excludes_non_room_candidates_before_selection(self) -> None:
         candidates = [

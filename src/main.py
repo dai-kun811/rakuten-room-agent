@@ -39,13 +39,13 @@ JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
 POST_SLOTS = ("morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2")
 TARGET_READY_POSTS = len(POST_SLOTS)
-SEARCH_KEYWORDS_PER_CATEGORY = 4
-SEARCH_PAGES_PER_KEYWORD = 2
+SEARCH_KEYWORDS_PER_CATEGORY = 6
+SEARCH_PAGES_PER_KEYWORD = 3
 # Most normal runs stop after the first six ready items.  When quality
 # filtering rejects a broad first pass, keep searching without weakening any
 # content rule.  The larger window lets the ready set retain distinct product
 # types instead of falling back to a repeated night-use type near the boundary.
-MAX_DIVERSITY_CANDIDATES = 160
+MAX_DIVERSITY_CANDIDATES = 240
 SUPPORTED_ROOM_PRODUCT_TYPES = set(HASHTAGS)
 EXCLUDED_ROOM_CANDIDATE_TERMS = (
     # Furusato tax listings do not expose the Rakuten ROOM post control.  They
