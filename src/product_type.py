@@ -71,6 +71,15 @@ BATH_TOWEL_PRODUCT_TERMS = [
     "タオルポンチョ",
 ]
 
+BABY_BEDDING_BASE_PATTERN = r"(?:抱っこ布団|ねんねクッション|ベビー布団)"
+BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
+    rf"(?:"
+    rf"{BABY_BEDDING_BASE_PATTERN}[\s　・/_-]*(?:専用|交換用|替え用|替え)?[\s　・/_-]*カバー"
+    rf"|(?:専用|交換用|替え用|替え)[\s　・/_-]*カバー[^\n]{{0,30}}{BABY_BEDDING_BASE_PATTERN}"
+    rf")",
+    flags=re.IGNORECASE,
+)
+
 ROOM_PRODUCT_TYPE_PRIORITY = [
     "swaddle",
     "nursing_support",
@@ -152,6 +161,11 @@ def classify_room_product_type(product: Product) -> str:
     if contains_any(text, MAGNETIC_BLOCK_ACCESSORY_TERMS):
         return "unknown"
     if contains_any(text, BATH_TOWEL_PRODUCT_TERMS):
+        return "unknown"
+    # Replacement covers are accessories, not the bedding body assumed by
+    # the automatic copy.  Keep an actual futon/cushion sold with a cover
+    # eligible, but reject listings whose named product is the cover itself.
+    if BABY_BEDDING_COVER_ONLY_PATTERN.search(name_text) and "カバー付き" not in name_text:
         return "unknown"
     # The listed product is formula even when a bonus pack of wipes is named
     # in the same title.  Prefer the core product named explicitly over the

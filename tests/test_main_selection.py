@@ -149,6 +149,16 @@ class MainSelectionTest(unittest.TestCase):
             ["magnetic_blocks", "sleep_light", "diaper"],
         )
 
+    def test_baby_bedding_cover_is_unsupported_before_generation(self) -> None:
+        cover = scored(
+            "抱っこ布団カバー 日本製 mayu ねんねクッション専用",
+            "https://example.com/bedding-cover",
+            100,
+        )
+
+        self.assertEqual(classify_product_type(cover.product), "unknown")
+        self.assertFalse(is_supported_room_product(cover.product))
+
     def test_diversify_products_mixes_daily_pain_and_discovery_axes(self) -> None:
         candidates = [
             scored("おしりふき 厚手 80枚", "https://example.com/wipes", 100),

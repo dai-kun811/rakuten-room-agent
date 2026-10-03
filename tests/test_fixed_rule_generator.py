@@ -385,6 +385,30 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertEqual(classify_product_type(product), expected, name)
 
+    def test_baby_bedding_replacement_covers_are_not_treated_as_bedding(self) -> None:
+        cover_names = [
+            "抱っこ布団カバー 日本製 ダブルガーゼ mayu ねんねクッション専用",
+            "ねんねクッション専用カバー 洗い替え用",
+            "ベビー布団 交換用 カバー 単品",
+        ]
+        for name in cover_names:
+            product = replace(
+                product_for("baby_bedding"),
+                name=name,
+                caption=name,
+                catchcopy=name,
+                url=f"https://example.com/bedding-cover/{len(name)}",
+            )
+            self.assertEqual(classify_product_type(product), "unknown", name)
+
+        bedding_with_cover = replace(
+            product_for("baby_bedding"),
+            name="抱っこ布団 カバー付き 日本製 ダブルガーゼ",
+            caption="抱っこ布団本体 カバー付き 洗える",
+            catchcopy="抱っこ布団本体とカバーのセット",
+        )
+        self.assertEqual(classify_product_type(bedding_with_cover), "baby_bedding")
+
     def test_baby_walker_toy_posts_are_not_blocks_or_walking_claims(self) -> None:
         cases = [
             "木製 手押し車",
