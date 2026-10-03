@@ -511,18 +511,22 @@ def generate_until_ready(
     context: GenerationContext,
     target_ready: int,
 ):
-    """Generate three quality-safe posts without settling for a type repeat early.
+    """Generate the required quality-safe posts from supported product types.
 
     A product can fail the text-quality rules after the initial product
     selection has been diversified.  Keep looking through a bounded set of
     candidates for another ready product type before using a same-type backup.
-    This protects the actual posted three items, not merely the input ranking.
+    Unsupported types cannot produce fact-grounded copy, so do not spend the
+    generation budget on them.  This protects the actual posted set, not
+    merely the input ranking.
     """
     accepted: list[tuple[ScoredProduct, object]] = []
     deferred: list[tuple[ScoredProduct, object]] = []
     reviewed: list[tuple[ScoredProduct, object]] = []
     used_types: set[str] = set()
-    candidate_window = candidates[:MAX_DIVERSITY_CANDIDATES]
+    candidate_window = [
+        candidate for candidate in candidates if is_supported_room_product(candidate.product)
+    ][:MAX_DIVERSITY_CANDIDATES]
 
     def has_unseen_type(start_index: int) -> bool:
         return any(

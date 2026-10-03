@@ -318,6 +318,63 @@ class RoomDailyGuardTest(unittest.TestCase):
 
         session.post.assert_not_called()
 
+    @patch("room_daily_guard.time.sleep", return_value=None)
+    @patch("room_daily_guard.fetch_latest_generation_report")
+    @patch("room_daily_guard.fetch_workflow_runs")
+    def test_failed_generation_allows_one_recovery_for_new_head(
+        self,
+        fetch_runs,
+        fetch_report,
+        _sleep,
+    ) -> None:
+        now = datetime(2026, 7, 6, 7, 30, tzinfo=timezone(timedelta(hours=9)))
+        failed = {
+            "id": 71,
+            "status": "completed",
+            "conclusion": "failure",
+            "created_at": "2026-07-05T22:05:00Z",
+            "head_sha": "new-head",
+        }
+        successful = {
+            "id": 72,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-07-05T22:08:00Z",
+            "head_sha": "new-head",
+        }
+        fetch_runs.side_effect = [[failed], [successful]]
+        fetch_report.return_value = (successful, self.ready_report())
+        response = Mock()
+        response.raise_for_status.return_value = None
+        session = Mock()
+        session.post.return_value = response
+
+        with TemporaryDirectory() as directory:
+            recovery_state = Path(directory) / "recovery.json"
+            mark_generation_recovery_dispatched(
+                "2026-07-06",
+                62,
+                head_sha="old-head",
+                now=now,
+                path=recovery_state,
+            )
+            run, report = ensure_generation_ready(
+                session,
+                headers={},
+                now=now,
+                poll_seconds=0,
+                recovery_state_path=recovery_state,
+            )
+
+            self.assertEqual(run["id"], 72)
+            self.assertTrue(report_has_all_slots(report))
+            state = json.loads(recovery_state.read_text(encoding="utf-8"))
+            self.assertEqual(
+                state["generation_recovery_dates"]["2026-07-06"]["head_sha"],
+                "new-head",
+            )
+        session.post.assert_called_once()
+
     @patch("room_daily_guard.run_post_worker", return_value=0)
     @patch("room_daily_guard.run_no_post_probe", return_value=True)
     @patch("room_daily_guard.read_latest_slot_events")

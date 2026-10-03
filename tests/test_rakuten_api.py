@@ -184,13 +184,13 @@ class RakutenApiTest(unittest.TestCase):
         first = [name for name, _ in rotating_categories(date(2026, 6, 13), 5)]
         second = [name for name, _ in rotating_categories(date(2026, 6, 14), 5)]
 
-        required = {"知育玩具", "寝かしつけ用品", "ベビー用消耗品"}
+        required = {"知育玩具", "寝かしつけ用品", "ベビー用消耗品", "育児実用品"}
         self.assertEqual(len(first), 5)
         self.assertEqual(len(second), 5)
         self.assertNotEqual(first, second)
         self.assertTrue(required.issubset(first), first)
         self.assertTrue(required.issubset(second), second)
-        self.assertNotEqual(first[3:], second[3:])
+        self.assertNotEqual(first[4:], second[4:])
 
     def test_core_searches_start_with_supported_postable_keywords(self) -> None:
         categories = dict(rotating_categories(date(2026, 7, 10), 5))
@@ -198,11 +198,20 @@ class RakutenApiTest(unittest.TestCase):
         self.assertEqual(categories["知育玩具"][:2], ["マグネットブロック", "木製積み木"])
         self.assertEqual(
             categories["寝かしつけ用品"][:2],
-            ["授乳ライト ホワイトノイズ", "寝かしつけ ぬいぐるみ"],
+            ["授乳ライト ホワイトノイズ", "スワドル おくるみ"],
         )
         self.assertEqual(
             categories["ベビー用消耗品"][:2],
             ["おしりふき まとめ買い", "紙おむつ まとめ買い"],
+        )
+        self.assertEqual(
+            categories["育児実用品"],
+            [
+                "授乳クッション",
+                "ベビーカー バッグ 収納",
+                "ベビー ローション 保湿",
+                "抱っこ布団 ねんねクッション",
+            ],
         )
 
     def test_429_retries_three_times_then_succeeds(self) -> None:

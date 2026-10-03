@@ -110,16 +110,23 @@ def write_recovery_state(state: dict[str, Any], path: Path = RECOVERY_STATE_PATH
 def generation_recovery_already_dispatched(
     routine_date: str,
     *,
+    head_sha: str | None = None,
     path: Path = RECOVERY_STATE_PATH,
 ) -> bool:
     recoveries = read_recovery_state(path).get("generation_recovery_dates", {})
-    return routine_date in recoveries
+    recovery = recoveries.get(routine_date)
+    if not isinstance(recovery, dict):
+        return recovery is not None
+    if head_sha is None:
+        return True
+    return recovery.get("head_sha") == head_sha
 
 
 def mark_generation_recovery_dispatched(
     routine_date: str,
     failed_run_id: Any,
     *,
+    head_sha: str | None = None,
     now: datetime | None = None,
     path: Path = RECOVERY_STATE_PATH,
 ) -> None:
@@ -127,6 +134,7 @@ def mark_generation_recovery_dispatched(
     recoveries = state.setdefault("generation_recovery_dates", {})
     recoveries[routine_date] = {
         "failed_run_id": failed_run_id,
+        "head_sha": head_sha,
         "dispatched_at": (now or datetime.now().astimezone()).isoformat(),
     }
     write_recovery_state(state, path)
@@ -189,6 +197,7 @@ def ensure_generation_ready(
                 recovery_available = (
                     not generation_recovery_already_dispatched(
                         routine_date,
+                        head_sha=failed.get("head_sha"),
                         path=recovery_state_path,
                     )
                 )
@@ -200,6 +209,7 @@ def ensure_generation_ready(
                     mark_generation_recovery_dispatched(
                         routine_date,
                         failed.get("id"),
+                        head_sha=failed.get("head_sha"),
                         now=local_now,
                         path=recovery_state_path,
                     )
