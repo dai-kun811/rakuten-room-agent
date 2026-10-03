@@ -461,6 +461,86 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             validate_post(changed, changed.attributes),
         )
 
+    def test_six_product_specific_rewrites_stay_natural_across_attempts(self) -> None:
+        product_types = [
+            "activity_cube",
+            "baby_walker_toy",
+            "baby_care",
+            "baby_sleep",
+            "baby_bedding",
+            "swaddle",
+            "stroller_storage",
+            "diaper",
+            "nursing_support",
+        ]
+        attempts = [8, 9, 16, 24, 40, 56]
+        forbidden = [
+            "暮らしへ足す",
+            "｜ケアに",
+            "のどこへ置く",
+            "必要な時に取り出し、使い終わった後に戻す",
+            "使った後まで見通して",
+            "を選べるアクティビティキューブなら",
+            "を選べるベビーウォーカーなら",
+            "必要な動きに合うか",
+            "対象月齢で迷う時間を減らして",
+            "場面を手がかりに",
+            "使う回数を見ながら",
+        ]
+        for product_type in product_types:
+            product = product_for(product_type)
+            scored = score_product(product, date(2026, 10, 3))
+            attributes = extract_attributes(product)
+            pattern = PATTERNS[product_type][0]
+            for attempt in attempts:
+                generated = build_candidate(scored, attributes, pattern, attempt)
+                self.assertFalse(
+                    any(value in f"{generated.title}{generated.body}" for value in forbidden),
+                    (product_type, attempt, generated.title, generated.body),
+                )
+                self.assertLess(generated.body.count(attributes.short_product_label), 3)
+                self.assertEqual(
+                    validate_post(generated, attributes),
+                    [],
+                    (product_type, attempt, generated.title, generated.body),
+                )
+
+    def test_vague_distinctive_titles_are_rejected(self) -> None:
+        generated = generate("baby_care")
+        for title in [
+            "ベビー保湿剤｜暮らしへ足す",
+            "ベビー保湿剤｜ケアに",
+            "ベビー保湿剤｜ケア用品向け",
+            "紙おむつ｜サイズに",
+            "授乳クッション｜場面に使いやすい",
+            "スリーパー｜ガーゼ素材のスリーパー",
+        ]:
+            changed = replace(generated, title=title)
+            self.assertIn(
+                "title_content_mismatch: 商品と利用場面が伝わらない曖昧タイトル",
+                validate_post(changed, changed.attributes),
+            )
+
+    def test_walking_practice_alone_does_not_claim_standing_stage(self) -> None:
+        name = "木製 手押し車 歩行練習 1歳半 対象"
+        product = replace(
+            product_for("baby_walker_toy"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/walker/age-grounding",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 3)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("つかまり立ち期", f"{generated.title}{generated.body}")
+        self.assertNotIn("#つかまり立ち期", generated.hashtags)
+        self.assertIn("対象年齢", generated.body)
+
     def test_block_posts_do_not_end_with_weak_room_copy(self) -> None:
         weak_phrases = [
             "確認したい",
@@ -1062,7 +1142,12 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertNotIn("にの支度", body)
         self.assertNotIn("中にの支度", body)
-        self.assertIn("選ぶと、使う流れを想像しやすくなります", body)
+        self.assertIn("寝る前", f"{title}{body}")
+        self.assertNotIn("必要な時に取り出し、使い終わった後に戻す", body)
+        self.assertEqual(
+            validate_post(replace(generated, title=title, body=body), generated.attributes),
+            [],
+        )
         self.assertNotIn("があるもの", title)
 
     def test_late_baby_sleep_rewrite_keeps_specific_reader_pain(self) -> None:
@@ -1130,7 +1215,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             attempt=24,
         )
 
-        self.assertIn("と使い方", title)
+        self.assertTrue(any(value in title for value in ["押して遊べる", "リビング", "室内遊び"]), title)
+        self.assertNotIn("暮らしへ足す", title)
         self.assertNotIn("があるもの", title)
 
     def test_distinctive_scene_stays_with_the_product_use_case(self) -> None:

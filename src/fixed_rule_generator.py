@@ -356,7 +356,9 @@ FEATURE_MARKERS = {
     "washable": ["丸洗い"],
     "battery_power": ["電池", "乾電池"],
     "walker_toy": ["手押し車", "ファーストウォーカー", "ベビーウォーカー", "押し車", "カタカタ"],
-    "standing_support_play": ["つかまり立ち", "歩行練習"],
+    # 「歩行練習」だけでは、つかまり立ち期（対象年齢未満を含み得る）を
+    # 訴求する根拠にならない。明示された場合だけ専用表現とタグを使う。
+    "standing_support_play": ["つかまり立ち"],
 }
 
 TITLE_SCENE_RULES = {
@@ -1028,6 +1030,7 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
                 ("hands_free", "ハンズフリー"),
                 ("bottle_holder", "哺乳瓶ホルダー"),
                 ("nursing_cushion", "授乳クッション"),
+                ("incline", "傾斜"),
                 ("c_curve", "Cカーブ"),
                 ("body_pressure_distribution", "体圧分散表記"),
                 ("multi_function", "多機能"),
@@ -1037,9 +1040,11 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             ]
             if key in features
         ]
-        unique_details = list(dict.fromkeys(details))
-        if attributes.short_product_label in unique_details:
-            return attributes.short_product_label
+        unique_details = [
+            detail
+            for detail in dict.fromkeys(details)
+            if detail != attributes.short_product_label
+        ]
         if not unique_details:
             return attributes.short_product_label
         prefix = "・".join(unique_details[:3])
@@ -1104,7 +1109,7 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             return f"つかまり立ち期にも押して遊べる{attributes.short_product_label}"
         if "wood" in features:
             return f"木製の{attributes.short_product_label}"
-        return attributes.short_product_label
+        return f"押して遊べる{attributes.short_product_label}"
     if attributes.product_type == "wooden_blocks":
         if "storage_bag" in features and quantity:
             return f"{quantity}で収納袋付きの木製積み木"
@@ -1488,6 +1493,15 @@ def build_candidate(
         title = remove_intention_phrases(title)
         body = remove_intention_phrases(body)
     body = add_listing_teaser(body, attributes)
+    if attributes.product_type == "activity_cube" and attempt < DISTINCTIVE_REWRITE_START:
+        product_specific = product_specific_distinctive_copy(
+            attributes,
+            teaser=listing_teaser(attributes),
+            variant=attempt,
+            required_terms=pattern.title_required,
+        )
+        if product_specific is not None:
+            title, body = product_specific
     if attempt >= DISTINCTIVE_REWRITE_START:
         title, body = add_distinctive_product_detail(
             title,
@@ -1654,7 +1668,7 @@ def marketing_title_body(attributes: ProductAttributes, pattern: Pattern) -> tup
             problem = "つかまり立ちや歩き始めの時期は、外に出にくい日でも家の中で体を使って遊べるものがあるとうれしいですよね。"
         else:
             title = "押して遊べる室内おもちゃ"
-            problem = "歩き始め前後の雨の日や夕方は、リビングでも親の近くで体を使って遊べるおもちゃがひとつでもあるとうれしいですよね。"
+            problem = "歩き始め前後の雨の日や夕方は、リビングでも親の近くで体を使って遊べるおもちゃがひとつあるとうれしいですよね。"
         scene = f"{feature}なら、押して進む楽しさがあり、親がそばで声をかけながら見守れて、リビングで一緒に遊びやすいです。"
         closing = "外に出にくい日も親子で体を動かして遊べるので、いつもの家遊びに変化が出て、室内遊びを増やせるおもちゃです。"
         return title, problem + scene + closing
@@ -1937,6 +1951,14 @@ def add_distinctive_product_detail(
     label = attributes.short_product_label
     required_term = next((term for term in required_terms if term), label)
     variant = max(0, attempt - DISTINCTIVE_REWRITE_START)
+    product_specific = product_specific_distinctive_copy(
+        attributes,
+        teaser=teaser,
+        variant=variant,
+        required_terms=required_terms,
+    )
+    if product_specific is not None:
+        return product_specific
     default_use_cases = {
         "wipes": "おむつ替え",
         "swaddle": "夜の準備",
@@ -2180,6 +2202,247 @@ def add_distinctive_product_detail(
     return title, distinct_listing_teaser(body, scored)
 
 
+def product_specific_distinctive_copy(
+    attributes: ProductAttributes,
+    *,
+    teaser: str,
+    variant: int,
+    required_terms: tuple[str, ...] = (),
+) -> tuple[str, str] | None:
+    """Use product-specific pain, evidence, scene, and value rewrites."""
+    product_type = attributes.product_type
+    features = set(attributes.confirmed_features)
+    label = attributes.short_product_label
+    feature = confirmed_feature_phrase(attributes)
+
+    if product_type == "activity_cube":
+        actions = [
+            value
+            for key, value in [("shape_sorter", "型はめ"), ("looping", "ルーピング")]
+            if key in features
+        ]
+        action_text = "や".join(actions) or "手先遊び"
+        titles = [f"{label}｜{action_text}を一台で", f"{label}｜手先遊びを切り替える", f"{label}｜おうち遊びを増やす", f"{label}｜親子で{action_text}遊び"]
+        pains = [
+            "雨の日や夕方に同じ遊びが続くと、次に出すおもちゃを考える時間が増えますよね。",
+            "家の中で遊ぶ時間が長い日は、子どもの反応を見ながら手先遊びを切り替えたくなりますよね。",
+            "おうち遊びの道具が増えるほど、遊ぶたびに別のおもちゃを出すのは手間になりますよね。",
+            "親子で手を動かして遊びたい時、ひとつの遊びだけでは間が持たない日もありますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、子どもの反応に合わせて一台の遊び方を切り替えられます。",
+            f"{feature}なら、親が隣で声をかけながら{action_text}に取り組めます。",
+            f"{feature}なら、一台を出したまま{action_text}へ遊びを切り替えられます。",
+            f"{feature}なら、雨の日も{action_text}で親子一緒に手を動かせます。",
+        ]
+        closings = [
+            "別のおもちゃを次々に出さずに手先遊びを変えられるので、おうち時間の遊び方を増やせるおもちゃです。",
+            "遊びを選び直す時間を短くしながら、親子で手先を使う時間を増やせるおもちゃです。",
+            "その日の反応に合わせて遊びを切り替えられるので、室内遊びの選択肢を増やせるおもちゃです。",
+            "一台で始める遊びを変えやすく、雨の日に親子で過ごす時間を組み立てやすいおもちゃです。",
+        ]
+    elif product_type == "baby_walker_toy":
+        titles = [f"{label}｜押して遊べる室内おもちゃ", f"{label}｜リビングで体を動かす", f"{label}｜雨の日の室内遊びに", f"{label}｜親子で押して遊ぶ"]
+        pains = [
+            "外に出にくい日が続くと、子どもが家の中で体を使える遊びを考えたくなりますよね。",
+            "雨の日や夕方は、リビングで親の近くにいながら体を動かせる遊びがあるとうれしいですよね。",
+            "座って遊ぶおもちゃが続く日は、押して進む遊びも取り入れたくなりますよね。",
+            "家の中で過ごす日は、親が見守れる場所で子どもが自分から動ける遊びを増やしたいですよね。",
+        ]
+        scenes = [
+            f"{feature}なら、リビングで親がそばにつきながら押して進む遊びを楽しみ、子どもの動きに合わせて声をかけられます。",
+            f"{feature}なら、外へ出られない日も室内で体を使う遊びへ切り替え、遊ぶ様子を近くで見守れます。",
+            f"{feature}なら、子どもが押して進む様子を見ながら親子で一緒に遊び、止まる場所や向きを見守れます。",
+            f"{feature}なら、本体を出したリビングで押して遊ぶ時間を作り、動く範囲を見ながら付き添えます。",
+        ]
+        closings = [
+            "対象年齢・本体サイズ・遊ぶ場所を商品ページで確認でき、子どもの様子を見ながら室内遊びを増やせるおもちゃです。",
+            "遊ぶ場所と対象年齢を先に確かめられ、雨の日にも親子で家の中の遊び方を増やせるおもちゃです。",
+            "本体の重さと対象年齢を確かめられ、座る遊びから押して遊ぶ時間へ切り替えて遊び方を増やせるおもちゃです。",
+            "対象年齢と遊ぶ場所を確認でき、外に出にくい日もリビングで親子の遊び方を増やせるおもちゃです。",
+        ]
+    elif product_type == "stroller_storage":
+        titles = [f"{label}｜外出荷物を分けて収納", f"{label}｜外出中の小物を手元に", f"{label}｜ベビーカー周りを整理", f"{label}｜取り付け条件を確認"]
+        pains = [
+            "散歩の途中で飲み物やおむつを探すと、ベビーカーを止める時間が増えますよね。",
+            "子連れ外出は細かな荷物が多く、すぐ使う物ほどバッグの奥へ入りがちですよね。",
+            "ベビーカー周りへ収納を足すなら、必要な物の位置を家族でそろえたいですよね。",
+            "大容量のバッグでも、取り付け位置が合わないと出し入れしにくくなりますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、用途ごとに小物を分け、必要な物の位置を決めやすくなります。",
+            f"{feature}なら、散歩中に使う物をベビーカーの手元へまとめやすくなります。",
+            f"{feature}なら、おむつや飲み物など外出荷物の定位置を作れます。",
+            f"{feature}なら、取り付け後の位置を見ながら出し入れの動きを考えられます。",
+        ]
+        closings = [
+            "取り付け方法・容量・対応するベビーカーを確認すれば、外出中に荷物を探す時間を減らせるバッグです。",
+            "本体サイズと取り付け位置が合えば、散歩中に必要な物を取り出しやすくできるバッグです。",
+            "容量と対応機種を商品ページで確かめれば、子連れ外出の荷物整理に使いやすいバッグです。",
+            "耐荷重・取り付け方法・対応機種を確認すれば、ベビーカー周りの収納を選びやすくなります。",
+        ]
+    elif product_type == "diaper" and not (features & {"diaper_sheet", "diaper_pouch", "diaper_storage"}):
+        titles = [f"{label}｜サイズと枚数を確認", f"{label}｜買い足す量を見極める", f"{label}｜外出分まで備える", f"{label}｜サイズアウト前に使い切る"]
+        pains = [
+            "まとめて買う時は、今のサイズを使い切れる量か気になりますよね。",
+            "毎日使う消耗品は、残りが少なくなってから買い足すと慌ただしくなりますよね。",
+            "外出用へ取り分ける家庭では、家に残る枚数も把握しておきたいですよね。",
+            "成長の早い時期は、まとめ買いしてもサイズアウト前に使い切れるか迷いますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、交換回数から家で使う分と外出分の目安を考えられます。",
+            f"{feature}なら、買い足す時期を普段の使用枚数に合わせて考えられます。",
+            f"{feature}なら、外出用へ分けた後に家へ残る量を見通しやすくなります。",
+            f"{feature}なら、今のサイズで使う期間と一緒に購入量を考えられます。",
+        ]
+        closings = [
+            "適応体重・サイズ・セット総数に加えて収納場所に置ける量か確認すれば、サイズアウト前に使い切れる量か判断しやすくなります。",
+            "テープ式かパンツ式か、パッケージ記載の適応体重と総枚数まで見れば、家庭の毎日の交換ペースに合うか選びやすくなります。",
+            "サイズとセット内容、家庭の収納場所に入る量かを商品ページで確かめれば、家用と外出用へ分ける量を決めやすくなります。",
+            "適応体重・サイズ・総枚数と一度に届く箱数が家庭の収納と使用量に合えば、買い過ぎと買い忘れの両方を避けやすくなります。",
+        ]
+    elif product_type == "nursing_support":
+        cushion_like = bool(features & {"c_curve", "body_pressure_distribution", "nursing_cushion", "cushion", "multi_function"})
+        if not cushion_like:
+            titles = [f"{label}｜授乳中の手を支える", f"{label}｜哺乳瓶の対応を確認", f"{label}｜ミルク準備をそろえる", f"{label}｜授乳場所で使えるか確認"]
+            pains = [
+                "授乳中に哺乳瓶を支えながら、ミルク周りの支度や姿勢まで気にするのは落ち着かないですよね。",
+                "授乳のたびに哺乳瓶を支え続けるなら、手元で使う補助用品がボトルに合うか気になりますよね。",
+                "夜のミルク授乳では、哺乳瓶と一緒に使う物を毎回そろえる時間も短くしたいですよね。",
+                "リビングと寝室で授乳するなら、同じ補助用品をそれぞれの場所で使えるか確認したいですよね。",
+            ]
+            scenes = [
+                f"{feature}なら、授乳中に使う補助用品を一つに決め、毎回のミルク準備をそろえやすくなります。",
+                f"{feature}なら、対応する哺乳瓶と取り付け方を商品情報から具体的に比べられます。",
+                f"{feature}なら、夜の授乳前に用意する物と使う順番を家族で共有しやすくなります。",
+                f"{feature}なら、普段の授乳場所でどのように哺乳瓶を支えるか考えられます。",
+            ]
+            closings = [
+                "使える哺乳瓶サイズ・対象月齢・取り付け方を確認すれば、授乳中に手で支え続ける手間を減らせるアイテムです。",
+                "対応ボトルとメーカー記載の使い方が分かるので、授乳前に補助用品を選び直す時間を減らせるアイテムです。",
+                "対象月齢と使用上の注意を家族で確認でき、夜のミルク準備を整えられるアイテムです。",
+                "本体サイズと対応する哺乳瓶を確かめられ、授乳場所ごとの準備を整えられるアイテムです。",
+            ]
+        else:
+            support_detail = "傾斜と硬さ" if "incline" in features else "硬さとサイズ"
+            care_detail = "カバーの手入れ" if "washable_cover" in features else "使用上の注意"
+            titles = [f"{label}｜授乳姿勢を支える", f"{label}｜{support_detail}を確認", f"{label}｜授乳場所に合うか確認", f"{label}｜{care_detail}まで見る"]
+            pains = [
+                "授乳のたびに腕や姿勢を整えるなら、クッションの硬さや高さが使う場所に合うか気になりますよね。",
+                "リビングと寝室で使うなら、授乳クッションの大きさと持ち運びやすさも見ておきたいですよね。",
+                "毎日使う授乳クッションは、支え方だけでなくカバーの手入れ方法も選ぶ基準になりますよね。",
+                f"{support_detail}など複数の仕様があると、普段の授乳姿勢に必要な機能か迷いますよね。",
+            ]
+            scenes = [
+                f"{feature}なら、普段の授乳場所でどのように体を支えるか具体的に考えられます。",
+                f"{feature}なら、ソファや床など使う場所に合う高さか商品情報から比べられます。",
+                f"{feature}なら、授乳前の支度と使用後の手入れを一緒に考えられます。",
+                f"{feature}なら、必要な支え方と商品の仕様を照らし合わせやすくなります。",
+            ]
+            closings = [
+                "本体サイズ・硬さ・使用上の注意が分かるので、授乳前に姿勢を整える手間を減らせるアイテムです。",
+                f"{support_detail}を商品情報で見比べられ、授乳場所ごとに支えを探す手間を減らせるアイテムです。",
+                f"対象月齢・本体サイズ・{care_detail}を確かめられ、授乳前後の準備を整えられるアイテムです。",
+                "メーカー記載の使い方と注意事項を読めるので、授乳前に支え方で迷う時間を減らせるアイテムです。",
+            ]
+    elif product_type == "baby_care" and (features & {"moisturizing", "baby_lotion", "baby_cream"}):
+        titles = [f"{label}｜お風呂上がりの保湿に", f"{label}｜毎日の保湿を一つに", f"{label}｜着替え前の保湿準備", f"{label}｜家族で使う保湿ケア"]
+        pains = [
+            "お風呂上がりは着替えや片づけが重なり、赤ちゃんを待たせながら保湿に使う物を探すと慌ただしいですよね。",
+            "毎日の保湿で使う物が日によって変わると、家族へ頼む時にも説明から始めることになりますよね。",
+            "着替え前に保湿したい時、使う物が決まっていないとケアを始めるまでに時間がかかりますよね。",
+            "お風呂上がりの保湿は、赤ちゃんを抱えたままケア用品を選び直したくないですよね。",
+        ]
+        scenes = [
+            f"{feature}なら、お風呂上がりに使う保湿アイテムを一つに決め、着替えのそばへ準備できます。",
+            f"{feature}なら、毎日の保湿で使う物とタイミングを家族でそろえやすくなります。",
+            f"{feature}なら、着替え前の流れに保湿を組み込み、同じ場所からケアを始められます。",
+            f"{feature}なら、お風呂上がりに迷わず手に取る保湿用品を決めやすくなります。",
+        ]
+        closings = [
+            "成分と使う部位を見て選べば、お風呂上がりのケアで使う物を探す手間を減らせるアイテムです。",
+            "家族も同じ物を使いやすくなり、毎日の保湿で迷う時間を減らせるアイテムです。",
+            "着替え前に使う物を一つに絞れるので、赤ちゃんのケアを始めるまでの手間を減らせるアイテムです。",
+            "お風呂上がりの流れに置き場所を合わせやすく、保湿前に探す手間を減らせるアイテムです。",
+        ]
+    elif product_type == "baby_sleep":
+        titles = [f"{label}｜寝る前の一枚を決める", f"{label}｜夜の布ものを減らす", f"{label}｜洗い替えまで考える", f"{label}｜寝冷えが気になる夜に"]
+        pains = [
+            "夜中に布団を蹴っていないか気になる時期は、寝る前に何を着せるか毎晩迷いやすいですよね。",
+            "季節の変わり目は、掛けものと着せる物の組み合わせを夜ごとに考えるのが手間ですよね。",
+            "夜の洗い替えが足りないと、寝る前に着せる一枚を探す時間が増えてしまいますよね。",
+            "寝冷えが気になる夜は、布団を掛け直すだけでよいか着せる物にも迷いますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、掛けものを増やし過ぎず、夜に着せる一枚を決めて寝る前の支度もそろえやすくなります。",
+            f"{feature}なら、季節と洗濯ペースに合わせて夜の布ものを絞り、寝る前の支度を短くできます。",
+            f"{feature}なら、洗い替えも含めて寝る前に着せる物をそろえ、夜の支度へ移りやすくなります。",
+            f"{feature}なら、寝冷えが気になる夜に使う一枚を先に決め、着替えの準備をそろえられます。",
+        ]
+        closings = [
+            "今の月齢に合うサイズと素材を選べば、寝る前に着せる物で迷う時間と夜の着替えを始めるまでの手間を減らせる一枚です。",
+            "夜に使う布ものを絞れるので、掛けものとの組み合わせを選び直す時間を減らせる一枚です。",
+            "家の洗濯ペースに合う枚数と素材を選べば、夜の支度で着せる一枚を探す時間を減らし、寝る前に迷う時間を減らせるアイテムです。",
+            "寝る前に着せる物を一つに決めやすくなり、掛けものとの組み合わせを毎晩選び直す手間と迷う時間を減らせる一枚です。",
+        ]
+    elif product_type == "baby_bedding":
+        titles = [f"{label}｜寝かしつけ前の寝具に", f"{label}｜ねんね前の支度を短く", f"{label}｜寝室とリビングで使う", f"{label}｜洗い替えまで考える"]
+        pains = [
+            "寝かしつけ前に使う寝具の置き場所が寝室とリビングに分かれていると、赤ちゃんを抱えたまま取りに戻るのは手間ですよね。",
+            "ねんね前に使う布ものが決まっていないと、寝室へ移る直前に探し直すことになりますよね。",
+            "日中と夜で使う寝具を分ける時は、家のどこへ置くか決まらないと準備が増えますよね。",
+            "洗える寝具でも、洗濯後に戻す場所が決まらないと寝かしつけ前の支度が慌ただしくなりますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、ねんね前に使う寝具を一つに絞り、家族とも置き場所を共有しやすくなります。",
+            f"{feature}なら、寝室へ移る前に用意する寝具を決めやすくなります。",
+            f"{feature}なら、本体サイズを見ながら日中と夜の置き場所を考えられます。",
+            f"{feature}なら、洗濯後に戻す場所まで含めて寝具の準備をそろえやすくなります。",
+        ]
+        closings = [
+            "本体サイズと素材を見て選べば、寝かしつけ前に寝具を探し直す手間を減らせるアイテムです。",
+            "ねんね前に用意する寝具を決められるので、寝室へ移る直前の迷いを減らせるアイテムです。",
+            "使う部屋に合うサイズを選べば、日中から夜へ移る時に寝具を探し直す手間を減らせるアイテムです。",
+            "洗濯後の置き場所まで決めやすく、寝かしつけ前に必要な寝具を探し直さずに済むので、ねんね前の布もの準備を整えられるアイテムです。",
+        ]
+    elif product_type == "swaddle":
+        titles = [f"{label}｜夜に着せる一枚に", f"{label}｜新生児期の夜支度", f"{label}｜洗い替えまで考える", f"{label}｜夜の着替えを迷わない"]
+        pains = [
+            "眠い中で肌着や掛けものを見ながら何を着せるか考えると、新生児期の夜の着替えが慌ただしくなりますよね。",
+            "新生児期の夜は、着せる布ものが決まっていないと家族で交代するたびに説明が必要になりますよね。",
+            "夜の洗い替えまで考えると、何枚そろえるかを毎回迷いやすいですよね。",
+            "寝る前に着せる物を選び直すと、夜の着替えを始めるまでに時間がかかりますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、夜に使う布ものを一枚に絞り、着せる順番をそろえやすくなります。",
+            f"{feature}なら、新生児期の夜に使う一枚を家族へ共有しやすくなります。",
+            f"{feature}なら、家の洗濯ペースから必要な洗い替えを考えやすくなります。",
+            f"{feature}なら、寝る前に着せる一枚を先に決めておけます。",
+        ]
+        closings = [
+            "今の月齢に合うサイズと素材を選べば、夜中に着せる物を選び直す時間を減らせる一枚です。",
+            "家族で同じ一枚を準備しやすくなり、新生児期の夜支度で迷う時間を減らせる一枚です。",
+            "洗濯ペースに合う枚数をそろえれば、夜の洗い替えを探す時間を減らせる一枚です。",
+            "寝る前に使う布ものを絞れるので、毎晩の着替え準備をシンプルにできる一枚です。",
+        ]
+    else:
+        return None
+
+    required = next((term for term in required_terms if term), "")
+    title = titles[variant % len(titles)]
+    body = "".join([
+        teaser + pains[variant % len(pains)],
+        scenes[(variant // len(pains)) % len(scenes)],
+        closings[(variant // (len(pains) * len(scenes))) % len(closings)],
+    ])
+    if required and required not in f"{title}{body}":
+        if product_type in {"diaper", "stroller_storage"}:
+            title = f"{label}｜{required}を確認"
+        elif required in attributes.source_product_text:
+            title = f"{label}｜{required}を楽しむ"
+    return title, body
+
+
 def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
     # The first words are what a visitor sees in ROOM.  Keep the existing
     # product-type and problem/scene label intact; a volatile price is not a
@@ -2225,7 +2488,7 @@ def distinct_title(
         f"{label}｜{detail}の準備に",
         f"{label}｜{detail}向け",
         f"{label}｜{checkpoint}を確認",
-        f"{label}｜暮らしへ足す",
+        f"{label}｜{checkpoint}と使う場面",
         f"{label}｜{use_case}から選ぶ",
         f"{label}｜{detail}で役立つ",
         f"{label}｜{use_case}のそばに",
@@ -2333,6 +2596,8 @@ def validate_post(
         errors.append("marketing_weak_cta: 投稿文が確認・比較中心の弱い表現を含む")
     if "です、" in post.body or "ます、" in post.body:
         errors.append("不自然な文接続を使用")
+    if any(value in post.title for value in ["暮らしへ足す", "｜ケアに", "｜ケア用品向け", "｜サイズに", "｜場面に使いやすい", "スリーパー｜ガーゼ素材のスリーパー"]):
+        errors.append("title_content_mismatch: 商品と利用場面が伝わらない曖昧タイトル")
     awkward_copy = [
         "押して遊ぶで探す手間",
         "押して遊ぶで使う",
@@ -2340,6 +2605,33 @@ def validate_post(
     ]
     if any(value in post.body for value in awkward_copy):
         errors.append("marketing_awkward_condition: 不自然または根拠の弱い定型表現を使用")
+    if attributes.product_type == "baby_walker_toy" and "対象年齢" not in post.body:
+        errors.append("purchase_checkpoint_missing: 手押し車の対象年齢が本文にない")
+    if attributes.product_type in {
+        "activity_cube",
+        "baby_walker_toy",
+        "stroller_storage",
+        "baby_care",
+        "diaper",
+        "nursing_support",
+        "baby_sleep",
+    } and any(
+        value in post.body
+        for value in [
+            "のどこへ置く",
+            "必要な時に取り出し、使い終わった後に戻す",
+            "使った後まで見通して",
+            "必要な動きに合うか",
+            "対象月齢で迷う時間を減らして",
+            "場面を手がかりに",
+            "使う回数を見ながら",
+            "取り付け、バッグの奥まで探す場面を減らせ",
+        ]
+    ):
+        errors.append("marketing_awkward_condition: 商品価値につながらない汎用の収納・動線表現を使用")
+    if attributes.product_type in {"activity_cube", "baby_walker_toy", "baby_care", "baby_sleep"}:
+        if post.body.count(attributes.short_product_label) >= 3:
+            errors.append("duplicate_short_label: 本文で商品名を3回以上反復")
     if attributes.product_type == "baby_bedding" and any(
         value in post.body
         for value in [
@@ -2376,6 +2668,10 @@ def validate_post(
         for feature, markers in FEATURE_MARKERS.items()
         if any(marker in body_for_claims for marker in markers)
     }
+    # Specific cushion attributes contain the generic word 「クッション」.
+    # Do not treat that overlap as an additional, unconfirmed generic claim.
+    if set(attributes.confirmed_features) & {"nursing_cushion", "sleep_cushion"}:
+        used_features.discard("cushion")
     unconfirmed = used_features - set(attributes.confirmed_features)
     if unconfirmed:
         errors.append(f"unsupported_product_claim: 未確認属性を使用: {','.join(sorted(unconfirmed))}")
@@ -2503,7 +2799,7 @@ def has_reader_pain(product_type: str, body: str) -> bool:
         "baby_sleep": ["夜", "布団", "着せる", "寝冷え", "灯り"],
         "diaper": ["おむつ替え", "外出", "交換", "探す", "敷く物"],
         "soothing_plush": ["寝る前", "寝室", "用意する物", "投影", "メロディー", "スマホ", "ライト"],
-        "baby_walker_toy": ["つかまり立ち", "歩き始め", "押して", "体を使って"],
+        "baby_walker_toy": ["つかまり立ち", "歩き始め", "押して", "体を使って", "体を使える", "外に出にくい", "雨の日"],
     }[product_type]
     return sum(1 for value in required if value in body) >= 2
 
@@ -2524,14 +2820,14 @@ def has_daily_scene(product_type: str, body: str) -> bool:
 
 def has_life_change(product_type: str, body: str) -> bool:
     required = {
-        "nursing_support": ["手間を減らせる", "迷う時間を減らせます", "迷いを減らせる", "準備しやすく"],
-        "swaddle": ["迷う時間を減らせる", "考える時間を減らせる", "選び直す時間を減らせる", "シンプルにできる"],
-        "baby_bedding": ["探し直す手間を減らせる", "取りに戻る手間を減らせる", "準備しやすく"],
-        "baby_care": ["迷う時間を減らせる", "探す手間を減らせる", "取り入れやすい", "そろえやすく"],
-        "baby_sleep": ["布ものを減らせる", "探す時間を減らせる", "迷う時間を減らせる", "一つ決めやすく"],
+        "nursing_support": ["手間を減らせる", "迷う時間を減らせます", "迷いを減らせる", "選び直す時間を減らせる", "準備しやすく", "準備を整えられる"],
+        "swaddle": ["迷う時間を減らせる", "探す時間を減らせる", "考える時間を減らせる", "選び直す時間を減らせる", "シンプルにできる"],
+        "baby_bedding": ["探し直す手間を減らせる", "取りに戻る手間を減らせる", "迷いを減らせる", "準備しやすく", "準備を整えられる"],
+        "baby_care": ["迷う時間を減らせる", "探す手間を減らせる", "手間を減らせる", "取り入れやすい", "そろえやすく"],
+        "baby_sleep": ["布ものを減らせる", "探す時間を減らせる", "迷う時間を減らせる", "選び直す時間を減らせる", "手間を減らせる", "一つ決めやすく"],
         "diaper": ["探す手間を減らせる", "探す時間を減らせる", "まとめやすく", "決めやすく"],
         "soothing_plush": ["一つにまとめられる", "用意する物を減らせる", "手間を減らせる", "一つ決められる", "一つに決められる", "片づける物を減らせる"],
-        "baby_walker_toy": ["遊び方を増やせる", "室内遊びを増やせます", "押して遊ぶ時間", "遊びを増やせる"],
+        "baby_walker_toy": ["遊び方を増やせる", "室内遊びを増やせます", "押して遊ぶ時間", "遊びを増やせる", "体を使う時間を増やせる"],
     }[product_type]
     return any(value in body for value in required)
 
