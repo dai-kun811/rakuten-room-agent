@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from room_daily_guard import (
     DailyGuardError,
+    GENERATION_WAIT_TIMEOUT_SECONDS,
     due_slot_labels,
     ensure_generation_ready,
     ensure_slot_posted,
@@ -171,6 +172,44 @@ class RoomDailyGuardTest(unittest.TestCase):
             poll_seconds=0,
         )
 
+        self.assertEqual(run["id"], 64)
+        self.assertTrue(report_has_all_slots(report))
+        sleep.assert_called_once_with(0)
+
+    @patch("room_daily_guard.time.sleep", return_value=None)
+    @patch("room_daily_guard.time.monotonic", side_effect=[0, 31 * 60])
+    @patch("room_daily_guard.fetch_latest_generation_report")
+    @patch("room_daily_guard.fetch_workflow_runs")
+    def test_generation_wait_outlasts_workflow_timeout_for_artifact_buffer(
+        self,
+        fetch_runs,
+        fetch_report,
+        _monotonic,
+        sleep,
+    ) -> None:
+        now = datetime(2026, 10, 4, 13, 10, tzinfo=timezone(timedelta(hours=9)))
+        active = {
+            "id": 64,
+            "status": "in_progress",
+            "conclusion": None,
+            "created_at": "2026-10-04T03:50:00Z",
+        }
+        successful = {
+            **active,
+            "status": "completed",
+            "conclusion": "success",
+        }
+        fetch_runs.side_effect = [[active], [successful]]
+        fetch_report.return_value = (successful, self.ready_report())
+
+        run, report = ensure_generation_ready(
+            Mock(),
+            headers={},
+            now=now,
+            poll_seconds=0,
+        )
+
+        self.assertEqual(GENERATION_WAIT_TIMEOUT_SECONDS, 35 * 60)
         self.assertEqual(run["id"], 64)
         self.assertTrue(report_has_all_slots(report))
         sleep.assert_called_once_with(0)

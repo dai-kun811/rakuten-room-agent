@@ -30,6 +30,7 @@ STATE_DIR = PROJECT_ROOT / ".local" / "room-worker"
 LOG_PATH = STATE_DIR / "daily-guard.log"
 SUMMARY_PATH = STATE_DIR / "daily-guard-summary.json"
 RECOVERY_STATE_PATH = STATE_DIR / "daily-guard-recovery.json"
+GENERATION_WAIT_TIMEOUT_SECONDS = 35 * 60
 REQUIRED_SLOTS = (
     "morning_1",
     "morning_2",
@@ -163,7 +164,7 @@ def ensure_generation_ready(
     *,
     headers: dict[str, str],
     now: datetime | None = None,
-    timeout_seconds: int = 15 * 60,
+    timeout_seconds: int = GENERATION_WAIT_TIMEOUT_SECONDS,
     poll_seconds: int = 15,
     recovery_state_path: Path = RECOVERY_STATE_PATH,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
