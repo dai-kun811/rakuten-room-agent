@@ -209,12 +209,12 @@ class MainSelectionTest(unittest.TestCase):
 
         self.assertEqual(
             POST_SLOTS,
-            ("morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2"),
+            ("morning", "noon", "evening"),
         )
-        self.assertEqual(len(results), 8)
+        self.assertEqual(len(results), 5)
         self.assertEqual(
             sum(generated.status == "ready" for _, generated in results),
-            6,
+            3,
         )
 
     def test_generate_until_ready_searches_beyond_former_48_candidate_window(self) -> None:
@@ -252,10 +252,10 @@ class MainSelectionTest(unittest.TestCase):
             target_ready=TARGET_READY_POSTS,
         )
 
-        self.assertEqual(generator.calls, 54)
+        self.assertEqual(generator.calls, 51)
         self.assertEqual(
             sum(generated.status == "ready" for _, generated in results),
-            6,
+            3,
         )
 
     def test_generate_until_ready_skips_unsupported_products(self) -> None:

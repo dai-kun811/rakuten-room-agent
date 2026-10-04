@@ -8,33 +8,38 @@
 
 未投稿・生成run失敗・ガード停止で作業を止めない。必要な修正、テスト、再生成、未投稿slotだけの投稿、`post-ledger.jsonl` の `posted` 確認までを一連の復旧責任として扱う。権限や承認が必要でその場で完了できない場合は、未達slot、失敗run、原因、実施済み修正、次に必要な具体操作をここへ残し、次エージェントはそこから再開する。
 
-楽天ROOM投稿にうまくいかなかった場合、停止して終わらない。各エージェントは必ず原因を調査し、朝8時・昼12時・晩19時の各1投稿、合計3投稿が毎日楽天ROOMへ投稿され、当日の `post-ledger.jsonl` で morning/noon/evening すべて `posted` になるまで、生成artifact確認、品質原因の修正、再生成、未投稿slotだけの投稿回復、台帳検証を継続する。
+楽天ROOM投稿にうまくいかなかった場合、停止して終わらない。各エージェントは必ず原因を調査し、朝8:00・昼12:00・晩19:00の合計3投稿が毎日楽天ROOMへ投稿され、当日の `post-ledger.jsonl` で3枠すべて `posted` になるまで、生成artifact確認、品質原因の修正、再生成、未投稿slotだけの投稿回復、台帳検証を継続する。
 
 必須確認:
 
 - `daily.yml` の当日run成功。
-- `room-generation-report` の `ready_slots=["morning","noon","evening"]` 相当、`missing_post_slots=[]`。
+- `room-generation-report` の `required_post_slots=["morning","noon","evening"]`、`ready_slots` 3枠、`missing_post_slots=[]`。
 - `needs_review` 原因の特定と修正。特に `short_name_unresolved`、`本文類似度0.75以上`、`同一タイトル`、`title_content_mismatch` を放置しない。
-- `.local\room-worker\post-ledger.jsonl` で当日 `morning` / `noon` / `evening` の3件 `posted`。
+- `.local\room-worker\post-ledger.jsonl` で当日3枠すべて `posted`。
 - 品質を落とす緩和や重複投稿は禁止。未投稿slotのみ復旧する。
 
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-09-30 05:11 JST
+最終更新: 2026-10-05 08:20 JST
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-09-30 05:11 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
+2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
-- Windowsタスク4件はすべて有効。正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`、登録時刻（交流05:10/06:45、GenerationGuard 07:30、AutoPoster 08:00/12:00/19:00、PostGuard 08:30/12:30/19:30）を昇格読み取りで確認した。
-- 前日2026-09-29は交流50/50・失敗0・`completed=true` / `published=true`。生成run `36492754711` / report `11f36e2ce4c8` と後着run `36509117948` / report `f86f332d3e5d` はともにsuccess、required/ready morning/noon/evening、missing空、品質85/85/85、readyのerrors/review理由空・重複なし、楽天API 960件・32/32成功・失敗0。
-- 9/29の実投稿はmorningスリーパー `yamabikoya/ibul_sleeper_emb`、noonおしりふき `cuppingroom/item-0022`、eveningスリーパー `akachan-yume/sleerer-s` が各`reserved -> posted`。19:30 PostGuardは3枠確認済み。公開ROOMは商品226件で3本文を実表示確認し、確認時点の公開いいねは朝4・昼2・晩6。購入数とは扱わない。公開進捗上段は9/29の50/50・対応済み・失敗0、下段手動0/50は別表示。
-- 9/29は消耗品1件と夜の寝具2件で、3件同一タイプではないが夜用途へ寄った。9/30 artifactでは、補充日用品・明確な困りごと解決・季節/発見の3軸を可能な範囲で優先して確認する。
-- 05:02に9/30交流を安全に開始。05:10定刻の重複起動は`0x800710E0`で既存ジョブを置換せず、05:10時点でフォロー10/50・いいね3/50まで継続、失敗兆候なし。認証済み専用プロファイルはこのジョブが使用中。
-- 05:10時点で認証付き当日`daily.yml` runは0件、当日台帳も0件。07:30前なので手動dispatch・投稿前倒しはしていない。投稿済み枠なし、未投稿はmorning/noon/evening。
-- 既存Codex automation `room-2` は、同日19:30 PostGuard後に最終確認・復旧できるよう毎日19:40 JSTへ更新した。重複heartbeatは作成していない。朝の開始はWindowsタスクが担う。
-- 次は交流50/50・`completed=true`・失敗0と公開上段を確認。19:40の`room-2`で当日artifactのrequired/ready 3枠・missing空・品質・楽天API・Sheets証跡を確認し、未投稿枠だけを復旧する。台帳3枠`posted`、最終PostGuard、公開上段、認証済み実ROOMまで確認するまでは9/30完了にしない。
+- ユーザー指示により、朝・昼・晩は各1投稿、合計3投稿へ変更。対象slotは `morning` / `noon` / `evening`。
+- 交流はフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。7:30の生成は旧6枠コードのrun `37240244703` / report `a7e351f96d22` で成功したが、3枠化後の投稿元には使用しない。
+- コード・ガード・worker・タスク定義・テスト・文書を3枠仕様へ更新し、前日からの品質修正も統合。全246テスト、`git diff --check`、秘密情報語スキャンに合格し、未pushのローカルcommitを作成した。`origin/main`との事前divergenceは0/0。
+- `main`へのpushは安全審査で明示承認不足として拒否された。回避はしていない。`RakutenROOMAutoPoster` のトリガーは08:00/12:00/19:00へ変更済みだが、旧6枠artifact誤投稿防止のため無効のまま。当日台帳は0件。
+- ユーザーがこの3枠化commitのmain pushを明示承認したら、push、当日`daily.yml`再生成、3候補の商品ページ照合、AutoPoster再有効化、期限済み`morning`だけの回復、ledger/PostGuard/認証済みROOM確認から再開する。
+
+2026-10-04 08:12 JSTの当日状態（未完了・旧候補の誤投稿を防止中、morning_1未投稿）:
+- Windowsタスク4件の設定、正しいrepo `.venv`、各worker、working directory、`StartWhenAvailable=true`、`IgnoreNew`を確認した。交流はフォロー50/50・いいね50/50・失敗0・`completed=true`・`published=true`。品質不合格候補を8時に投稿しないため、`RakutenROOMAutoPoster`だけを意図的に無効化し、他3タスクは有効のまま。08:12時点の当日台帳は空で、重複投稿・不確実送信はない。
+- 初回run `37158651655` / report `e7c60844b977` はrequired/ready 6枠・missing空だったが、直近カテゴリ集中、商品用途不一致、商品事実不足のため手動監査で6件とも不合格。修正commit `2f1a8d9` をmainへpushし、検索範囲拡大、粉ミルク・スリーパー・保湿剤の具体情報、妊娠用抱き枕の授乳クッション誤分類防止を追加した。
+- 再生成run `37159935307` / report `2806b84a7cd3` はsuccess、HEAD `2f1a8d9`、required/ready 6枠・missing空、楽天1693件・60/60成功・失敗0。ただしnoon_1の本文が「マグネットブロック」を機械反復し、evening_2の3品スターターセットを単品保湿剤として記述したため、artifact全体は投稿不可。morning_1のキッズカメラとmorning_2の粉ミルクは商品事実に一致するが、最新artifactを差し替えるまで投稿しない。
+- 追加修正として `100pcs` を `100ピース` へ正規化し、マグネットブロックは数量・親子の組み立て場面・対象年齢等を使う専用文、3品ケアセットはヘア・ボディ・保湿を分けて書く専用文へ変更した。全227テスト、`git diff --check`、秘密情報語スキャンは成功。変更は `src/fixed_rule_generator.py` と `tests/test_fixed_rule_generator.py` のみで、既存の未コミット `HANDOFF.md` は保護している。
+- 現在の停止理由はCodex承認基盤の `parent compaction checkpoint is incompatible`。push前fetch、git add/commit、AutoPoster再有効化、worker実行が実行前に拒否されるため、破壊的な迂回はしていない。次回は承認基盤復旧後に (1) origin/mainをfetchしdivergence確認、(2) 上記2ファイルだけcommit/push、(3) daily.ymlを1回だけdispatch、(4) 新6候補を商品ページと本文で手動監査、(5) AutoPosterを再有効化、(6) 期限済みの `morning_1`、続いて `morning_2` だけを `ROOM_FORCE_POST_SLOT` で一枠ずつ回復し各postedを確認、(7) PostGuard・公開進捗・認証済みROOMを照合する。
+- 直近7日・30日のカテゴリ集中を避ける。初回はformula/baby_sleep/baby_care等が前日と重なり、再生成でもformula/baby_sleep/baby_careが残ったため、新artifactはタイプ・ブランド・悩みの分散も手動で合格させる。日次完了は6枠posted、PostGuard 6枠、公開進捗、認証済みROOM、商品ページと文章一致がそろった場合だけ。
 
 2026-09-29 05:12 JSTの当日状態（未完了・交流実行中、生成と3投稿は時刻待ち）:
 

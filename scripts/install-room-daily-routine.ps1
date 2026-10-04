@@ -3,7 +3,7 @@ param(
     [string]$EngagementTime = "05:10",
     [string]$EngagementVerifyTime = "06:45",
     [string]$GenerationGuardTime = "07:30",
-    [string[]]$PostTimes = @("08:00", "08:15", "12:00", "12:15", "19:00", "19:15"),
+    [string[]]$PostTimes = @("08:00", "12:00", "19:00"),
     [string[]]$PostGuardTimes = @("08:30", "12:30", "19:30"),
     [switch]$Preview
 )
@@ -59,7 +59,7 @@ $postTask = New-ScheduledTask `
     -Trigger $postTriggers `
     -Principal $principal `
     -Settings $settings `
-    -Description "Post two distinct Rakuten ROOM items in each morning, noon, and evening period."
+    -Description "Post one Rakuten ROOM item in each morning, noon, and evening period."
 
 $generationGuardAction = New-ScheduledTaskAction `
     -Execute $python `
@@ -71,7 +71,7 @@ $generationGuardTask = New-ScheduledTask `
     -Trigger $generationGuardTrigger `
     -Principal $principal `
     -Settings $settings `
-    -Description "Ensure today's ROOM generation run exists and has all six ready slots."
+    -Description "Ensure today's ROOM generation run exists and has all three ready slots."
 
 $postGuardAction = New-ScheduledTaskAction `
     -Execute $python `

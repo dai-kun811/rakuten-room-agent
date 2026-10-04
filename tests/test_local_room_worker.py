@@ -43,19 +43,17 @@ class LocalRoomWorkerTest(unittest.TestCase):
         )
         self.assertEqual(current_post_slot(datetime(2026, 7, 5, 16, 0), windows=windows), "")
 
-    def test_next_open_post_slot_advances_to_second_slot_in_same_period(self) -> None:
-        windows = parse_post_windows(
-            "morning_1:8-11,morning_2:8-11,noon_1:11-16,noon_2:11-16"
-        )
+    def test_next_open_post_slot_returns_none_after_period_slot_is_claimed(self) -> None:
+        windows = parse_post_windows("morning:8-11,noon:11-16,evening:17-22")
         now = datetime(2026, 7, 5, 8, 15)
 
         self.assertEqual(
             next_open_post_slot(set(), now, windows=windows),
-            "2026-07-05:morning_1",
+            "2026-07-05:morning",
         )
         self.assertEqual(
-            next_open_post_slot({"2026-07-05:morning_1"}, now, windows=windows),
-            "2026-07-05:morning_2",
+            next_open_post_slot({"2026-07-05:morning"}, now, windows=windows),
+            "",
         )
 
     def test_actions_run_must_be_today_in_local_timezone(self) -> None:

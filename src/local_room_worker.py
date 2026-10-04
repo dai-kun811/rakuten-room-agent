@@ -19,7 +19,7 @@ from sheets import normalize_product_url
 
 JST_OFFSET = "+09:00"
 REPO_API = "https://api.github.com/repos/dai-kun811/rakuten-room-agent"
-DEFAULT_POST_WINDOWS = "morning_1:8-11,morning_2:8-11,noon_1:11-16,noon_2:11-16,evening_1:17-22,evening_2:17-22"
+DEFAULT_POST_WINDOWS = "morning:8-11,noon:11-16,evening:17-22"
 DEFAULT_GIT = Path(
     r"C:\Users\daiku\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd\git.exe"
 )

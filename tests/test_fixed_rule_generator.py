@@ -26,6 +26,7 @@ from fixed_rule_generator import (
     confirmation_repeat_count,
     ending_family,
     extract_attributes,
+    product_specific_distinctive_copy,
     stable_index,
     split_sentences,
     similarity,
@@ -791,6 +792,35 @@ class FixedRuleGeneratorTest(unittest.TestCase):
                 any("不自然または根拠の弱い定型表現" in error for error in validate_post(changed, changed.attributes)),
                 phrase,
             )
+
+    def test_kids_camera_does_not_claim_unconfirmed_smartphone_transfer(self) -> None:
+        product = replace(
+            product_for("kids_camera"),
+            name="キッズカメラ ゲームなし 32GBカード付き",
+            caption="キッズカメラ 写真 動画 ゲームなし 32GBカード付き",
+            catchcopy="子ども用カメラ ゲームなし 写真遊び",
+            url="https://example.com/kids-camera/no-transfer",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 4)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("スマホへ移せる", f"{generated.title}{generated.body}")
+        self.assertNotIn("スマホ転送", f"{generated.title}{generated.body}")
+        self.assertNotIn("#スマホ転送", generated.hashtags)
+
+        unsupported = replace(
+            generated,
+            title="キッズカメラ｜スマホへ移せるカメラを",
+        )
+        self.assertTrue(
+            any(
+                "スマホへ移せる" in error and "根拠がない" in error
+                for error in validate_post(unsupported, generated.attributes)
+            )
+        )
 
     def test_duplicate_benefit_repetition_is_rejected(self) -> None:
         generated = generate("kids_camera")
@@ -1566,6 +1596,46 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertNotIn("おしりふき", generated.body)
         self.assertEqual(generated.hashtags[0], "#手口ふき")
 
+    def test_hand_wipes_include_sheet_and_pack_counts(self) -> None:
+        product = replace(
+            product_for("wipes"),
+            name="手口ふき 厚手 6枚入 12パック ミニサイズ 携帯用",
+            caption="手口ふき 厚手 6枚入 12パック ミニサイズ 携帯用",
+            catchcopy="手口ふき 厚手 6枚入 12パック ミニサイズ 携帯用",
+            url="https://example.com/wipes/mini-packs",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 5)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("6枚", generated.body)
+        self.assertIn("12パック", generated.body)
+
+    def test_diaper_storage_distinctive_copy_stays_home_storage_specific(self) -> None:
+        name = "おむつストッカー 大容量 収納ボックス 布 折りたたみ Lサイズ"
+        product = replace(
+            product_for("diaper"),
+            name=name,
+            caption=name,
+            catchcopy=name,
+            url="https://example.com/diaper/home-storage",
+        )
+        attributes = extract_attributes(product)
+        result = product_specific_distinctive_copy(
+            attributes,
+            teaser="",
+            variant=9,
+        )
+
+        self.assertIsNotNone(result)
+        title, body = result or ("", "")
+        self.assertTrue(title.startswith("おむつストッカー｜"), title)
+        self.assertIn("大容量", body)
+        self.assertIn("収納", body)
+        self.assertNotIn("外出前", body)
+
     def test_baby_care_three_item_set_names_each_care_step(self) -> None:
         product = replace(
             product_for("baby_care"),
@@ -1580,6 +1650,9 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         )
 
         self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertEqual(generated.attributes.short_product_label, "ベビーケアセット")
+        self.assertTrue(generated.title.startswith("ベビーケアセット｜"), generated.title)
+        self.assertTrue(generated.body.startswith("【ベビーケアセット｜"), generated.body)
         self.assertIn("ヘア", generated.body)
         self.assertIn("ボディ", generated.body)
         self.assertIn("保湿", generated.body)
@@ -1600,6 +1673,9 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         )
 
         self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertEqual(generated.attributes.short_product_label, "ベビーケアセット")
+        self.assertTrue(generated.title.startswith("ベビーケアセット｜"), generated.title)
+        self.assertTrue(generated.body.startswith("【ベビーケアセット｜"), generated.body)
         self.assertIn("4品", f"{generated.title}{generated.body}")
         self.assertNotIn("3品", f"{generated.title}{generated.body}")
         for term in ["ヘア", "ボディ", "ローション", "ミルク"]:

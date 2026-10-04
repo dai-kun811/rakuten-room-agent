@@ -37,11 +37,11 @@ from sheets import (
 
 JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
-POST_SLOTS = ("morning_1", "morning_2", "noon_1", "noon_2", "evening_1", "evening_2")
+POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
 SEARCH_KEYWORDS_PER_CATEGORY = 6
 SEARCH_PAGES_PER_KEYWORD = 3
-# Most normal runs stop after the first six ready items.  When quality
+# Most normal runs stop after the first three ready items.  When quality
 # filtering rejects a broad first pass, keep searching without weakening any
 # content rule.  The larger window lets the ready set retain distinct product
 # types instead of falling back to a repeated night-use type near the boundary.
@@ -538,9 +538,9 @@ def generate_until_ready(
             continue
 
         product_type = classify_product_type(item.product)
-        # A six-post day must expose six different product needs.  Repeated
+        # A three-post day must expose three different product needs.  Repeated
         # types are never promoted merely to fill a slot; keep searching and
-        # fail the run as missing if six distinct ready types are unavailable.
+        # fail the run as missing if three distinct ready types are unavailable.
         if product_type in used_types:
             continue
         accepted.append((item, generated))
