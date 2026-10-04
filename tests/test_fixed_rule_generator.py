@@ -281,6 +281,24 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "formula")
 
+    def test_formula_refill_bags_never_use_can_wording(self) -> None:
+        name = "森永 E赤ちゃん エコらくパック はじめてセット 800g（400g×2袋） 粉ミルク"
+        for index in range(12):
+            product = replace(
+                product_for("formula"),
+                name=name,
+                caption=name,
+                catchcopy=name,
+                url=f"https://example.com/formula/refill-{index}",
+            )
+            generated = FixedRulePostGenerator().generate(
+                score_product(product, date(2026, 10, 5)),
+                context=GenerationContext(),
+            )
+            self.assertEqual(generated.status, "ready", generated.quality_errors)
+            self.assertIn("袋", generated.body)
+            self.assertNotIn("缶", generated.body)
+
     def test_lotion_infused_wipes_keep_wipes_identity(self) -> None:
         name = "おしりふき ベビーローション入 80枚 36個セット"
         product = replace(

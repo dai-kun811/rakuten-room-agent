@@ -2415,7 +2415,9 @@ def product_specific_distinctive_copy(
     elif product_type == "formula":
         age_match = re.search(r"(\d+)\s*[〜~～\-]\s*(\d+)\s*(?:カ月|か月|ヶ月)", attributes.source_product_text)
         age_text = f"{age_match.group(1)}〜{age_match.group(2)}カ月" if age_match else "月齢に合う段階"
-        pack_text, _ = formula_package_facts(attributes)
+        pack_text, package_facts = formula_package_facts(attributes)
+        package_count = next((value for value in package_facts if value.endswith(("袋", "缶"))), "")
+        package_unit = "袋" if package_count.endswith("袋") else "缶" if package_count.endswith("缶") else "容器"
         overseas = "海外通販" in attributes.source_product_text
         titles = [
             f"{label}｜{age_text}向けを補充",
@@ -2425,20 +2427,20 @@ def product_specific_distinctive_copy(
         ]
         pains = [
             "粉ミルクをまとめて買う時は、月齢に合う種類か、賞味期限までに使い切れる量かが気になりますよね。",
-            "夜間授乳のストックは安心ですが、缶数が多いほど保管場所と使い切る時期まで考えたいですよね。",
+            f"夜間授乳のストックは安心ですが、{package_unit}数が多いほど保管場所と使い切る時期まで考えたいですよね。",
             "買い足し回数を減らしたくても、今の授乳ペースより多過ぎるセットは避けたいですよね。",
             "未開封の粉ミルクを備えるなら、次の段階へ移る前に使える量か確かめたいですよね。",
         ]
         scenes = [
-            f"{age_text}向け・{pack_text}の粉ミルクなら、授乳回数から一缶を使う日数と未開封分の残りを家族で見通せます。",
-            f"{pack_text}のセットなら、一缶を開けた日と次の買い足し時期をそろえて管理しやすくなります。",
-            f"{age_text}向けの{feature}なら、今の授乳量を基に必要な缶数を具体的に考えられます。",
+            f"{age_text}向け・{pack_text}の粉ミルクなら、授乳回数から一{package_unit}を使う日数と未開封分の残りを家族で見通せます。",
+            f"{pack_text}のセットなら、一{package_unit}を開けた日と次の買い足し時期をそろえて管理しやすくなります。",
+            f"{age_text}向けの{feature}なら、今の授乳量を基に必要な{package_unit}数を具体的に考えられます。",
             f"{pack_text}というセット内容が分かるので、普段の消費量と収納場所に収まるかを先に比べられます。",
         ]
         delivery_check = "海外通販の配送条件・" if overseas else ""
         closings = [
             f"{delivery_check}賞味期限・保管場所を商品ページで確認し、家庭の消費ペースに合えば夜の授乳ストックをまとめて整えられるセットです。",
-            f"{delivery_check}賞味期限と一度に届く缶数を確かめれば、使い切れる量だけを備えて買い足し忘れを減らせます。",
+            f"{delivery_check}賞味期限と一度に届く{package_unit}数を確かめれば、使い切れる量だけを備えて買い足し忘れを減らせます。",
             f"対象月齢・賞味期限・保管場所を確認すれば、次の段階へ移る時期までに使える量を選びやすいセットです。",
             f"{delivery_check}賞味期限までに消費できる量なら、夜間授乳用の未開封ストックを切らしにくくできます。",
         ]
