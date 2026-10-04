@@ -375,6 +375,68 @@ class RoomDailyGuardTest(unittest.TestCase):
             )
         session.post.assert_called_once()
 
+    @patch("room_daily_guard.time.sleep", return_value=None)
+    @patch("room_daily_guard.fetch_latest_generation_report")
+    @patch("room_daily_guard.fetch_workflow_runs")
+    def test_latest_cancelled_run_is_not_hidden_by_older_success(
+        self,
+        fetch_runs,
+        fetch_report,
+        _sleep,
+    ) -> None:
+        now = datetime(2026, 10, 4, 13, 10, tzinfo=timezone(timedelta(hours=9)))
+        older_success = {
+            "id": 71,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-10-04T03:20:00Z",
+            "head_sha": "old-head",
+        }
+        latest_cancelled = {
+            "id": 72,
+            "status": "completed",
+            "conclusion": "cancelled",
+            "created_at": "2026-10-04T03:50:00Z",
+            "head_sha": "new-head",
+        }
+        recovered_success = {
+            "id": 73,
+            "status": "completed",
+            "conclusion": "success",
+            "created_at": "2026-10-04T04:10:00Z",
+            "head_sha": "new-head",
+        }
+        # Deliberately place the old success first to prove that run timestamps,
+        # rather than response order or any-success selection, decide recency.
+        fetch_runs.side_effect = [
+            [older_success, latest_cancelled],
+            [older_success, latest_cancelled, recovered_success],
+        ]
+        fetch_report.return_value = (recovered_success, self.ready_report())
+        response = Mock()
+        response.raise_for_status.return_value = None
+        session = Mock()
+        session.post.return_value = response
+
+        with TemporaryDirectory() as directory:
+            recovery_state = Path(directory) / "recovery.json"
+            run, report = ensure_generation_ready(
+                session,
+                headers={},
+                now=now,
+                poll_seconds=0,
+                recovery_state_path=recovery_state,
+            )
+
+            self.assertEqual(run["id"], 73)
+            self.assertTrue(report_has_all_slots(report))
+            state = json.loads(recovery_state.read_text(encoding="utf-8"))
+            recovery = state["generation_recovery_dates"]["2026-10-04"]
+            self.assertEqual(recovery["failed_run_id"], 72)
+            self.assertEqual(recovery["head_sha"], "new-head")
+        session.post.assert_called_once()
+        fetch_report.assert_called_once()
+
     @patch("room_daily_guard.run_post_worker", return_value=0)
     @patch("room_daily_guard.run_no_post_probe", return_value=True)
     @patch("room_daily_guard.read_latest_slot_events")

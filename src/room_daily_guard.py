@@ -70,7 +70,15 @@ def report_has_all_slots(report: dict[str, Any]) -> bool:
 
 
 def today_runs(runs: list[dict[str, Any]], now: datetime | None = None) -> list[dict[str, Any]]:
-    return [run for run in runs if actions_run_is_today(run, now)]
+    matching = [run for run in runs if actions_run_is_today(run, now)]
+    return sorted(
+        matching,
+        key=lambda run: (
+            str(run.get("run_started_at") or run.get("created_at") or ""),
+            str(run.get("id") or ""),
+        ),
+        reverse=True,
+    )
 
 
 def fetch_workflow_runs(session: Any, headers: dict[str, str]) -> list[dict[str, Any]]:
@@ -166,18 +174,16 @@ def ensure_generation_ready(
     routine_date = local_now.date().isoformat()
     while True:
         runs = today_runs(fetch_workflow_runs(session, headers), now)
-        active = next(
-            (run for run in runs if run.get("status") in {"queued", "in_progress", "pending"}),
-            None,
-        )
-        if active is None:
-            successful = next(
-                (run for run in runs if run.get("conclusion") == "success"),
-                None,
-            )
-            if successful is not None:
+        latest = runs[0] if runs else None
+        latest_is_active = latest is not None and latest.get("status") in {
+            "queued",
+            "in_progress",
+            "pending",
+        }
+        if not latest_is_active:
+            if latest is not None and latest.get("conclusion") == "success":
                 run, report = fetch_latest_generation_report(session, headers=headers)
-                if run.get("id") != successful.get("id"):
+                if run.get("id") != latest.get("id"):
                     # A completed run can be visible briefly before its artifact
                     # appears in the artifacts API. Keep polling instead of
                     # mistaking the previous successful report for today's run.
@@ -189,11 +195,8 @@ def ensure_generation_ready(
                     return run, report
                 raise DailyGuardError("Today's successful generation report is missing required slots.")
 
-            failed = next(
-                (run for run in runs if run.get("status") == "completed"),
-                None,
-            )
-            if failed is not None:
+            if latest is not None and latest.get("status") == "completed":
+                failed = latest
                 recovery_available = (
                     not generation_recovery_already_dispatched(
                         routine_date,
