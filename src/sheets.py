@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
+import time
 from datetime import date, datetime, timedelta
 
 from fixed_rule_generator import GeneratedPost
@@ -10,6 +12,9 @@ from scoring import ScoredProduct
 LOGGER = logging.getLogger(__name__)
 DEFAULT_REVIEW_SHEET_NAME = "ROOM_Posts_Review"
 GOOGLE_READ_RETRIES = 3
+GOOGLE_WRITE_RETRIES = 3
+GOOGLE_APPEND_ATTEMPTS = 3
+TRANSIENT_GOOGLE_WRITE_ERRORS = (ssl.SSLError, TimeoutError, ConnectionError)
 
 SHEET_HEADERS = [
     "日付",
@@ -183,18 +188,67 @@ class SheetsClient:
         )
 
     def append_rows(self, sheet_name: str, rows: list[list[object]]) -> None:
-        (
-            self.service.spreadsheets()
-            .values()
-            .append(
-                spreadsheetId=self.spreadsheet_id,
-                range=f"{sheet_name}!A:AH",
-                valueInputOption="USER_ENTERED",
-                insertDataOption="INSERT_ROWS",
-                body={"values": rows},
-            )
-            .execute()
-        )
+        pending_rows = list(rows)
+        for attempt in range(1, GOOGLE_APPEND_ATTEMPTS + 1):
+            try:
+                (
+                    self.service.spreadsheets()
+                    .values()
+                    .append(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{sheet_name}!A:AH",
+                        valueInputOption="USER_ENTERED",
+                        insertDataOption="INSERT_ROWS",
+                        body={"values": pending_rows},
+                    )
+                    .execute()
+                )
+                return
+            except TRANSIENT_GOOGLE_WRITE_ERRORS as exc:
+                try:
+                    pending_rows = self.missing_rows(sheet_name, pending_rows)
+                except Exception as verification_exc:
+                    raise RuntimeError(
+                        "Google Sheets追記結果を確認できないため、重複防止のため再試行を停止します。"
+                    ) from verification_exc
+                if not pending_rows:
+                    LOGGER.warning(
+                        "Google Sheets追記の応答は切断されましたが、対象行は反映済みでした "
+                        "sheet=%s attempt=%s",
+                        sheet_name,
+                        attempt,
+                    )
+                    return
+                if attempt >= GOOGLE_APPEND_ATTEMPTS:
+                    raise
+                delay = 2 ** (attempt - 1)
+                LOGGER.warning(
+                    "Google Sheets追記が一時失敗しました。未反映行だけ再試行します "
+                    "sheet=%s attempt=%s/%s pending_rows=%s delay=%ss error=%s",
+                    sheet_name,
+                    attempt,
+                    GOOGLE_APPEND_ATTEMPTS,
+                    len(pending_rows),
+                    delay,
+                    type(exc).__name__,
+                )
+                time.sleep(delay)
+
+    def missing_rows(
+        self,
+        sheet_name: str,
+        requested_rows: list[list[object]],
+    ) -> list[list[object]]:
+        values = self.read_values(f"{sheet_name}!A:AH")
+        existing_identities = {
+            sheet_row_identity(row)
+            for row in values[1:]
+        }
+        return [
+            row
+            for row in requested_rows
+            if sheet_row_identity(row) not in existing_identities
+        ]
 
     def update_row(self, range_name: str, row: list[object]) -> None:
         (
@@ -206,7 +260,7 @@ class SheetsClient:
                 valueInputOption="USER_ENTERED",
                 body={"values": [row]},
             )
-            .execute()
+            .execute(num_retries=GOOGLE_WRITE_RETRIES)
         )
 
     def read_values(self, range_name: str) -> list[list[str]]:
@@ -294,3 +348,18 @@ def parse_date(value: str) -> date | None:
 
 def normalize_product_url(url: str) -> str:
     return url.strip().split("?")[0].rstrip("/")
+
+
+def sheet_row_identity(row: list[object]) -> tuple[str, ...]:
+    values = [str(value).strip() for value in row]
+
+    def cell(index: int) -> str:
+        return values[index] if index < len(values) else ""
+
+    run_id = cell(1)
+    product_url = cell(6) or cell(5)
+    normalized_url = normalize_product_url(product_url) if product_url.startswith("http") else ""
+    status = cell(27)
+    if run_id and (normalized_url or status == "ERROR"):
+        return run_id, normalized_url or "__ERROR__", status
+    return ("__ROW__", *values)

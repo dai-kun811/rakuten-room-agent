@@ -1,8 +1,9 @@
 from datetime import date
 from pathlib import Path
+import ssl
 import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -11,12 +12,15 @@ from rakuten_api import Product
 from fixed_rule_generator import FixedRulePostGenerator, GenerationContext
 from scoring import score_product
 from sheets import (
+    GOOGLE_APPEND_ATTEMPTS,
     GOOGLE_READ_RETRIES,
+    GOOGLE_WRITE_RETRIES,
     SHEET_HEADERS,
     SheetsClient,
     error_row,
     normalize_product_url,
     scored_product_to_row,
+    sheet_row_identity,
     target_sheet_for_status,
 )
 
@@ -37,6 +41,159 @@ class SheetsTest(unittest.TestCase):
 
         self.assertEqual(client.read_values("Sheet1!A1:A1"), [["header"]])
         request.execute.assert_called_once_with(num_retries=GOOGLE_READ_RETRIES)
+
+    def test_update_row_retries_transient_google_errors(self) -> None:
+        request = MagicMock()
+        values_resource = MagicMock()
+        values_resource.update.return_value = request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        client.update_row("Sheet1!A1:AH1", SHEET_HEADERS)
+
+        request.execute.assert_called_once_with(num_retries=GOOGLE_WRITE_RETRIES)
+
+    @patch("sheets.time.sleep", return_value=None)
+    def test_append_rows_retries_only_rows_verified_missing_after_ssl_error(self, sleep) -> None:
+        committed = ["2026-10-04", "run-1", "category", "keyword", "name-1", "https://example.com/1", "https://example.com/1"]
+        committed += [""] * (len(SHEET_HEADERS) - len(committed))
+        committed[27] = "ready"
+        missing = ["2026-10-04", "run-1", "category", "keyword", "name-2", "https://example.com/2", "https://example.com/2"]
+        missing += [""] * (len(SHEET_HEADERS) - len(missing))
+        missing[27] = "needs_review"
+
+        failed_request = MagicMock()
+        failed_request.execute.side_effect = ssl.SSLEOFError(8, "EOF")
+        retry_request = MagicMock()
+        append = MagicMock(side_effect=[failed_request, retry_request])
+        verify_request = MagicMock(return_value={"values": [SHEET_HEADERS, committed]})
+        get_request = MagicMock()
+        get_request.execute = verify_request
+        values_resource = MagicMock()
+        values_resource.append = append
+        values_resource.get.return_value = get_request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        client.append_rows("Sheet1", [committed, missing])
+
+        self.assertEqual(append.call_count, 2)
+        self.assertEqual(append.call_args_list[1].kwargs["body"], {"values": [missing]})
+        sleep.assert_called_once_with(1)
+
+    @patch("sheets.time.sleep", return_value=None)
+    def test_append_rows_does_not_retry_when_ambiguous_ssl_error_already_committed(
+        self,
+        sleep,
+    ) -> None:
+        row = ["2026-10-04", "run-1", "category", "keyword", "name", "https://example.com/1", "https://example.com/1"]
+        row += [""] * (len(SHEET_HEADERS) - len(row))
+        row[27] = "ready"
+        failed_request = MagicMock()
+        failed_request.execute.side_effect = ssl.SSLEOFError(8, "EOF")
+        verify_request = MagicMock()
+        verify_request.execute.return_value = {"values": [SHEET_HEADERS, row]}
+        values_resource = MagicMock()
+        values_resource.append.return_value = failed_request
+        values_resource.get.return_value = verify_request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        client.append_rows("Sheet1", [row])
+
+        values_resource.append.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_append_rows_blocks_blind_retry_when_commit_check_fails(self) -> None:
+        row = ["2026-10-04", "run-1", "category", "keyword", "name", "https://example.com/1", "https://example.com/1"]
+        row += [""] * (len(SHEET_HEADERS) - len(row))
+        row[27] = "ready"
+        failed_request = MagicMock()
+        failed_request.execute.side_effect = ssl.SSLEOFError(8, "EOF")
+        verify_request = MagicMock()
+        verify_request.execute.side_effect = ssl.SSLEOFError(8, "verify EOF")
+        values_resource = MagicMock()
+        values_resource.append.return_value = failed_request
+        values_resource.get.return_value = verify_request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        with self.assertRaisesRegex(RuntimeError, "重複防止のため再試行を停止"):
+            client.append_rows("Sheet1", [row])
+
+        values_resource.append.assert_called_once()
+
+    @patch("sheets.time.sleep", return_value=None)
+    def test_append_rows_stops_after_bounded_ssl_retries(self, sleep) -> None:
+        row = ["2026-10-04", "run-1", "category", "keyword", "name", "https://example.com/1", "https://example.com/1"]
+        row += [""] * (len(SHEET_HEADERS) - len(row))
+        row[27] = "ready"
+        failed_requests = []
+        for _ in range(GOOGLE_APPEND_ATTEMPTS):
+            request = MagicMock()
+            request.execute.side_effect = ssl.SSLEOFError(8, "EOF")
+            failed_requests.append(request)
+        verify_request = MagicMock()
+        verify_request.execute.return_value = {"values": [SHEET_HEADERS]}
+        values_resource = MagicMock()
+        values_resource.append.side_effect = failed_requests
+        values_resource.get.return_value = verify_request
+        spreadsheets_resource = MagicMock()
+        spreadsheets_resource.values.return_value = values_resource
+        service = MagicMock()
+        service.spreadsheets.return_value = spreadsheets_resource
+        client = SheetsClient.__new__(SheetsClient)
+        client.spreadsheet_id = "spreadsheet-id"
+        client.service = service
+
+        with self.assertRaises(ssl.SSLEOFError):
+            client.append_rows("Sheet1", [row])
+
+        self.assertEqual(values_resource.append.call_count, GOOGLE_APPEND_ATTEMPTS)
+        self.assertEqual(sleep.call_args_list[0].args, (1,))
+        self.assertEqual(sleep.call_args_list[1].args, (2,))
+
+    def test_sheet_row_identity_uses_run_url_and_status(self) -> None:
+        row = ["2026-10-04", "run-1", "", "", "", "https://example.com/item/?x=1", ""]
+        row += [""] * (len(SHEET_HEADERS) - len(row))
+        row[27] = "ready"
+        formatted_by_sheets = list(row)
+        formatted_by_sheets[0] = "2026/10/04"
+
+        self.assertEqual(
+            sheet_row_identity(row),
+            ("run-1", "https://example.com/item", "ready"),
+        )
+        self.assertEqual(sheet_row_identity(formatted_by_sheets), sheet_row_identity(row))
+
+    def test_sheet_row_identity_handles_error_row_without_url(self) -> None:
+        row = error_row(
+            today=date(2026, 10, 4),
+            run_id="run-error",
+            reason="temporary API failure",
+        )
+
+        self.assertEqual(sheet_row_identity(row), ("run-error", "__ERROR__", "ERROR"))
 
     def test_row_matches_requested_columns(self) -> None:
         scored = score_product(

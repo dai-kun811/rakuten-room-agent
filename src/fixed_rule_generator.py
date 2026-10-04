@@ -397,6 +397,7 @@ class ProductAttributes:
     confirmed_quantity_features: tuple[str, ...]
     purchase_checkpoints: tuple[str, ...]
     prohibited_features: tuple[str, ...]
+    source_product_name: str = ""
     source_product_text: str = ""
     extraction_errors: tuple[str, ...] = ()
 
@@ -877,6 +878,11 @@ def extract_attributes(product: Product) -> ProductAttributes:
     for feature, markers in FEATURE_MARKERS.items():
         if any(marker.lower() in text for marker in markers):
             confirmed.append(feature)
+    # A named baby lotion or baby cream is itself a moisturizing care item.
+    # Treat the generic moisturizing claim as grounded when the product-owned
+    # identity text explicitly names either item, without relying on SEO captions.
+    if product_type == "baby_care" and {"baby_lotion", "baby_cream"} & set(confirmed):
+        confirmed.append("moisturizing")
     target_age_match = re.search(r"(\d+)\s*(?:歳|才)(?:\s*(?:から|以上|頃))?", text)
     target_age = f"{target_age_match.group(1)}歳" if target_age_match else ""
     quantities = list(
@@ -946,6 +952,7 @@ def extract_attributes(product: Product) -> ProductAttributes:
         confirmed_quantity_features=tuple(quantities),
         purchase_checkpoints=tuple(checkpoints),
         prohibited_features=tuple(PROHIBITED_BY_TYPE.get(product_type, [])),
+        source_product_name=product.name.lower(),
         source_product_text=text,
         extraction_errors=tuple(errors),
     )
@@ -1068,8 +1075,9 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         return f"{material}{attributes.short_product_label}"
     if attributes.product_type == "baby_care":
         if "moisturizing" in features and ("baby_lotion" in features or "baby_cream" in features):
-            if all(term in source for term in ["ヘアウォッシュ", "ボディウォッシュ", "ミルク"]):
-                return "ヘア・ボディ洗浄料と保湿ミルクの3品セット"
+            components = baby_care_set_components(attributes)
+            if len(components) >= 3:
+                return f"{'・'.join(components)}の{len(components)}品セット"
             if quantity and "ポンプ" in source and "全身" in source:
                 return f"顔と全身に使える{quantity}のポンプ式ベビー保湿剤"
             return "保湿ケアに使うベビー保湿剤"
@@ -1180,6 +1188,21 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             return f"{'・'.join(descriptors)}のベビーカーバッグ"
         return f"{pocket}ベビーカーバッグ"
     return attributes.short_product_label
+
+
+def baby_care_set_components(attributes: ProductAttributes) -> list[str]:
+    """Return explicitly named care items without inferring count from SEO captions."""
+    name = attributes.source_product_name
+    components: list[str] = []
+    for label, markers in [
+        ("ヘア洗浄料", ["ヘアウォッシュ", "シャンプー"]),
+        ("ボディ洗浄料", ["ボディウォッシュ", "ボディソープ"]),
+        ("ローション", ["ローション"]),
+        ("ミルク", ["リッチミルク", "保湿ミルク", "ベビーミルク"]),
+    ]:
+        if any(marker in name for marker in markers):
+            components.append(label)
+    return components
 
 
 def hashtags_for(
@@ -2291,33 +2314,69 @@ def product_specific_distinctive_copy(
             "対象年齢とパーツの大きさが今の遊び方に合えば、雨の日の室内遊びへ取り入れやすいおもちゃです。",
             "セット内容と遊ぶ場所が家庭に合えば、色や形を組み立てる時間を親子で楽しみやすいおもちゃです。",
         ]
-    elif (
-        product_type == "baby_care"
-        and all(term in attributes.source_product_text for term in ["ヘアウォッシュ", "ボディウォッシュ", "ミルク"])
-    ):
+    elif product_type == "baby_care" and len(baby_care_set_components(attributes)) >= 3:
+        care_components = baby_care_set_components(attributes)
+        care_count = len(care_components)
+        care_list = "、".join(care_components)
+        care_step = "保湿" if "moisturizing" in features else "ローション・ミルク"
         titles = [
-            f"{label}｜洗う物と保湿を3品でそろえる",
+            f"{label}｜洗う物と{care_step}を{care_count}品でそろえる",
             f"{label}｜お風呂上がりまで一式で",
-            f"{label}｜ヘア・ボディ・保湿をまとめる",
+            f"{label}｜ヘア・ボディ・{care_step}をまとめる",
             f"{label}｜入浴後のケアを一式に",
         ]
         pains = [
-            "赤ちゃんの入浴用品を初めてそろえる時は、髪・体・保湿に何を用意するか迷いますよね。",
-            "お風呂で使う物と着替え前の保湿が別々だと、家族へ手順を伝える時にも確認が増えますよね。",
+            f"赤ちゃんの入浴用品を初めてそろえる時は、髪・体・{care_step}に何を用意するか迷いますよね。",
+            f"お風呂で使う物と着替え前の{care_step}が別々だと、家族へ手順を伝える時にも確認が増えますよね。",
             "ベビーケア用品を買い足すなら、セットの中身が毎日の入浴の流れに合うか気になりますよね。",
-            "お風呂上がりは着替えも重なるので、洗う物から保湿まで使う順番をそろえたいですよね。",
+            f"お風呂上がりは着替えも重なるので、洗う物から{care_step}まで使う順番をそろえたいですよね。",
         ]
         scenes = [
-            f"{feature}なら、髪を洗う物・体を洗う物・入浴後の保湿を同じシリーズでそろえられます。",
-            f"{feature}なら、浴室と着替え場所に置く3品を分け、家族で使う順番を共有しやすくなります。",
-            f"{feature}なら、ヘアウォッシュ、ボディウォッシュ、保湿ミルクを一度に準備できます。",
-            f"{feature}なら、お風呂から着替え前までに使うケア用品を3品まとめて確認できます。",
+            f"{feature}なら、{care_list}を同じシリーズでそろえられます。",
+            f"{feature}なら、浴室と着替え場所に置く{care_count}品を分け、家族で使う順番を共有しやすくなります。",
+            f"{feature}なら、{care_list}を一度に準備できます。",
+            f"{feature}なら、お風呂から着替え前までに使うケア用品を{care_count}品まとめて確認できます。",
         ]
         closings = [
-            "各商品の容量・成分・対象年齢を商品ページで確認でき、入浴前後に使う物を一式でそろえやすいセットです。",
-            "ヘア・ボディ・保湿の3品が家庭のケア方法に合えば、お風呂の支度を家族で共有しやすいセットです。",
-            "3品それぞれの使う部位と容量を確かめられ、初めての入浴用品を選ぶ手間を減らせるセットです。",
-            "対象年齢と成分表示を先に見られるので、お風呂から保湿までのケア用品をまとめて選びやすいセットです。",
+            f"{care_count}品の使う順番を一つにまとめられるので、入浴前後に別々のケア用品を探す手間を減らせるセットです。",
+            f"明記された{care_count}品を一度に準備でき、家族で交代する時もお風呂の支度をまとめられるセットです。",
+            f"{care_count}品それぞれの使う部位と容量を確かめられ、初めての入浴用品を選ぶ手間を減らせるセットです。",
+            f"対象年齢と成分表示を先に見られ、お風呂から{care_step}までに用意する物を一式にまとめられるセットです。",
+        ]
+    elif product_type == "kids_camera":
+        functions = []
+        for key, value in [
+            ("game_free", "ゲームなし"),
+            ("smartphone_transfer", "スマホ転送"),
+            ("sd_card", "SDカード"),
+            ("usb_charge", "USB充電"),
+        ]:
+            if key in features:
+                functions.append(value)
+        function_text = "・".join(functions[:3]) or "写真撮影"
+        titles = [
+            f"{label}｜子ども目線の写真を残す",
+            f"{label}｜散歩の景色を子どもが撮る",
+            f"{label}｜撮った写真を親子で見る",
+            f"{label}｜{function_text}で写真遊び",
+        ]
+        pains = [
+            "散歩や旅行で子どもが何を見ているか、親のスマホ写真だけでは気づきにくいことがありますよね。",
+            "子どもが写真を撮りたがるたびに大人のスマホを渡すのは、操作や持ち歩きも気になりますよね。",
+            "外出先の思い出を残すなら、親が撮る写真だけでなく子ども自身が選んだ景色も見てみたいですよね。",
+            "写真遊びを始める時は、子どもが扱う機能と撮った後の見返し方まで分かる物を選びたいですよね。",
+        ]
+        scenes = [
+            f"{feature}なら、散歩や旅行で子どもが気になった景色を自分で撮る遊びを始められます。",
+            f"{feature}なら、大人のスマホを渡さずに子どもがシャッターを押す時間を作れます。",
+            f"{feature}なら、外出先で子どもが気になった物へ自分でカメラを向けられます。",
+            f"{feature}なら、商品情報にある{function_text}を使って写真遊びの流れを決められます。",
+        ]
+        closings = [
+            "子どもが選んだ景色を帰宅後に一緒に見られるので、外出の思い出を子ども目線でも残せるカメラです。",
+            "親子で撮った写真について話す時間が増え、散歩や旅行の思い出を振り返りやすいカメラです。",
+            "大人が撮る写真とは違う景色を残せるので、子どもの興味を知るきっかけを増やせるカメラです。",
+            "撮る場面と見返す時間を親子で共有でき、外出後にも写真遊びを続けやすいカメラです。",
         ]
     elif product_type == "activity_cube":
         actions = [
@@ -2727,6 +2786,9 @@ def validate_post(
         "押して遊ぶで探す手間",
         "押して遊ぶで使う",
         "ピース数があるタイプなら",
+        "キッズカメラを選べるキッズカメラ",
+        "写真を撮るのどこへ置く",
+        "写真を撮るの近く",
     ]
     if any(value in post.body for value in awkward_copy):
         errors.append("marketing_awkward_condition: 不自然または根拠の弱い定型表現を使用")

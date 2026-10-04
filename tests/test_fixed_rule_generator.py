@@ -756,6 +756,42 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertLessEqual(generated.body.count("帰宅後"), 1, generated.body)
         self.assertLessEqual(generated.body.count("見返"), 1, generated.body)
 
+    def test_kids_camera_late_rewrites_use_natural_photo_scenes(self) -> None:
+        product = product_for("kids_camera")
+        scored = score_product(product, date(2026, 10, 4))
+        attributes = extract_attributes(product)
+        generated = generate("kids_camera")
+        forbidden = [
+            "キッズカメラを選べるキッズカメラ",
+            "写真を撮るのどこへ置く",
+            "写真を撮るの近く",
+        ]
+        for attempt in [8, 16, 24, 40, 56]:
+            title, body = add_distinctive_product_detail(
+                generated.title,
+                generated.body,
+                scored,
+                attributes,
+                attempt=attempt,
+                required_terms=("写真を撮る",),
+            )
+            changed = replace(generated, title=title, body=body)
+            self.assertFalse(any(value in f"{title}{body}" for value in forbidden), (attempt, title, body))
+            self.assertEqual(validate_post(changed, attributes), [], (attempt, title, body))
+
+    def test_known_awkward_kids_camera_phrases_are_rejected(self) -> None:
+        generated = generate("kids_camera")
+        for phrase in [
+            "キッズカメラを選べるキッズカメラ",
+            "写真を撮るのどこへ置く",
+            "写真を撮るの近く",
+        ]:
+            changed = replace(generated, body=generated.body + phrase)
+            self.assertTrue(
+                any("不自然または根拠の弱い定型表現" in error for error in validate_post(changed, changed.attributes)),
+                phrase,
+            )
+
     def test_duplicate_benefit_repetition_is_rejected(self) -> None:
         generated = generate("kids_camera")
         changed = replace(
@@ -1549,6 +1585,41 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("保湿", generated.body)
         self.assertIn("3品", generated.body)
         self.assertNotIn("保湿アイテムを一つ", generated.body)
+
+    def test_baby_care_four_item_set_keeps_fact_matched_count(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name="リッチミルク＋ベビーローション＋ボディウォッシュ＋ヘアウォッシュ 4品セット",
+            caption="ベビーケア スターターセット 保湿と洗浄",
+            catchcopy="ヘア ボディ ローション ミルクのセット",
+            url="https://example.com/baby-care/starter-4",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 4)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("4品", f"{generated.title}{generated.body}")
+        self.assertNotIn("3品", f"{generated.title}{generated.body}")
+        for term in ["ヘア", "ボディ", "ローション", "ミルク"]:
+            self.assertIn(term, generated.body)
+
+    def test_baby_care_set_without_explicit_item_count_does_not_invent_one(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name="ベビーケア スターターセット ヘアウォッシュ ボディウォッシュ 保湿ケア",
+            caption="赤ちゃんの入浴と保湿に使うセット",
+            catchcopy="お風呂上がりまでまとめて準備",
+            url="https://example.com/baby-care/starter-unknown",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 4)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIsNone(re.search(r"\d+品", f"{generated.title}{generated.body}"))
 
     def test_unsupported_title_scene_is_rejected(self) -> None:
         generated = generate("activity_cube")

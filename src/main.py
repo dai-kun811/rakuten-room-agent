@@ -521,20 +521,13 @@ def generate_until_ready(
     merely the input ranking.
     """
     accepted: list[tuple[ScoredProduct, object]] = []
-    deferred: list[tuple[ScoredProduct, object]] = []
     reviewed: list[tuple[ScoredProduct, object]] = []
     used_types: set[str] = set()
     candidate_window = [
         candidate for candidate in candidates if is_supported_room_product(candidate.product)
     ][:MAX_DIVERSITY_CANDIDATES]
 
-    def has_unseen_type(start_index: int) -> bool:
-        return any(
-            classify_product_type(candidate.product) not in used_types
-            for candidate in candidate_window[start_index:]
-        )
-
-    for index, item in enumerate(candidate_window):
+    for item in candidate_window:
         generated = generator.generate(
             item,
             context=context,
@@ -545,18 +538,15 @@ def generate_until_ready(
             continue
 
         product_type = classify_product_type(item.product)
-        if product_type not in used_types or not has_unseen_type(index + 1):
-            accepted.append((item, generated))
-            used_types.add(product_type)
-            if len(accepted) >= target_ready:
-                break
-        else:
-            deferred.append((item, generated))
-
-    for item, generated in deferred:
+        # A six-post day must expose six different product needs.  Repeated
+        # types are never promoted merely to fill a slot; keep searching and
+        # fail the run as missing if six distinct ready types are unavailable.
+        if product_type in used_types:
+            continue
+        accepted.append((item, generated))
+        used_types.add(product_type)
         if len(accepted) >= target_ready:
             break
-        accepted.append((item, generated))
     return [*accepted, *reviewed]
 
 

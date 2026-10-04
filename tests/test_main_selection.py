@@ -176,8 +176,14 @@ class MainSelectionTest(unittest.TestCase):
 
     def test_generate_until_ready_fills_all_six_post_slots(self) -> None:
         candidates = [
-            scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
-            for index in range(9)
+            scored("おしりふき 厚手 失敗1", "https://example.com/fail-1", 110),
+            scored("紙おむつ パンツ 失敗2", "https://example.com/fail-2", 109),
+            scored("おしりふき 厚手 80枚", "https://example.com/wipes", 100),
+            scored("紙おむつ パンツ Mサイズ", "https://example.com/diaper", 99),
+            scored("粉ミルク 800g", "https://example.com/formula", 98),
+            scored("マグネットブロック 48ピース", "https://example.com/blocks", 97),
+            scored("授乳ライト ホワイトノイズ", "https://example.com/light", 96),
+            scored("ベビーローション 保湿", "https://example.com/care", 95),
         ]
 
         class Generated:
@@ -213,8 +219,16 @@ class MainSelectionTest(unittest.TestCase):
 
     def test_generate_until_ready_searches_beyond_former_48_candidate_window(self) -> None:
         candidates = [
-            scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 100 - index)
-            for index in range(56)
+            *[
+                scored(f"おしりふき 厚手 {index}", f"https://example.com/wipes-{index}", 200 - index)
+                for index in range(48)
+            ],
+            scored("おしりふき 厚手 最終", "https://example.com/ready-wipes", 100),
+            scored("紙おむつ パンツ Mサイズ", "https://example.com/ready-diaper", 99),
+            scored("粉ミルク 800g", "https://example.com/ready-formula", 98),
+            scored("マグネットブロック 48ピース", "https://example.com/ready-blocks", 97),
+            scored("授乳ライト ホワイトノイズ", "https://example.com/ready-light", 96),
+            scored("ベビーローション 保湿", "https://example.com/ready-care", 95),
         ]
 
         class Generated:
@@ -247,14 +261,12 @@ class MainSelectionTest(unittest.TestCase):
     def test_generate_until_ready_skips_unsupported_products(self) -> None:
         candidates = [
             scored("キッズ 手袋 外遊び 防寒 通園", "https://example.com/gloves", 120),
-            *[
-                scored(
-                    f"おしりふき 厚手 {index}",
-                    f"https://example.com/wipes-{index}",
-                    100 - index,
-                )
-                for index in range(6)
-            ],
+            scored("おしりふき 厚手 80枚", "https://example.com/wipes", 100),
+            scored("紙おむつ パンツ Mサイズ", "https://example.com/diaper", 99),
+            scored("粉ミルク 800g", "https://example.com/formula", 98),
+            scored("マグネットブロック 48ピース", "https://example.com/blocks", 97),
+            scored("授乳ライト ホワイトノイズ", "https://example.com/light", 96),
+            scored("ベビーローション 保湿", "https://example.com/care", 95),
         ]
 
         class Generated:
@@ -280,6 +292,34 @@ class MainSelectionTest(unittest.TestCase):
         self.assertEqual(len(results), TARGET_READY_POSTS)
         self.assertEqual(len(generator.names), TARGET_READY_POSTS)
         self.assertNotIn("キッズ 手袋 外遊び 防寒 通園", generator.names)
+
+    def test_generate_until_ready_never_fills_slots_with_a_repeated_type(self) -> None:
+        candidates = [
+            scored(f"キッズカメラ {index}", f"https://example.com/camera-{index}", 100 - index)
+            for index in range(9)
+        ]
+
+        class Generated:
+            status = "ready"
+
+        class Generator:
+            def generate(self, item, *, context, season):
+                del item, context, season
+                return Generated()
+
+        results = generate_until_ready(
+            candidates,
+            generator=Generator(),
+            context=object(),
+            target_ready=TARGET_READY_POSTS,
+        )
+
+        ready_types = [
+            classify_product_type(item.product)
+            for item, generated in results
+            if generated.status == "ready"
+        ]
+        self.assertEqual(ready_types, ["kids_camera"])
 
     def test_generate_until_ready_uses_a_later_distinct_type_before_backup(self) -> None:
         candidates = [
