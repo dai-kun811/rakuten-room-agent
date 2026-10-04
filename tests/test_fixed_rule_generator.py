@@ -675,6 +675,56 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("48ピース", generated.body)
         self.assertNotIn("50個", generated.body)
 
+    def test_magnetic_blocks_normalize_pcs_and_avoid_label_repetition(self) -> None:
+        product = replace(
+            product_for("magnetic_blocks"),
+            name="マグネット ブロック 100pcs 2cm ミニフィグ8体",
+            caption="マグネットブロック 100pcs 平面 立体 組み立て",
+            catchcopy="マグネットブロック 100pcs 平面 立体 組み立て",
+            url="https://example.com/blocks/100pcs",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 4)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("100ピース", generated.body)
+        self.assertLessEqual(generated.body.count("マグネットブロック"), 2)
+        self.assertNotIn("マグネットブロックをマグネットブロック", generated.body)
+        self.assertNotEqual(
+            generated.title,
+            "マグネットブロック｜マグネットブロック",
+        )
+
+    def test_known_bad_repeated_or_false_enjoyment_titles_are_rejected(self) -> None:
+        cases = [
+            ("magnetic_blocks", "マグネットブロック｜マグネットブロック", "区切り前後で商品名だけを反復"),
+            ("baby_sleep", "スリーパー｜寝冷えを楽しむ", "遊び商品ではないのに楽しむ訴求を使用"),
+            ("baby_care", "ベビー保湿剤｜家族を楽しむ", "遊び商品ではないのに楽しむ訴求を使用"),
+        ]
+        for product_type, title, expected in cases:
+            generated = generate(product_type)
+            errors = validate_post(replace(generated, title=title), generated.attributes)
+            self.assertTrue(any(expected in error for error in errors), (title, errors))
+
+    def test_marketing_rewrites_do_not_turn_required_scene_terms_into_enjoyment(self) -> None:
+        cases = [
+            ("baby_sleep", "寝冷えを楽しむ"),
+            ("baby_care", "家族を楽しむ"),
+        ]
+        for product_type, forbidden in cases:
+            product = product_for(product_type)
+            scored = score_product(product, date(2026, 10, 4))
+            attributes = extract_attributes(product)
+            for pattern in PATTERNS[product_type]:
+                generated = build_candidate(scored, attributes, pattern, 24)
+                self.assertNotIn(forbidden, generated.title, (product_type, pattern.pattern_id))
+                self.assertFalse(
+                    any("遊び商品ではないのに楽しむ訴求" in error for error in validate_post(generated, attributes)),
+                    (product_type, pattern.pattern_id, generated.title),
+                )
+
     def test_unconfirmed_quantity_in_body_is_rejected(self) -> None:
         generated = generate("magnetic_blocks")
         changed = replace(generated, body=generated.body + "50個でも遊べます。")
@@ -1478,6 +1528,26 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("手口ふき", generated.body)
         self.assertNotIn("おしりふき", generated.body)
         self.assertEqual(generated.hashtags[0], "#手口ふき")
+
+    def test_baby_care_three_item_set_names_each_care_step(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name="スターターセット3 ヘアウォッシュ280ml ボディウォッシュ450ml リッチミルク350g",
+            caption="ベビーケア ヘアウォッシュ ボディウォッシュ ベビーローション 保湿ミルク 3品セット",
+            catchcopy="ヘアウォッシュ ボディウォッシュ ベビーローション 保湿ミルク スターターセット",
+            url="https://example.com/baby-care/starter-3",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 4)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertIn("ヘア", generated.body)
+        self.assertIn("ボディ", generated.body)
+        self.assertIn("保湿", generated.body)
+        self.assertIn("3品", generated.body)
+        self.assertNotIn("保湿アイテムを一つ", generated.body)
 
     def test_unsupported_title_scene_is_rejected(self) -> None:
         generated = generate("activity_cube")

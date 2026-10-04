@@ -881,9 +881,9 @@ def extract_attributes(product: Product) -> ProductAttributes:
     target_age = f"{target_age_match.group(1)}歳" if target_age_match else ""
     quantities = list(
         dict.fromkeys(
-            match.group(0)
+            re.sub(r"\s*pcs$", "ピース", match.group(0), flags=re.IGNORECASE)
             for match in re.finditer(
-                r"\d+(?:\.\d+)?\s*(?:枚|個|本|缶|袋|箱|ピース|パーツ|ポケット|ml|mL|g|kg)",
+                r"\d+(?:\.\d+)?\s*(?:枚|個|本|缶|袋|箱|ピース|パーツ|ポケット|pcs|ml|mL|g|kg)",
                 product.identity_text,
                 flags=re.IGNORECASE,
             )
@@ -1068,6 +1068,8 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         return f"{material}{attributes.short_product_label}"
     if attributes.product_type == "baby_care":
         if "moisturizing" in features and ("baby_lotion" in features or "baby_cream" in features):
+            if all(term in source for term in ["ヘアウォッシュ", "ボディウォッシュ", "ミルク"]):
+                return "ヘア・ボディ洗浄料と保湿ミルクの3品セット"
             if quantity and "ポンプ" in source and "全身" in source:
                 return f"顔と全身に使える{quantity}のポンプ式ベビー保湿剤"
             return "保湿ケアに使うベビー保湿剤"
@@ -1290,7 +1292,7 @@ def hashtags_for(
         add("#手先遊び")
     elif product_type == "magnetic_blocks":
         add("#マグネットブロック", "magnetic" in features)
-        add("#立体遊び", "立体" in combined)
+        add("#立体遊び", "立体" in attributes.source_product_text)
         add("#組み立て遊び")
         add("#おうち遊び")
         add("#創造遊び")
@@ -2258,6 +2260,65 @@ def product_specific_distinctive_copy(
             f"対象月齢・賞味期限・保管場所を確認すれば、次の段階へ移る時期までに使える量を選びやすいセットです。",
             f"{delivery_check}賞味期限までに消費できる量なら、夜間授乳用の未開封ストックを切らしにくくできます。",
         ]
+    elif product_type == "magnetic_blocks":
+        quantity = next(iter(attributes.confirmed_quantity_features), "")
+        quantity_text = quantity or "セット内容"
+        has_3d = "立体" in attributes.source_product_text
+        build_angle = "平面から立体へ組み立てる" if has_3d else "色と形を組み合わせる"
+        titles = [
+            f"{label}｜{build_angle}",
+            f"{label}｜{quantity_text}で形を作る",
+            f"{label}｜雨の日の組み立て遊び",
+            f"{label}｜親子で形を組み立てる",
+        ]
+        pains = [
+            "雨の日や夕方に同じ遊びが続くと、家の中で次に出すおもちゃを考える時間が増えますよね。",
+            "ブロック遊びに慣れてくると、組み合わせを変えて別の形にも挑戦できるおもちゃが気になりますよね。",
+            "雨の日に出す細かなパーツのおもちゃは、遊び方だけでなく対象年齢や片づける場所も気になりますよね。",
+            "親子で一緒に遊ぶなら、色や形を相談しながら組み立てられるセットに目が向きますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、色や形を選び、子どもの反応に合わせて作る物を広げられます。",
+            f"{feature}なら、色や形を選びながら親子で一つの作品を組み立てられます。",
+            f"{feature}なら、雨の日も組み合わせを試しながら親子で手を動かして遊べます。",
+            f"{feature}なら、見本をまねる遊びと自由に形を作る遊びを切り替えられます。",
+        ]
+        if has_3d:
+            scenes[0] = f"{feature}なら、床へ並べる平面遊びから立体の形作りへ、子どもの反応に合わせて取り組めます。"
+        closings = [
+            "対象年齢・パーツサイズ・セット内容が家庭に合えば、親子のおうち遊びを増やせるおもちゃです。",
+            "パーツ数と収納場所が家庭に合えば、遊び終わった後の片づけまで一緒に進めやすいおもちゃです。",
+            "対象年齢とパーツの大きさが今の遊び方に合えば、雨の日の室内遊びへ取り入れやすいおもちゃです。",
+            "セット内容と遊ぶ場所が家庭に合えば、色や形を組み立てる時間を親子で楽しみやすいおもちゃです。",
+        ]
+    elif (
+        product_type == "baby_care"
+        and all(term in attributes.source_product_text for term in ["ヘアウォッシュ", "ボディウォッシュ", "ミルク"])
+    ):
+        titles = [
+            f"{label}｜洗う物と保湿を3品でそろえる",
+            f"{label}｜お風呂上がりまで一式で",
+            f"{label}｜ヘア・ボディ・保湿をまとめる",
+            f"{label}｜入浴後のケアを一式に",
+        ]
+        pains = [
+            "赤ちゃんの入浴用品を初めてそろえる時は、髪・体・保湿に何を用意するか迷いますよね。",
+            "お風呂で使う物と着替え前の保湿が別々だと、家族へ手順を伝える時にも確認が増えますよね。",
+            "ベビーケア用品を買い足すなら、セットの中身が毎日の入浴の流れに合うか気になりますよね。",
+            "お風呂上がりは着替えも重なるので、洗う物から保湿まで使う順番をそろえたいですよね。",
+        ]
+        scenes = [
+            f"{feature}なら、髪を洗う物・体を洗う物・入浴後の保湿を同じシリーズでそろえられます。",
+            f"{feature}なら、浴室と着替え場所に置く3品を分け、家族で使う順番を共有しやすくなります。",
+            f"{feature}なら、ヘアウォッシュ、ボディウォッシュ、保湿ミルクを一度に準備できます。",
+            f"{feature}なら、お風呂から着替え前までに使うケア用品を3品まとめて確認できます。",
+        ]
+        closings = [
+            "各商品の容量・成分・対象年齢を商品ページで確認でき、入浴前後に使う物を一式でそろえやすいセットです。",
+            "ヘア・ボディ・保湿の3品が家庭のケア方法に合えば、お風呂の支度を家族で共有しやすいセットです。",
+            "3品それぞれの使う部位と容量を確かめられ、初めての入浴用品を選ぶ手間を減らせるセットです。",
+            "対象年齢と成分表示を先に見られるので、お風呂から保湿までのケア用品をまとめて選びやすいセットです。",
+        ]
     elif product_type == "activity_cube":
         actions = [
             value
@@ -2473,15 +2534,24 @@ def product_specific_distinctive_copy(
 
     required = next((term for term in required_terms if term), "")
     title = titles[variant % len(titles)]
-    body = "".join([
-        teaser + pains[variant % len(pains)],
-        scenes[(variant // len(pains)) % len(scenes)],
-        closings[(variant // (len(pains) * len(scenes))) % len(closings)],
-    ])
+    if product_type == "magnetic_blocks":
+        magnetic_index = variant % len(pains)
+        magnetic_cycle = variant // len(pains)
+        body = "".join([
+            teaser + pains[magnetic_index],
+            scenes[(magnetic_index + magnetic_cycle) % len(scenes)],
+            closings[(magnetic_index + 2 * magnetic_cycle) % len(closings)],
+        ])
+    else:
+        body = "".join([
+            teaser + pains[variant % len(pains)],
+            scenes[(variant // len(pains)) % len(scenes)],
+            closings[(variant // (len(pains) * len(scenes))) % len(closings)],
+        ])
     if required and required not in f"{title}{body}":
         if product_type in {"diaper", "stroller_storage"}:
             title = f"{label}｜{required}を確認"
-        elif required in attributes.source_product_text:
+        elif not uses_marketing_copy(attributes) and required in attributes.source_product_text:
             title = f"{label}｜{required}を楽しむ"
     return title, body
 
@@ -2641,6 +2711,18 @@ def validate_post(
         errors.append("不自然な文接続を使用")
     if any(value in post.title for value in ["暮らしへ足す", "｜ケアに", "｜ケア用品向け", "｜サイズに", "｜場面に使いやすい", "スリーパー｜ガーゼ素材のスリーパー"]):
         errors.append("title_content_mismatch: 商品と利用場面が伝わらない曖昧タイトル")
+    title_parts = [part.strip() for part in post.title.split("｜", 1)]
+    if len(title_parts) == 2 and normalize_text(title_parts[0]) == normalize_text(title_parts[1]):
+        errors.append("title_content_mismatch: 区切り前後で商品名だけを反復")
+    if "を楽しむ" in post.title and attributes.product_type not in {
+        "sound_blocks",
+        "wooden_blocks",
+        "magnetic_blocks",
+        "baby_walker_toy",
+        "activity_cube",
+        "ring_toy",
+    }:
+        errors.append("title_content_mismatch: 遊び商品ではないのに楽しむ訴求を使用")
     awkward_copy = [
         "押して遊ぶで探す手間",
         "押して遊ぶで使う",
