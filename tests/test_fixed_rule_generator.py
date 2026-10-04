@@ -807,6 +807,7 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertNotIn("OPENAI_API_KEY", workflow)
         self.assertNotIn("OPENAI_MODEL", workflow)
         self.assertIn("GENERATION_MODE: fallback", workflow)
+        self.assertIn("timeout-minutes: 30", workflow)
 
     def test_ring_toy_rejects_magnetic_block_copy(self) -> None:
         generated = generate("ring_toy")
