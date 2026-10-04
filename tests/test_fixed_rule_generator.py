@@ -1654,6 +1654,25 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("収納", body)
         self.assertNotIn("外出前", body)
 
+    def test_stroller_storage_required_term_uses_natural_title(self) -> None:
+        product = replace(
+            product_for("stroller_storage"),
+            name="ベビーカーバッグ ドリンクホルダー 小物入れ 手元収納",
+            caption="ベビーカー用バッグ 外出中の小物を手元へ",
+            catchcopy="ベビーカー周りの荷物整理",
+        )
+        result = product_specific_distinctive_copy(
+            extract_attributes(product),
+            teaser="",
+            variant=0,
+            required_terms=("手元",),
+        )
+
+        self.assertIsNotNone(result)
+        title, _ = result or ("", "")
+        self.assertEqual(title, "ベビーカーバッグ｜外出中の小物を手元に")
+        self.assertNotIn("手元を確認", title)
+
     def test_baby_care_three_item_set_names_each_care_step(self) -> None:
         product = replace(
             product_for("baby_care"),

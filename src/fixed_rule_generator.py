@@ -2831,7 +2831,18 @@ def product_specific_distinctive_copy(
             closings[(variant // (len(pains) * len(scenes))) % len(closings)],
         ])
     if required and required not in f"{title}{body}":
-        if product_type in {"diaper", "stroller_storage"}:
+        if product_type == "stroller_storage":
+            stroller_titles = {
+                "外出": f"{label}｜外出荷物を分けて収納",
+                "手元": f"{label}｜外出中の小物を手元に",
+                "ベビーカー": f"{label}｜ベビーカー周りを整理",
+                "飲み物": f"{label}｜飲み物と小物をまとめる",
+                "探す": f"{label}｜探す時間を減らす収納",
+                "荷物": f"{label}｜荷物の定位置を作る",
+                "散歩": f"{label}｜散歩中の荷物を整理",
+            }
+            title = stroller_titles.get(required, f"{label}｜{required}を生かして荷物整理")
+        elif product_type == "diaper":
             title = f"{label}｜{required}を確認"
         elif not uses_marketing_copy(attributes) and required in attributes.source_product_text:
             title = f"{label}｜{required}を楽しむ"
