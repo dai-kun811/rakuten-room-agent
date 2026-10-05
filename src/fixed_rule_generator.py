@@ -179,6 +179,7 @@ CONCRETE_BENEFIT_ENDINGS = [
     "増やせるおもちゃです",
     "増やせるアイテムです",
     "遊びやすい知育おもちゃです",
+    "減らせるカメラです",
 ]
 
 TYPE_KEYWORDS = {
@@ -1187,18 +1188,16 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         quantity_text = f"{quantity}の" if quantity else ""
         return f"{'と'.join(actions)}を含む{quantity_text}リング玩具"
     if attributes.product_type == "kids_camera":
-        functions = [
-            label
-            for key, label in [
-                ("smartphone_transfer", "スマホ転送"),
-                ("sd_card", "SDカード"),
-                ("game_free", "ゲームなし"),
-                ("usb_charge", "USB充電"),
-            ]
-            if key in features
-        ]
-        suffix = "に対応した" if functions else ""
-        return f"{'・'.join(functions)}{suffix}キッズカメラ"
+        functions = []
+        if "smartphone_transfer" in features:
+            functions.append("スマホ転送対応")
+        if "sd_card" in features:
+            functions.append("SDカード付き")
+        if "game_free" in features:
+            functions.append("ゲーム機能なし")
+        if "usb_charge" in features:
+            functions.append("USB充電式")
+        return f"{'・'.join(functions)}のキッズカメラ" if functions else "キッズカメラ"
     if attributes.product_type == "sleep_light":
         functions = [label for key, label in [("white_noise", "ホワイトノイズ"), ("nursing_light", "授乳ライト")] if key in features]
         if "cordless" in features:
@@ -2465,15 +2464,15 @@ def product_specific_distinctive_copy(
             f"{feature}なら、色や形を選び、子どもの反応に合わせて作る物を広げられます。",
             f"{feature}なら、色や形を選びながら親子で一つの作品を組み立てられます。",
             f"{feature}なら、雨の日も組み合わせを試しながら親子で手を動かして遊べます。",
-            f"{feature}なら、見本をまねる遊びと自由に形を作る遊びを切り替えられます。",
+            f"{feature}なら、磁石でつながるピースを組み替え、色や形を相談しながら親子で作品を作れます。",
         ]
         if has_3d:
             scenes[0] = f"{feature}なら、床へ並べる平面遊びから立体の形作りへ、子どもの反応に合わせて取り組めます。"
         closings = [
-            "対象年齢・パーツサイズ・セット内容が家庭に合えば、親子のおうち遊びを増やせるおもちゃです。",
-            "パーツ数と収納場所が家庭に合えば、遊び終わった後の片づけまで一緒に進めやすいおもちゃです。",
-            "対象年齢とパーツの大きさが今の遊び方に合えば、雨の日の室内遊びへ取り入れやすいおもちゃです。",
-            "セット内容と遊ぶ場所が家庭に合えば、色や形を組み立てる時間を親子で楽しみやすいおもちゃです。",
+            f"購入前に対象年齢・パーツサイズ・{quantity_text}の内訳を確かめると、子どもの今の遊び方に合う形作りを増やせるおもちゃです。",
+            f"対象年齢・{quantity_text}の内訳・収納場所を商品ページで比べると、遊び終わった後まで親子で取り組める形を増やせるおもちゃです。",
+            "購入前に対象年齢・パーツの大きさ・手持ちブロックとの互換性を確認し、家庭で無理なく試せる組み立て遊びを増やせるおもちゃです。",
+            f"対象年齢・パーツサイズ・{quantity_text}の内訳を確認すれば、親子で作りたい形を少しずつ増やせるおもちゃです。",
         ]
     elif product_type == "baby_care" and len(baby_care_set_components(attributes)) >= 3:
         care_components = baby_care_set_components(attributes)
@@ -2525,19 +2524,19 @@ def product_specific_distinctive_copy(
             "散歩や旅行で子どもが何を見ているか、親のスマホ写真だけでは気づきにくいことがありますよね。",
             "子どもが写真を撮りたがるたびに大人のスマホを渡すのは、操作や持ち歩きも気になりますよね。",
             "外出先の思い出を残すなら、親が撮る写真だけでなく子ども自身が選んだ景色も見てみたいですよね。",
-            "写真遊びを始める時は、子どもが扱う機能と撮った後の見返し方まで分かる物を選びたいですよね。",
+            "写真遊びを始める時は、子どもが扱える機能と撮った後の保存方法が分かりにくいことがありますよね。",
         ]
         scenes = [
             f"{feature}なら、散歩や旅行で子どもが気になった景色を自分で撮る遊びを始められます。",
-            f"{feature}なら、大人のスマホを渡さずに子どもがシャッターを押す時間を作れます。",
-            f"{feature}なら、外出先で子どもが気になった物へ自分でカメラを向けられます。",
-            f"{feature}なら、商品情報にある{function_text}を使って写真遊びの流れを決められます。",
+            f"{feature}なら、大人のスマホを渡さずに、散歩や旅行で子どもが自分でシャッターを押して写真を撮れます。",
+            f"{feature}なら、散歩や旅行の外出先で子どもが気になった物へ自分でカメラを向けられます。",
+            f"{feature}なら、散歩や旅行へ持ち出し、子どもが撮った景色を親子で見返せます。",
         ]
         closings = [
-            "子どもが選んだ景色を帰宅後に一緒に見られるので、外出の思い出を子ども目線でも残せるカメラです。",
-            "親子で撮った写真について話す時間が増え、散歩や旅行の思い出を振り返りやすいカメラです。",
-            "大人が撮る写真とは違う景色を残せるので、子どもの興味を知るきっかけを増やせるカメラです。",
-            "撮る場面と見返す時間を親子で共有でき、外出後にも写真遊びを続けやすいカメラです。",
+            "購入前に対象年齢・充電方式・SDカードの付属有無を確認すると、持ち出す前の充電や保存で迷う時間を減らせるカメラです。",
+            "対象年齢・充電方式・撮った写真の転送方法を商品ページで確かめると、散歩や旅行へ持ち出す前の準備時間を減らせるカメラです。",
+            "購入前に対象年齢・ゲーム機能の有無・SDカードの仕様を確認すると、写真遊びに必要な機能を選ぶ迷いを減らせるカメラです。",
+            "対象年齢・充電方式・写真の保存方法を確認すれば、撮影から親子で見返すまでに迷う時間を減らせるカメラです。",
         ]
     elif product_type == "activity_cube":
         actions = [

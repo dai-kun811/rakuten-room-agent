@@ -23,9 +23,11 @@ from fixed_rule_generator import (
     add_distinctive_product_detail,
     build_candidate,
     classify_product_type,
+    confirmed_feature_phrase,
     confirmation_repeat_count,
     ending_family,
     extract_attributes,
+    hashtags_for,
     product_specific_distinctive_copy,
     stable_index,
     split_sentences,
@@ -716,6 +718,39 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             "マグネットブロック｜マグネットブロック",
         )
 
+    def test_magnetic_blocks_avoid_unverified_example_copy_and_add_purchase_checks(self) -> None:
+        product = replace(
+            product_for("magnetic_blocks"),
+            name="知育玩具 マグネット ブロック 磁石 おもちゃ 100ピース MAGROCK マグロック",
+            caption="マグネットブロック 100ピース 組み立て遊び",
+            catchcopy="磁石でつながるブロック 100ピース",
+            url="https://example.com/blocks/mag100",
+        )
+        scored = score_product(product, date(2026, 10, 5))
+        attributes = extract_attributes(product)
+        generated = generate("magnetic_blocks")
+        for attempt in range(8, 24):
+            title, body = add_distinctive_product_detail(
+                generated.title,
+                generated.body,
+                scored,
+                attributes,
+                attempt=attempt,
+            )
+            changed = replace(
+                generated,
+                title=title,
+                body=body,
+                hashtags=hashtags_for(attributes, title=title, body=body),
+                attributes=attributes,
+            )
+            self.assertNotIn("見本をまねる", body)
+            self.assertTrue(
+                any(term in body for term in ["対象年齢", "パーツサイズ", "互換性"]),
+                body,
+            )
+            self.assertEqual(validate_post(changed, attributes), [], (attempt, title, body))
+
     def test_known_bad_repeated_or_false_enjoyment_titles_are_rejected(self) -> None:
         cases = [
             ("magnetic_blocks", "マグネットブロック｜マグネットブロック", "区切り前後で商品名だけを反復"),
@@ -774,6 +809,43 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertEqual(generated.status, "ready", generated.quality_errors)
         self.assertLessEqual(generated.body.count("帰宅後"), 1, generated.body)
         self.assertLessEqual(generated.body.count("見返"), 1, generated.body)
+
+    def test_kids_camera_uses_natural_feature_grammar_and_purchase_checks(self) -> None:
+        product = replace(
+            product_for("kids_camera"),
+            name="キッズカメラPRO ゲームなし 本体80g 3200万画素 16GBSDカード付 USB充電",
+            caption="子ども用カメラ ゲームなし SDカード付き USB充電",
+            catchcopy="散歩や旅行で写真撮影",
+            url="https://example.com/kids-camera/pro",
+        )
+        scored = score_product(product, date(2026, 10, 5))
+        attributes = extract_attributes(product)
+        feature = confirmed_feature_phrase(attributes)
+        self.assertIn("SDカード付き", feature)
+        self.assertIn("ゲーム機能なし", feature)
+        self.assertNotIn("SDカード・ゲームなしに対応", feature)
+        generated = generate("kids_camera")
+        for attempt in range(8, 24):
+            title, body = add_distinctive_product_detail(
+                generated.title,
+                generated.body,
+                scored,
+                attributes,
+                attempt=attempt,
+            )
+            changed = replace(
+                generated,
+                title=title,
+                body=body,
+                hashtags=hashtags_for(attributes, title=title, body=body),
+                attributes=attributes,
+            )
+            self.assertNotIn("話す時間が増え", body)
+            self.assertTrue(
+                any(term in body for term in ["対象年齢", "充電方式", "SDカード"]),
+                body,
+            )
+            self.assertEqual(validate_post(changed, attributes), [], (attempt, title, body))
 
     def test_kids_camera_late_rewrites_use_natural_photo_scenes(self) -> None:
         product = product_for("kids_camera")
