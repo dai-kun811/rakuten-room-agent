@@ -194,6 +194,35 @@ class MainSelectionTest(unittest.TestCase):
             {"daily_need", "pain_solver", "discovery"},
         )
 
+    def test_diversify_products_prefers_types_not_used_in_the_last_week(self) -> None:
+        candidates = [
+            scored("手口ふき 厚手 80枚", "https://example.com/wipes", 120),
+            scored("キッズカメラ ゲームなし", "https://example.com/camera", 119),
+            scored("ベビーカーバッグ 大容量", "https://example.com/stroller", 118),
+            scored("ベビーローション 保湿", "https://example.com/care", 90),
+            scored("授乳ライト ホワイトノイズ", "https://example.com/light", 89),
+            scored("型はめ ルーピング アクティビティキューブ", "https://example.com/cube", 88),
+        ]
+        recent_history = [
+            {"日付": "2026-10-04", "商品タイプ": "wipes", "ステータス": "ready"},
+            {"日付": "2026-10-04", "商品タイプ": "kids_camera", "ステータス": "ready"},
+            {"日付": "2026-10-03", "商品タイプ": "stroller_storage", "ステータス": "ready"},
+            # Rejected rows must not make a type look recently published.
+            {"日付": "2026-10-05", "商品タイプ": "baby_care", "ステータス": "needs_review"},
+        ]
+
+        selected = diversify_products(
+            candidates,
+            recent_history,
+            limit=3,
+            today=date(2026, 10, 5),
+        )
+
+        self.assertEqual(
+            [classify_product_type(item.product) for item in selected],
+            ["baby_care", "sleep_light", "activity_cube"],
+        )
+
     def test_generate_until_ready_fills_all_six_post_slots(self) -> None:
         candidates = [
             scored("おしりふき 厚手 失敗1", "https://example.com/fail-1", 110),

@@ -6,7 +6,7 @@ import re
 import sys
 import uuid
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -31,6 +31,7 @@ from sheets import (
     DEFAULT_REVIEW_SHEET_NAME,
     SheetsClient,
     normalize_product_url,
+    parse_date,
     scored_product_to_row,
     target_sheet_for_status,
 )
@@ -225,7 +226,12 @@ def main() -> int:
             tiers,
             limit=len(eligible_products),
         )
-        selected_products = diversify_products(candidates, recent_history, limit=len(candidates))
+        selected_products = diversify_products(
+            candidates,
+            recent_history,
+            limit=len(candidates),
+            today=today,
+        )
         if not selected_products:
             top_products = score_all_products(eligible_products, today)[:3]
             details = [
@@ -445,21 +451,48 @@ def diversify_products(
     recent_history: list[dict[str, str]],
     *,
     limit: int,
+    today: date | None = None,
 ) -> list[ScoredProduct]:
+    # Review-sheet rows record rejected candidates, not public ROOM content.
+    # Counting them as recent posts lets a large failed run distort the next
+    # day's mix, so only ready/published-compatible rows influence diversity.
+    diversity_history = [
+        record
+        for record in recent_history
+        if not record.get("ステータス")
+        or record.get("ステータス") in {"ready", "posted"}
+    ]
     recent_types = Counter(
         record.get("商品タイプ", "")
-        for record in recent_history
+        for record in diversity_history
         if record.get("商品タイプ")
     )
     recent_axes = Counter(
         selection_axis_for_type(record.get("商品タイプ", ""))
-        for record in recent_history
+        for record in diversity_history
         if record.get("商品タイプ")
     )
+    seven_day_types: Counter[str] = Counter()
+    last_used_ordinal: dict[str, int] = {}
+    if today is not None:
+        cutoff = today - timedelta(days=6)
+        for record in diversity_history:
+            product_type = record.get("商品タイプ", "")
+            row_date = parse_date(record.get("日付", ""))
+            if not product_type or row_date is None:
+                continue
+            if row_date >= cutoff:
+                seven_day_types[product_type] += 1
+            last_used_ordinal[product_type] = max(
+                last_used_ordinal.get(product_type, 0),
+                row_date.toordinal(),
+            )
     ranked = sorted(
         candidates,
         key=lambda item: (
             0 if is_supported_room_product(item.product) else 1,
+            seven_day_types[classify_product_type(item.product)],
+            last_used_ordinal.get(classify_product_type(item.product), 0),
             recent_types[classify_product_type(item.product)],
             recent_axes[selection_axis(item)],
             -item.total_score,

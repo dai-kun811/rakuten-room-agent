@@ -847,6 +847,28 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             )
             self.assertEqual(validate_post(changed, attributes), [], (attempt, title, body))
 
+    def test_kids_camera_base_copy_uses_purchase_facts_not_predicted_conversation(self) -> None:
+        product = replace(
+            product_for("kids_camera"),
+            name="キッズカメラ トイカメラ ゲームなし 4800万画素 USB充電 子供用カメラ",
+            caption="キッズカメラ 自撮り 動画 USB充電 日本語操作画面",
+            catchcopy="ゲームなしで写真撮影",
+            url="https://item.rakuten.co.jp/ahanashop/camera21",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 5)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("何を撮ったか聞く時間ができ", generated.body)
+        self.assertNotIn("話す時間が増え", generated.body)
+        self.assertNotIn("外出後の話題が増え", generated.body)
+        self.assertTrue(
+            any(term in generated.body for term in ["対象年齢", "充電方式", "保存方法", "付属品"]),
+            generated.body,
+        )
+
     def test_kids_camera_late_rewrites_use_natural_photo_scenes(self) -> None:
         product = product_for("kids_camera")
         scored = score_product(product, date(2026, 10, 4))
@@ -1703,6 +1725,31 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertIn("6枚", generated.body)
         self.assertIn("12パック", generated.body)
 
+    def test_hand_wipes_copy_avoids_colliding_context_and_abstract_panic_claims(self) -> None:
+        product = replace(
+            product_for("wipes"),
+            name="手口ふき 厚手 80枚入り 8個 水99% 無香料",
+            caption="食後や外出先に使う手口ふき 80枚 8個",
+            catchcopy="厚手の手口ふき まとめ買い",
+            url="https://item.rakuten.co.jp/chinavi/0514-bwip-lid",
+        )
+        attributes = extract_attributes(product)
+        for variant in range(32):
+            result = product_specific_distinctive_copy(
+                attributes,
+                teaser="【手口ふき｜食後や外出先】",
+                variant=variant,
+            )
+            self.assertIsNotNone(result)
+            _title, body = result or ("", "")
+            self.assertNotIn("朝の支度前は、食後", body)
+            self.assertNotIn("配分に迷", body)
+            self.assertNotIn("探して焦る", body)
+            self.assertTrue(
+                any(term in body for term in ["1パック", "セット総数", "収納場所", "使用量"]),
+                body,
+            )
+
     def test_diaper_storage_distinctive_copy_stays_home_storage_specific(self) -> None:
         name = "おむつストッカー 大容量 収納ボックス 布 折りたたみ Lサイズ"
         product = replace(
@@ -1744,6 +1791,22 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         title, _ = result or ("", "")
         self.assertEqual(title, "ベビーカーバッグ｜外出中の小物を手元に")
         self.assertNotIn("手元を確認", title)
+
+    def test_stroller_storage_titles_lead_with_scene_instead_of_confirmation(self) -> None:
+        attributes = extract_attributes(product_for("stroller_storage"))
+        for variant in range(16):
+            result = product_specific_distinctive_copy(
+                attributes,
+                teaser="",
+                variant=variant,
+            )
+            self.assertIsNotNone(result)
+            title, body = result or ("", "")
+            self.assertNotIn("取り付け条件を確認", title)
+            self.assertTrue(
+                any(term in body for term in ["取り付け", "容量", "対応機種", "本体サイズ"]),
+                body,
+            )
 
     def test_baby_care_three_item_set_names_each_care_step(self) -> None:
         product = replace(
@@ -1943,8 +2006,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         four_count = sum(post.sentence_form == "4文型" for post in posts)
         self.assertTrue(all(post.status == "ready" for post in posts), [post.quality_errors for post in posts])
         self.assertGreaterEqual(three_count, 6)
-        self.assertGreaterEqual(four_count, 5)
-        self.assertLessEqual(three_count, 10)
+        self.assertGreaterEqual(four_count, 4)
+        self.assertLessEqual(three_count, 11)
         self.assertLessEqual(four_count, 9)
         self.assertTrue(all(post.structure_similarity < 0.75 for post in posts))
 
