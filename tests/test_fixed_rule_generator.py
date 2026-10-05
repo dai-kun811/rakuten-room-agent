@@ -864,6 +864,9 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertNotIn("何を撮ったか聞く時間ができ", generated.body)
         self.assertNotIn("話す時間が増え", generated.body)
         self.assertNotIn("外出後の話題が増え", generated.body)
+        self.assertNotIn("話しやすく", generated.body)
+        self.assertNotIn("保存方法を確認", generated.title)
+        self.assertNotIn("機能を確認", generated.title)
         self.assertTrue(
             any(term in generated.body for term in ["対象年齢", "充電方式", "保存方法", "付属品"]),
             generated.body,
@@ -1745,6 +1748,8 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             self.assertNotIn("朝の支度前は、食後", body)
             self.assertNotIn("配分に迷", body)
             self.assertNotIn("探して焦る", body)
+            self.assertNotIn("分けて置けば、必要な場所から取り出せ", body)
+            self.assertNotIn("使う場所ごとに分けておくと", body)
             self.assertTrue(
                 any(term in body for term in ["1パック", "セット総数", "収納場所", "使用量"]),
                 body,
