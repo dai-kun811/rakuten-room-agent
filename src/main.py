@@ -190,6 +190,7 @@ def main() -> int:
                 days=30,
             )
         )
+        recent_history = apply_recovery_history_reuse(recent_history, reuse_urls)
         deduped_products, duplicate_count = deduplicate_products(
             products,
             existing_urls=existing_urls,
@@ -398,6 +399,22 @@ def apply_recovery_reuse(
     if event_name != "workflow_dispatch":
         raise RuntimeError("ROOM_REUSE_URLS is allowed only for workflow_dispatch recovery.")
     return set(existing_urls) - set(reuse_urls)
+
+
+def apply_recovery_history_reuse(
+    recent_history: list[dict[str, str]],
+    reuse_urls: set[str],
+) -> list[dict[str, str]]:
+    """Remove only explicitly reusable URLs from copy-history duplicate checks."""
+    if not reuse_urls:
+        return list(recent_history)
+    normalized_reuse = {normalize_product_url(url) for url in reuse_urls}
+    return [
+        record
+        for record in recent_history
+        if normalize_product_url(record.get("正規化URL") or record.get("商品URL", ""))
+        not in normalized_reuse
+    ]
 
 
 def exclude_non_room_candidates(products: list[Product]) -> tuple[list[Product], int]:

@@ -17,6 +17,7 @@ from main import (
     SEARCH_PAGES_PER_KEYWORD,
     TARGET_READY_POSTS,
     apply_recovery_reuse,
+    apply_recovery_history_reuse,
     diversify_products,
     exclude_non_room_candidates,
     generate_until_ready,
@@ -93,6 +94,25 @@ class MainSelectionTest(unittest.TestCase):
                 {"https://example.com/reuse"},
                 event_name="schedule",
             )
+
+    def test_recovery_reuse_removes_only_matching_copy_history(self) -> None:
+        history = [
+            {
+                "商品URL": "https://item.rakuten.co.jp/shop/reuse?scid=x",
+                "タイトル": "再生成対象",
+            },
+            {
+                "正規化URL": "https://item.rakuten.co.jp/shop/keep",
+                "タイトル": "保持対象",
+            },
+        ]
+
+        filtered = apply_recovery_history_reuse(
+            history,
+            {"https://item.rakuten.co.jp/shop/reuse"},
+        )
+
+        self.assertEqual(filtered, [history[1]])
 
     def test_diversify_products_prefers_unique_product_types_per_day(self) -> None:
         candidates = [
