@@ -3,6 +3,7 @@ __pycache__/
 *.json
 *.b64
 !tests/fixtures/*.json
+!schemas/*.schema.json
 .pytest_cache/
 .venv/
 venv/

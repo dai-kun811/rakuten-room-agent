@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dai-kun811.github.io/rakuten-room-agent/schemas/room-operational-manifest-v2.schema.json",
+  "title": "Rakuten ROOM operational manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "routine_date_jst",
+    "revision",
+    "actions_run_id",
+    "head_sha",
+    "generated_at",
+    "slots"
+  ],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "routine_date_jst": { "type": "string", "format": "date" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "supersedes_revision": { "type": ["integer", "null"], "minimum": 1 },
+    "actions_run_id": { "type": ["string", "integer"] },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-fA-F]{7,40}$" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["morning", "noon", "evening"],
+      "properties": {
+        "morning": { "$ref": "#/$defs/slot" },
+        "noon": { "$ref": "#/$defs/slot" },
+        "evening": { "$ref": "#/$defs/slot" }
+      }
+    }
+  },
+  "$defs": {
+    "slot": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "candidate"],
+          "properties": {
+            "status": { "const": "ready" },
+            "candidate": { "$ref": "#/$defs/candidate" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": { "const": "blocked" },
+            "reason": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "product_url",
+        "normalized_url",
+        "product_name",
+        "product_type",
+        "body",
+        "content_hash",
+        "quality"
+      ],
+      "properties": {
+        "product_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "normalized_url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "product_name": { "type": "string", "minLength": 1 },
+        "product_type": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "body": { "type": "string", "minLength": 1 },
+        "hashtags": { "type": "array", "items": { "type": "string" } },
+        "content_hash": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "quality": {
+          "type": "object",
+          "required": ["status", "errors"],
+          "properties": {
+            "status": { "const": "passed" },
+            "errors": { "type": "array", "maxItems": 0 }
+          }
+        }
+      }
+    }
+  }
+}

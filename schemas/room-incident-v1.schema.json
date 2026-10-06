@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dai-kun811.github.io/rakuten-room-agent/schemas/room-incident-v1.schema.json",
+  "title": "Rakuten ROOM recovery incident v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "incident_id",
+    "fingerprint",
+    "routine_date_jst",
+    "reason_code",
+    "route",
+    "status",
+    "last_safe_state",
+    "attempts",
+    "next_action"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "incident_id": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+    "routine_date_jst": { "type": "string", "format": "date" },
+    "slot": { "enum": ["", "morning", "noon", "evening"] },
+    "component": { "type": "string" },
+    "reason_code": { "type": "string", "minLength": 1 },
+    "route": {
+      "enum": ["auto_retry", "codex_recommended", "user_action_required", "operations_required"]
+    },
+    "status": {
+      "enum": [
+        "open",
+        "auto_recovering",
+        "codex_queued",
+        "codex_working",
+        "validating",
+        "resolved",
+        "needs_human",
+        "budget_exhausted"
+      ]
+    },
+    "last_safe_state": { "type": "string", "minLength": 1 },
+    "manifest_revision": { "type": ["integer", "null"], "minimum": 1 },
+    "attempts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "lease_owner": { "type": ["string", "null"] },
+    "lease_expires_at": { "type": ["string", "null"], "format": "date-time" },
+    "next_action": { "type": "string", "minLength": 1 }
+  }
+}
