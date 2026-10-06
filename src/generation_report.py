@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +10,7 @@ from typing import Any
 
 from fixed_rule_generator import GeneratedPost
 from rakuten_api import FetchReport
+from room_manifest_v2 import write_manifest_v2
 from scoring import ScoredProduct
 from sheets import SHEET_HEADERS, normalize_product_url
 
@@ -69,7 +71,20 @@ def write_generation_reports(
     )
     write_csv_report(csv_path, payload["items"])
     write_markdown_report(md_path, payload)
-    return [json_path, csv_path, md_path]
+    actions_run_id = os.getenv("GITHUB_RUN_ID", "").strip() or run_id
+    head_sha = os.getenv("GITHUB_SHA", "").strip() or run_id
+    revision = _positive_integer_env("ROOM_MANIFEST_REVISION", "GITHUB_RUN_NUMBER")
+    supersedes_revision = _optional_positive_integer_env("ROOM_MANIFEST_SUPERSEDES_REVISION")
+    manifest_path = write_manifest_v2(
+        report_dir,
+        payload,
+        actions_run_id=actions_run_id,
+        head_sha=head_sha,
+        revision=revision,
+        generated_at=executed_at,
+        supersedes_revision=supersedes_revision,
+    )
+    return [json_path, csv_path, md_path, manifest_path]
 
 
 def build_report_payload(
@@ -150,6 +165,16 @@ def report_item(item: GenerationReportItem) -> dict[str, Any]:
         "write_sheet": item.write_sheet,
         "duplicate_result": item.duplicate_result,
         "confirmed_features": list(attributes.confirmed_features) if attributes else [],
+        "confirmed_use_cases": list(attributes.confirmed_use_cases) if attributes else [],
+        "purchase_checkpoints": list(attributes.purchase_checkpoints) if attributes else [],
+        "recommendation_reason": generated.recommendation_reason,
+        "source_evidence": {
+            "category": product.category,
+            "caption": product.caption,
+            "catchcopy": product.catchcopy,
+            "shop_name": product.shop_name,
+            "search_keyword": product.search_keyword,
+        },
         "feature_sources": feature_sources(product, attributes.confirmed_features if attributes else ()),
         "sheet_row": row_map,
         "sheet_row_column_count": len(item.row),
@@ -294,3 +319,31 @@ def ensure_no_secret_fields(payload: Any) -> None:
     elif isinstance(payload, list):
         for value in payload:
             ensure_no_secret_fields(value)
+
+
+def _positive_integer_env(*names: str) -> int:
+    for name in names:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            continue
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a positive integer") from exc
+        if value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+        return value
+    return 1
+
+
+def _optional_positive_integer_env(name: str) -> int | None:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer") from exc
+    if value < 1:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
