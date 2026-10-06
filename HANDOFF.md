@@ -25,7 +25,7 @@
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-10-06の再設計移行状態（Phase 1・2完了、Phase 3品質ゲート合格。Phase 4開始前で停止）:
+2026-10-06の再設計移行状態（Phase 1・2完了、Phase 3品質ゲート合格。Phase 4 shadowで問題を検出して停止）:
 
 - 全自動実行はユーザーにより停止済み。本番投稿、Windowsスケジュール、GitHub Actions設定、外部サービス設定は変更していない。
 - Phase 1は運用契約、JST日付境界、状態遷移、incident経路、manifest/incidentスキーマを実装し、commit `6eebc34`。Phase 2はWAL/FULL同期、`BEGIN IMMEDIATE`、CAS遷移、イベント同時記録、バックアップ、旧台帳の冪等移行を備えたSQLite状態ストアを実装し、commit `7ea8a3a`。
@@ -33,7 +33,10 @@
 - Phase 3品質改善では、紙おむつ/シート/ポーチ/ストッカーのサブタイプ分離、粉・液体・フォローアップミルクの数量表現、SDカードの対応/付属分離、根拠付きタグ、玩具の未確認ギフト/デザイン撤去、ケアセット品数、鼻吸い器用ノズル専用文、弱い定型表現と重複を生成経路単位で修正した。品質基準は緩和していない。
 - 同じmanifest v2監査を再生成し、8 manifest・代表24件がready 24 / blocked 0。人手の7観点監査も合格24 / 要改善0 / 不合格0。最大本文類似度0.732で遮断閾値0.75未満。本番投稿はしていない。詳細は `docs/ROOM_PHASE3_QUALITY_AUDIT.md`、ローカル全文はignoredの`reports/phase3-manifest-quality-audit/quality-audit-sample.md`。
 - 別商品名・数量・素材・月齢・SDカード表記等の境界ケース9系統を回帰テストへ追加し、過学習でないことを確認。全293テスト、`git diff --check`が成功。
-- Phase 3品質ゲートは完了。ユーザー指示どおりPhase 4 shadow mode、本番投稿、スケジュール変更、pushは未実施。次回はユーザーがPhase 4開始を明示した場合だけ、既定の段階移行計画に沿ってshadow modeへ進む。
+- Phase 4では読み取り専用Orchestrator、複数日品質監査、旧workerとの差分比較、隔離SQLite状態を実装した。GitHubへのアクセスはGETだけで、ROOM投稿、Sheets書き込み、workflow dispatch、Windowsタスク・スケジュール変更、pushは実施していない。
+- 2026-10-06のrun `37382865080` / HEAD `ed72c63`をshadow監査。旧workerは3枠とも候補にするが、新Orchestratorは3枠とも品質ゲートで`blocked`。実artifactは未pushのPhase 3改善を含まず、推薦理由・購入前確認点・根拠情報が全候補で空。eveningには「赤ちゃん 自分で飲む」授乳補助商品もあり、人手確認必須として遮断した。
+- 観測は必須3営業日のうち1日。最大本文類似度0.204、URL重複0だが、文章の目視ではmorningに「撮った写真」の近接反復も確認。専用10テスト、全302テストは合格した。
+- `docs/ROOM_PHASE4_SHADOW_REPORT.md`に詳細を記録。`ready_for_phase5=false`で、理由は観測日不足、品質ゲート不合格、旧処理との判断差異。Phase 5へ進めない。次回はPhase 4内で、Phase 3改善を含む生成物を外部状態非変更で用意し、授乳補助商品の扱いを確定してから、開始後3営業日分の監査を継続する。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
