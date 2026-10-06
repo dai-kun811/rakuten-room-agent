@@ -21,7 +21,7 @@ if str(Path(__file__).resolve().parent) not in sys.path:
 from room_manifest_v2 import build_manifest_v2
 from room_operation_contract import JST, POST_SLOTS
 from room_orchestrator_shadow import audit_shadow_manifests, evaluate_shadow_manifest
-from room_shadow_replay import replay_generation_report
+from room_shadow_replay import ready_history_records, replay_generation_report
 from run_phase4_shadow import fetch_distinct_reports, github_headers, github_token
 
 
@@ -45,6 +45,7 @@ def run_replay(*, start: date, days: int, max_runs: int, output_dir: Path) -> di
     manifests: list[dict[str, Any]] = []
     observations_summary: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
+    prior_history: list[dict[str, str]] = []
     for observation in sorted(observations, key=lambda value: value["day"]):
         day = date.fromisoformat(observation["day"])
         run = observation["run"]
@@ -55,7 +56,9 @@ def run_replay(*, start: date, days: int, max_runs: int, output_dir: Path) -> di
             source_actions_run_id=run["id"],
             output_dir=day_dir,
             head_sha=head_sha,
+            prior_history=prior_history,
         )
+        prior_history.extend(ready_history_records(replay_report))
         manifest = build_manifest_v2(
             replay_report,
             actions_run_id=f"shadow-replay-{run['id']}",

@@ -8,7 +8,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from room_shadow_replay import products_from_generation_report, replay_generation_report
+from room_shadow_replay import (
+    products_from_generation_report,
+    ready_history_records,
+    replay_generation_report,
+)
 
 
 def source_report() -> dict:
@@ -62,6 +66,26 @@ class RoomShadowReplayTests(unittest.TestCase):
             self.assertTrue(
                 any("manual_review_required" in reason for reason in risky[0]["review_reasons"])
             )
+
+    def test_replay_history_is_available_to_the_next_business_day(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            first = replay_generation_report(
+                source_report(),
+                routine_date=date(2026, 10, 5),
+                source_actions_run_id="123",
+                output_dir=Path(temporary) / "first",
+            )
+            history = ready_history_records(first)
+            second = replay_generation_report(
+                source_report(),
+                routine_date=date(2026, 10, 6),
+                source_actions_run_id="124",
+                output_dir=Path(temporary) / "second",
+                prior_history=history,
+            )
+        first_bodies = {item["body"] for item in first["items"] if item["status"] == "ready"}
+        second_bodies = {item["body"] for item in second["items"] if item["status"] == "ready"}
+        self.assertTrue(first_bodies.isdisjoint(second_bodies))
 
 
 if __name__ == "__main__":

@@ -57,14 +57,16 @@ def replay_generation_report(
     source_actions_run_id: str | int,
     output_dir: Path,
     head_sha: str = "0000000000000000000000000000000000000000",
+    prior_history: Iterable[dict[str, str]] = (),
 ) -> Mapping[str, Any]:
+    history = list(prior_history)
     products = products_from_generation_report(source_report)
     scored = score_all_products(products, routine_date)
-    candidates = diversify_products(scored, [], limit=len(scored), today=routine_date)
+    candidates = diversify_products(scored, history, limit=len(scored), today=routine_date)
     results = generate_until_ready(
         candidates,
         generator=FixedRulePostGenerator(),
-        context=GenerationContext(),
+        context=GenerationContext.from_history(history),
         target_ready=len(POST_SLOTS),
     )
     ready_index = 0
@@ -110,6 +112,26 @@ def replay_generation_report(
     import json
 
     return json.loads(json_path.read_text(encoding="utf-8"))
+
+
+def ready_history_records(report: Mapping[str, Any]) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    executed_at = str(report.get("executed_at", ""))[:10]
+    for item in report.get("items", []):
+        if not isinstance(item, Mapping) or item.get("status") != "ready":
+            continue
+        records.append(
+            {
+                "日付": executed_at,
+                "ステータス": "ready",
+                "商品タイプ": str(item.get("product_type", "")),
+                "タイトル": str(item.get("title", "")),
+                "投稿文": str(item.get("body", "")),
+                "商品URL": str(item.get("product_url", "")),
+                "正規化URL": str(item.get("product_url", "")),
+            }
+        )
+    return records
 
 
 def _integer(value: Any) -> int:
