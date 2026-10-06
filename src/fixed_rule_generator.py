@@ -296,6 +296,8 @@ FEATURE_MARKERS = {
     "diaper_sheet": ["おむつ替えシート"],
     "diaper_pouch": ["おむつポーチ"],
     "diaper_storage": ["おむつストッカー"],
+    "foldable": ["折りたたみ"],
+    "divider": ["仕切り"],
     "powder": ["粉ミルク"],
     "liquid": ["液体ミルク"],
     "follow_up": ["フォローアップミルク"],
@@ -309,6 +311,8 @@ FEATURE_MARKERS = {
     "lacing": ["紐通し"],
     "smartphone_transfer": ["スマホ転送"],
     "sd_card": ["SDカード"],
+    "sd_card_supported": ["SDカード対応", "microSD対応", "microSDカード対応"],
+    "sd_card_included": ["SDカード付き", "SDカード付属", "SDカード同梱", "SDカード付"],
     "game_free": ["ゲームなし", "ゲーム機能なし"],
     "white_noise": ["ホワイトノイズ"],
     "nursing_light": ["授乳ライト"],
@@ -549,7 +553,7 @@ def _patterns(
 PATTERNS = {
     "wipes": _patterns(
         "wipes",
-        ["最後の1個で焦りたくない", "おむつ替えの在庫を整えたい", "食後にも使う分を備えたい", "外出分まで切らしたくない", "買い足す回数を減らしたい", "置ける量から備えたい", "残り少ない日に慌てない", "消耗品の補充をまとめたい"],
+        ["最後の1個で焦りたくない", "おむつ替えの在庫を整える", "食後にも使う分を備える", "外出分まで切らさない", "買い足す回数を減らす", "置ける量から備える", "残り少ない日に慌てない", "消耗品の補充をまとめる"],
         ["ふき取り用品が残り少ないと、忙しい日に買い足す時間まで気になりますよね。", "おむつ替えが続く時期は、手元の残り枚数を何度も確認しがちです。", "食後の手口ふきにも使う家庭では、想像より早く減ることがありますよね。", "外出用と家用を分けると、どちらかの補充を忘れやすくなります。", "育児の消耗品は、必要な日に限って切らしたくないものです。"],
         ["{feature}なら、おむつ替えや食後に使う分をまとめて管理できます。", "{feature}なら、家用と外出用へ分けた後の残量を把握しやすくなります。", "{feature}なので、毎日の使用量を見ながら補充時期を決められます。", "{feature}を収納場所に合わせて備えると、残量を把握しやすくなります。", "{feature}なら、買い足す単位を先に決めておけます。"],
         ["1パックの枚数とセット総数が分かると、補充する量を決めやすくなります。", "未開封分の収納場所を決めておくと、次に使う分を取り出しやすくなります。", "一度に届く量が分かれば、次に買う時期も組み立てやすくなります。", "食後とおむつ替えの両方で使う家庭でも、在庫の見通しを立てやすいです。", "普段の使用量と収納場所に合う数なら、買い足す単位を決めやすくなります。"],
@@ -655,12 +659,12 @@ def _toy_patterns(
     problem_offset, scene_offset, benefit_offset, closing_offset = offsets[product_type]
     titles = [
         f"{title_terms[0]}遊びを親子で",
-        f"{title_terms[1]}遊びを広げたい",
+        f"{title_terms[1]}遊びを広げる",
         f"{label}でおうち時間を",
         f"雨の日の{title_terms[0]}遊びに",
-        f"{label}をギフトにも",
+        f"{label}を親子遊びに",
         f"雨の日の{label}遊びに",
-        f"{label}の遊び方を増やしたい",
+        f"{label}の遊び方を増やす",
         f"雨の日にも{title_terms[0]}遊びを",
     ]
     problems = [
@@ -688,10 +692,10 @@ def _toy_patterns(
     ]
     closings = [
         "親子で一緒に手を動かせるので、雨の日のおうち時間に遊び方を増やせるおもちゃです。",
-        "出しっぱなしでも部屋になじむデザインなら、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "対象年齢とパーツサイズを商品ページで確かめると、今の手先遊びに合うおもちゃか判断しやすくなります。",
         "商品ページにある遊び方を親子で試せるので、はじめての知育おもちゃとして取り入れやすいです。",
-        "パーツをまとめて扱いやすいタイプなら、遊んだ後の片づけまで親子で進めやすいです。",
-        "遊ぶ場所に合うサイズなら、家でも出しやすく、誕生日ギフトにも選びやすいです。",
+        "セット内容と収納場所を先に決めると、遊んだ後の片づけまで親子で進めやすいです。",
+        "対象年齢・パーツ数・パーツサイズを確かめると、家庭で扱いやすいおもちゃか判断しやすくなります。",
     ]
     required = [
         (title_terms[0],),
@@ -911,6 +915,7 @@ def extract_attributes(product: Product) -> ProductAttributes:
     # identity text explicitly names either item, without relying on SEO captions.
     if product_type == "baby_care" and {"baby_lotion", "baby_cream"} & set(confirmed):
         confirmed.append("moisturizing")
+    confirmed = list(dict.fromkeys(confirmed))
     target_age_match = re.search(r"(\d+)\s*(?:歳|才)(?:\s*(?:から|以上|頃))?", text)
     target_age = f"{target_age_match.group(1)}歳" if target_age_match else ""
     quantities = list(
@@ -1011,6 +1016,15 @@ def select_checkpoints(product_type: str, text: str) -> list[str]:
             preferred.append("電源方式")
         preferred.extend(["本体サイズ", "洗濯可否"])
         return list(dict.fromkeys(preferred))[:3]
+    if product_type == "diaper":
+        if "おむつストッカー" in text:
+            return ["本体サイズ", "容量", "設置場所"]
+        if "おむつポーチ" in text:
+            return ["本体サイズ", "容量", "お手入れ方法"]
+        if "おむつ替えシート" in text:
+            return ["本体サイズ", "防水仕様", "持ち運び方法"]
+    if product_type == "formula" and "液体ミルク" in text:
+        return ["容量", "本数", "賞味期限"]
     available = CHECKPOINTS.get(product_type, ["仕様", "サイズ", "置き場所"])
     preferred = []
     for checkpoint in available:
@@ -1100,6 +1114,10 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             detail
             for detail in dict.fromkeys(details)
             if detail != attributes.short_product_label
+            and not (
+                detail == "クッション"
+                and features & {"nursing_cushion", "c_curve", "body_pressure_distribution"}
+            )
         ]
         if not unique_details:
             return attributes.short_product_label
@@ -1149,7 +1167,13 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         if "diaper_pouch" in features:
             return "おむつ替え用品をまとめるおむつポーチ"
         if "diaper_storage" in features:
-            return "おむつ替え用品をまとめるおむつストッカー"
+            details = []
+            if "foldable" in features:
+                details.append("折りたたみ式")
+            if "divider" in features:
+                details.append("仕切り付き")
+            prefix = "・".join(details)
+            return f"{prefix}のおむつストッカー" if prefix else "おむつ替え用品をまとめるおむつストッカー"
         style = "パンツタイプ" if "pants" in features else "テープタイプ" if "tape" in features else ""
         quantity_text = f"{quantity}入りの" if quantity else ""
         return f"{style}で{quantity_text}紙おむつ" if style else f"{quantity_text}紙おむつ"
@@ -1191,8 +1215,10 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
         functions = []
         if "smartphone_transfer" in features:
             functions.append("スマホ転送対応")
-        if "sd_card" in features:
+        if "sd_card_included" in features:
             functions.append("SDカード付き")
+        elif "sd_card_supported" in features:
+            functions.append("SDカード対応")
         if "game_free" in features:
             functions.append("ゲーム機能なし")
         if "usb_charge" in features:
@@ -1261,7 +1287,7 @@ def formula_package_facts(attributes: ProductAttributes) -> tuple[str, tuple[str
         ),
         "",
     )
-    count = next((value for value in quantities if value.endswith(("袋", "缶"))), "")
+    count = next((value for value in quantities if value.endswith(("袋", "缶", "本"))), "")
     source_name = attributes.source_product_name
     if not count and "缶" in source_name:
         item_count = re.search(r"(\d+)\s*個セット", source_name)
@@ -1272,7 +1298,7 @@ def formula_package_facts(attributes: ProductAttributes) -> tuple[str, tuple[str
     if capacity and unit_capacity and count:
         return f"{capacity}（{unit_capacity}×{count}）", facts
     if capacity and count:
-        return f"{capacity}・{count}セット", facts
+        return f"{capacity}・{count}", facts
     return capacity or count or confirmed_feature_phrase(attributes), facts
 
 
@@ -1330,9 +1356,9 @@ def hashtags_for(
         add("#スワドル", "swaddle" in features and "スワドル" in attributes.short_product_label)
         add("#おくるみ")
         add("#モロー反射", "moro_reflex" in features)
-        add("#新生児準備")
+        add("#新生児準備", "新生児" in attributes.source_product_text)
         add("#夜の育児", "夜" in combined)
-        add("#洗い替え準備", "洗い替え" in combined or "洗濯" in combined)
+        add("#洗い替え準備", "洗い替え" in attributes.source_product_text)
     elif product_type == "nursing_support":
         add("#授乳サポート")
         add("#授乳クッション", "nursing_cushion" in features)
@@ -1347,7 +1373,13 @@ def hashtags_for(
         add("#ねんねクッション", "sleep_cushion" in features)
         add("#ベビー布団", "baby_futon" in features)
         add("#寝かしつけ準備", "寝かしつけ" in combined)
-        add("#洗い替え準備", "洗い替え" in combined or "洗濯" in combined)
+        add("#洗い替え準備", "洗い替え" in attributes.source_product_text)
+        add("#ダブルガーゼ", "double_gauze" in features)
+        add("#コットン素材", "cotton" in features)
+        add(
+            "#洗える寝具",
+            any(term in attributes.source_product_text for term in ["洗える", "洗濯"]),
+        )
         add("#ベビー寝具")
     elif product_type == "baby_care":
         add("#ベビーケア")
@@ -1356,14 +1388,23 @@ def hashtags_for(
         add("#鼻吸い", "nasal_aspirator" in features)
         add("#体温計", "thermometer" in features)
         add("#新生児準備", "新生児" in attributes.source_product_text)
+        add("#ベビーローション", "baby_lotion" in features)
+        add("#全身保湿", "全身" in attributes.source_product_text and "moisturizing" in features)
+        add("#ポンプ式", "ポンプ" in attributes.source_product_text)
         add("#毎日の育児")
     elif product_type == "baby_sleep":
         add("#スリーパー", "sleeper" in features)
         add("#ガーゼケット", "gauze" in features and "ガーゼケット" in attributes.source_product_text)
-        add("#寝冷え対策", "寝冷え" in attributes.source_product_text or "夜" in combined)
+        add("#寝冷え対策", "寝冷え" in attributes.source_product_text)
         add("#夜の育児", "夜" in combined)
         add("#ベビー寝具")
-        add("#洗い替え準備", "洗い替え" in combined or "洗濯" in combined)
+        add("#6重ガーゼ", "6重" in attributes.source_product_text and "gauze" in features)
+        add("#コットン素材", "cotton" in features)
+        add(
+            "#洗える寝具",
+            any(term in attributes.source_product_text for term in ["洗える", "洗濯"]),
+        )
+        add("#洗い替え準備", "洗い替え" in attributes.source_product_text)
     elif product_type == "diaper":
         if "diaper_sheet" in features:
             add("#おむつ替え")
@@ -1371,7 +1412,7 @@ def hashtags_for(
             add("#持ち運び")
             add("#衛生グッズ")
             add("#防水", "waterproof" in features)
-        elif "diaper_pouch" in features or "diaper_storage" in features:
+        elif "diaper_pouch" in features:
             add("#おむつ替え")
             add("#おむつ収納")
             add(
@@ -1380,6 +1421,11 @@ def hashtags_for(
                 or any("外出" in use_case for use_case in attributes.confirmed_use_cases),
             )
             add("#荷物整理")
+            add("#ストック管理")
+        elif "diaper_storage" in features:
+            add("#おむつ替え")
+            add("#おむつ収納")
+            add("#家の収納")
             add("#ストック管理")
         else:
             add("#紙おむつ")
@@ -1442,8 +1488,9 @@ def hashtags_for(
     elif product_type == "kids_camera":
         add("#キッズカメラ")
         add("#スマホ転送", "smartphone_transfer" in features)
-        add("#SDカード", "sd_card" in features)
+        add("#SDカード", bool(features & {"sd_card_supported", "sd_card_included"}))
         add("#ゲームなし", "game_free" in features)
+        add("#USB充電", "usb_charge" in features)
         add("#誕生日プレゼント", "誕生日向け" in attributes.confirmed_gift_features and "誕生日" in combined)
         add("#子ども目線")
         add("#写真遊び")
@@ -1469,11 +1516,11 @@ def hashtags_for(
 
     safe_fallbacks = {
         "wipes": ["#育児消耗品", "#ストック管理"],
-        "swaddle": ["#新生児準備", "#夜の育児"],
-        "nursing_support": ["#授乳準備", "#新生児準備", "#育児クッション"],
+        "swaddle": ["#夜の育児", "#ベビー服"],
+        "nursing_support": ["#授乳準備", "#育児クッション", "#ミルク育児"],
         "baby_bedding": ["#ベビー寝具", "#寝かしつけ準備"],
-        "baby_care": ["#ベビーケア", "#毎日の育児", "#新生児準備"],
-        "baby_sleep": ["#夜の育児", "#ベビー寝具", "#新生児準備"],
+        "baby_care": ["#ベビーケア", "#毎日の育児", "#赤ちゃんケア", "#育児ケア"],
+        "baby_sleep": ["#夜の育児", "#ベビー寝具", "#スリーパー"],
         "diaper": ["#おむつ替え", "#サイズ選び"],
         "formula": ["#授乳準備", "#ミルク育児"],
         "sound_blocks": ["#手先遊び", "#おうち遊び"],
@@ -1627,7 +1674,7 @@ def build_candidate(
         title = remove_intention_phrases(title)
         body = remove_intention_phrases(body)
     body = add_listing_teaser(body, attributes)
-    if attributes.product_type == "activity_cube" and attempt < DISTINCTIVE_REWRITE_START:
+    if attempt < DISTINCTIVE_REWRITE_START and attributes.product_type != "wipes":
         product_specific = product_specific_distinctive_copy(
             attributes,
             teaser=listing_teaser(attributes),
@@ -1967,11 +2014,11 @@ def listing_teaser(attributes: ProductAttributes) -> str:
         "wipes": "食後やおむつ替えの補充",
         "swaddle": "夜の着替え準備",
         "nursing_support": "授乳まわり",
-        "baby_bedding": "洗い替え準備",
+        "baby_bedding": "寝かしつけ前の寝具準備",
         "baby_care": "毎日のケア",
         "baby_sleep": "夜のお世話",
         "soothing_plush": "寝る前時間",
-        "diaper": "外出前のおむつ替え準備",
+        "diaper": "毎日のおむつ補充",
         "formula": "夜の授乳ストック準備",
         "sound_blocks": "おうちで音遊び",
         "wooden_blocks": "はじめての遊び",
@@ -1989,6 +2036,14 @@ def listing_teaser(attributes: ProductAttributes) -> str:
         context = "食後や外出先"
     if attributes.product_type == "baby_walker_toy" and "standing_support_play" in attributes.confirmed_features:
         context = "つかまり立ち期の室内遊び"
+    if attributes.product_type == "diaper":
+        features = set(attributes.confirmed_features)
+        if "diaper_storage" in features:
+            context = "家のおむつ替え収納"
+        elif "diaper_pouch" in features:
+            context = "外出用のおむつ収納"
+        elif "diaper_sheet" in features:
+            context = "外出先のおむつ替え準備"
     return f"【{label}｜{context}】"
 
 
@@ -2048,22 +2103,22 @@ def ensure_sentence(value: str) -> str:
 def expanded_three_sentence_closing(product_type: str, checks: str) -> str:
     return {
         "wipes": "1パックの枚数・セット総数・未開封分の収納場所を確かめれば、家庭で使い切れる量を選びやすいセットです。",
-        "swaddle": "夜に着せる物を一つ決めやすくなり、洗い替えまで含めた支度の迷いを減らせるアイテムです。",
+        "swaddle": "サイズ・素材・着せ方を商品ページで確かめると、家庭の夜支度に合う一枚か判断しやすくなります。",
         "nursing_support": "普段の授乳場所へ置きやすいクッションなら、授乳前に姿勢を整える手間を減らせます。",
-        "baby_bedding": "寝室やリビングで使う場所を想像しやすく、洗い替えまで含めたねんね準備を整えられる寝具です。",
+        "baby_bedding": "本体サイズ・素材・洗濯方法を商品ページで確かめると、使う部屋に合う寝具か判断しやすくなります。",
         "baby_care": "毎日のケアで使う物を一つにまとめやすく、必要な時に探す手間を減らせるアイテムです。",
         "baby_sleep": "夜に用意する布ものを増やし過ぎず、寝る前の支度をシンプルにしやすいアイテムです。",
         "soothing_plush": "寝る前の音と光を一つにまとめられるので、寝室へ持ち込む物を減らしやすいアイテムです。",
-        "diaper": "収納しやすい量をまとめて備えられるので、交換前に敷く物を探す手間を減らせるセットです。",
+        "diaper": "適応体重・サイズ・総枚数を確かめると、サイズアウト前に使い切れる購入量か判断しやすくなります。",
         "formula": "容量と賞味期限が家庭の授乳ペースに合えば、夜に足りない不安と買い足しに焦る回数をまとめて減らせるセットです。",
-        "sound_blocks": "音の出る遊びを一つ足せるので、家の中で親子の反応遊びを増やしやすいおもちゃです。",
-        "wooden_blocks": "出しっぱなしでも部屋になじみやすく、はじめての知育おもちゃやギフトにも選びやすいです。",
+        "sound_blocks": "対象年齢・パーツサイズ・セット内容を確かめると、家庭で扱いやすい音遊びのおもちゃか判断しやすくなります。",
+        "wooden_blocks": "対象年齢・パーツサイズ・収納方法を確かめると、家庭で片づけまで続けやすい積み木か判断しやすくなります。",
         "magnetic_blocks": "雨の日のおうち時間に、親子で一緒に遊びやすい知育おもちゃです。",
         "baby_walker_toy": "リビングで出しやすいサイズなら、親がそばで見守りながらおうち時間の遊び方を増やせるおもちゃです。",
         "activity_cube": "置き場所を取りにくい一台で複数の遊びを用意でき、室内で子どもの手先遊びを増やせるおもちゃです。",
-        "ring_toy": "出し入れしやすいリング遊びなら、片づけまで含めて手先を使う時間を作りやすいおもちゃです。",
+        "ring_toy": "対象年齢・パーツ数・パーツサイズを確かめると、今の遊び方に合うリング玩具か判断しやすくなります。",
         "kids_camera": "対象年齢・充電方式・写真の保存方法を確認すれば、外出へ持ち出す前の準備で迷う時間を減らせるカメラです。",
-        "sleep_light": "音と灯りを一台にまとめられるので、夜のお世話で探す物を減らしやすいアイテムです。",
+        "sleep_light": "音量調整・明るさ・電源方式を確かめると、寝室や授乳場所で使う機能を選び分けやすくなります。",
         "stroller_storage": "よく使う荷物の定位置を作れるので、外出中にバッグを探る時間を減らしやすい収納です。",
     }[product_type]
 
@@ -2372,14 +2427,14 @@ def product_specific_distinctive_copy(
             f"{label}の買い足し回数を減らす時は、使い切るまでの期間と保管場所が気になりますよね。",
         ]
         wipe_contexts = [
-            "補充量を考える時は、",
-            "外出用を分ける前は、",
-            "収納場所を決める時は、",
-            "買い足す量を決める時は、",
-            "未開封分をしまう前は、",
-            "家族の使用量を見直す時は、",
-            "残りのパック数を数える時は、",
-            "次の注文前は、",
+            "補充量を考える時、",
+            "外出用を分ける前、",
+            "収納場所を決める時、",
+            "買い足す量を決める時、",
+            "未開封分をしまう前、",
+            "家族の使用量を見直す時、",
+            "残りのパック数を数える時、",
+            "次の注文前、",
         ]
         wipe_inventory_steps = [
             "シート寸法と1パックの枚数は、家庭で使う場面に合う物を選ぶ基準になります。",
@@ -2413,27 +2468,38 @@ def product_specific_distinctive_copy(
         ]
     elif product_type == "formula":
         age_match = re.search(r"(\d+)\s*[〜~～\-]\s*(\d+)\s*(?:カ月|か月|ヶ月)", attributes.source_product_text)
-        age_text = f"{age_match.group(1)}〜{age_match.group(2)}カ月" if age_match else "月齢に合う段階"
+        age_text = f"{age_match.group(1)}〜{age_match.group(2)}カ月" if age_match else ""
+        age_prefix = f"{age_text}向け・" if age_text else ""
         pack_text, package_facts = formula_package_facts(attributes)
-        package_count = next((value for value in package_facts if value.endswith(("袋", "缶"))), "")
-        package_unit = "袋" if package_count.endswith("袋") else "缶" if package_count.endswith("缶") else "容器"
+        package_count = next((value for value in package_facts if value.endswith(("袋", "缶", "本"))), "")
+        package_unit = (
+            "袋" if package_count.endswith("袋")
+            else "缶" if package_count.endswith("缶")
+            else "本" if package_count.endswith("本")
+            else "容器"
+        )
+        formula_kind = (
+            "液体ミルク" if "liquid" in features
+            else "フォローアップミルク" if "follow_up" in features
+            else "粉ミルク"
+        )
         overseas = "海外通販" in attributes.source_product_text
         titles = [
-            f"{label}｜{age_text}向けを補充",
+            f"{label}｜{age_text}向けを補充" if age_text else f"{label}｜容量と本数を確認",
             f"{label}｜{pack_text}を使い切れる量か確認",
             f"{label}｜授乳ペースに合うまとめ買い",
             f"{label}｜賞味期限までに使える量を選ぶ",
         ]
         pains = [
-            "粉ミルクをまとめて買う時は、月齢に合う種類か、賞味期限までに使い切れる量かが気になりますよね。",
+            f"{formula_kind}をまとめて買う時は、月齢に合う種類か、賞味期限までに使い切れる量かが気になりますよね。",
             f"夜間授乳のストックは安心ですが、{package_unit}数が多いほど保管場所と使い切る時期まで考えたいですよね。",
             "買い足し回数を減らしたくても、今の授乳ペースより多過ぎるセットは避けたいですよね。",
-            "未開封の粉ミルクを備えるなら、次の段階へ移る前に使える量か確かめたいですよね。",
+            f"未開封の{formula_kind}を備えるなら、次の段階へ移る前に使える量か確かめたいですよね。",
         ]
         scenes = [
-            f"{age_text}向け・{pack_text}の粉ミルクなら、授乳回数から一{package_unit}を使う日数と未開封分の残りを家族で見通せます。",
+            f"{age_prefix}{pack_text}の{formula_kind}なら、授乳回数から一{package_unit}を使う日数と未開封分の残りを家族で見通せます。",
             f"{pack_text}のセットなら、一{package_unit}を開けた日と次の買い足し時期をそろえて管理しやすくなります。",
-            f"{age_text}向けの{feature}なら、今の授乳量を基に必要な{package_unit}数を具体的に考えられます。",
+            f"{age_text}向けの{feature}なら、今の授乳量を基に必要な{package_unit}数を具体的に考えられます。" if age_text else f"{feature}なら、今の授乳量を基に必要な{package_unit}数を具体的に考えられます。",
             f"{pack_text}というセット内容が分かるので、普段の消費量と収納場所に収まるかを先に比べられます。",
         ]
         delivery_check = "海外通販の配送条件・" if overseas else ""
@@ -2442,6 +2508,35 @@ def product_specific_distinctive_copy(
             f"{delivery_check}賞味期限と一度に届く{package_unit}数を確かめれば、使い切れる量だけを備えて買い足し忘れを減らせます。",
             f"対象月齢・賞味期限・保管場所を確認すれば、次の段階へ移る時期までに使える量を選びやすいセットです。",
             f"{delivery_check}賞味期限までに消費できる量なら、夜間授乳用の未開封ストックを切らしにくくできます。",
+        ]
+    elif product_type == "sound_blocks":
+        quantity = next(
+            (value for value in attributes.confirmed_quantity_features if value.endswith(("ピース", "パーツ"))),
+            "",
+        )
+        titles = [
+            f"{label}｜音と形で遊ぶ",
+            f"{label}｜対象年齢を確かめる",
+            f"{label}｜{quantity or 'セット内容'}を確認",
+            f"{label}｜親子の音遊びに",
+        ]
+        pains = [
+            "家の中で遊ぶ時間が長い日は、積むだけでなく音にも反応できるおもちゃがあると遊び方を変えやすいですよね。",
+            "音が鳴る積み木を選ぶ時は、対象年齢とパーツの大きさが今の遊び方に合うか気になりますよね。",
+            f"{quantity or '複数'}のパーツがあるおもちゃは、遊び方だけでなく片づける場所も先に考えたいですよね。",
+            "親子で音遊びをするなら、どのパーツが鳴るか商品情報から確かめておきたいですよね。",
+        ]
+        scenes = [
+            f"{feature}なら、振って音を聞く遊びと、積んだり並べたりする遊びを切り替えられます。",
+            f"{feature}なら、商品ページの対象年齢とパーツサイズを見ながら、家庭で扱えるか判断できます。",
+            f"{feature}なら、セット内容を確認して、遊ぶ場所と収納場所を具体的に考えられます。",
+            f"{feature}なら、音が鳴るパーツの仕様を確かめながら、親子で振る・積む遊びを始められます。",
+        ]
+        closings = [
+            "対象年齢・パーツサイズ・セット内容を確かめると、家庭で扱いやすい音遊びのおもちゃか判断しやすくなります。",
+            "音が鳴るパーツの数と収納方法を確認すると、遊び終わった後まで無理なく扱える積み木か判断しやすくなります。",
+            "対象年齢とパーツの大きさを商品ページで確認すると、今の手先遊びに合う積み木か判断しやすくなります。",
+            "セット内容と名入れの有無を確かめると、家庭で使う目的に合う積み木か具体的に比較できます。",
         ]
     elif product_type == "magnetic_blocks":
         quantity = next(iter(attributes.confirmed_quantity_features), "")
@@ -2474,13 +2569,15 @@ def product_specific_distinctive_copy(
             "購入前に対象年齢・パーツの大きさ・手持ちブロックとの互換性を確認し、家庭で無理なく試せる組み立て遊びを増やせるおもちゃです。",
             f"対象年齢・パーツサイズ・{quantity_text}の内訳を確認すれば、親子で作りたい形を少しずつ増やせるおもちゃです。",
         ]
-    elif product_type == "baby_care" and len(baby_care_set_components(attributes)) >= 3:
+    elif product_type == "baby_care" and len(baby_care_set_components(attributes)) >= 2 and "セット" in attributes.source_product_name:
         care_components = baby_care_set_components(attributes)
         care_count = len(care_components)
         care_list = "、".join(care_components)
         care_step = "保湿" if "moisturizing" in features else "ローション・ミルク"
+        explicit_count = re.search(r"(\d+)\s*品", attributes.source_product_name)
+        count_text = f"{explicit_count.group(1)}品" if explicit_count else "セット内容"
         titles = [
-            f"{label}｜洗う物と{care_step}を{care_count}品でそろえる",
+            f"{label}｜洗う物と{care_step}をまとめる",
             f"{label}｜お風呂上がりまで一式で",
             f"{label}｜ヘア・ボディ・{care_step}をまとめる",
             f"{label}｜入浴後のケアを一式に",
@@ -2493,22 +2590,48 @@ def product_specific_distinctive_copy(
         ]
         scenes = [
             f"{feature}なら、{care_list}を同じシリーズでそろえられます。",
-            f"{feature}なら、浴室と着替え場所に置く{care_count}品を分け、家族で使う順番を共有しやすくなります。",
+            f"{feature}なら、浴室と着替え場所に置く物を分け、家族で使う順番を共有しやすくなります。",
             f"{feature}なら、{care_list}を一度に準備できます。",
-            f"{feature}なら、お風呂から着替え前までに使うケア用品を{care_count}品まとめて確認できます。",
+            f"{feature}なら、お風呂から着替え前までに使うケア用品のセット内容をまとめて把握できます。",
         ]
         closings = [
-            f"{care_count}品の使う順番を一つにまとめられるので、入浴前後に別々のケア用品を探す手間を減らせるセットです。",
-            f"明記された{care_count}品を一度に準備でき、家族で交代する時もお風呂の支度をまとめられるセットです。",
-            f"{care_count}品それぞれの使う部位と容量を確かめられ、初めての入浴用品を選ぶ手間を減らせるセットです。",
+            f"{count_text}の使う順番を一つにまとめられるので、入浴前後に別々のケア用品を探す手間を減らせるセットです。",
+            f"明記された{count_text}を一度に準備でき、家族で交代する時もお風呂の支度をまとめられるセットです。",
+            f"{count_text}ごとの使う部位と容量を確かめられ、初めての入浴用品を選ぶ手間を減らせるセットです。",
             f"対象年齢と成分表示を先に見られ、お風呂から{care_step}までに用意する物を一式にまとめられるセットです。",
+        ]
+    elif product_type == "baby_care" and "nasal_aspirator" in features:
+        titles = [
+            f"{label}｜対応機種を確かめる",
+            f"{label}｜交換用ノズルを選ぶ",
+            f"{label}｜長さと手入れ方法を見る",
+            f"{label}｜鼻吸い器に合うか確認",
+        ]
+        pains = [
+            "鼻吸い器の交換ノズルは、手元の本体に取り付けられる型か分かりにくいことがありますよね。",
+            "交換用ノズルを選ぶ時は、対応機種だけでなく長さや形も今の使い方に合うか気になりますよね。",
+            "毎回手入れする部品は、洗い方と乾かし方を商品情報で把握しておきたいですよね。",
+            "同じメーカーの鼻吸い器でも、型番によって使える交換部品が違わないか気になりますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、対応機種と型番を照らし合わせて交換用ノズルを選べます。",
+            f"{feature}なら、ノズルの長さと形を商品ページで把握し、手元の本体に合うか判断できます。",
+            f"{feature}なら、使用後の洗い方まで確認し、普段の手入れに取り入れられます。",
+            f"{feature}なら、本体名と対応機種を照らし合わせ、買い直す迷いを減らせます。",
+        ]
+        closings = [
+            "対応機種・ノズルの長さ・お手入れ方法を確認すると、合わない交換部品を選ぶ迷いを減らせるアイテムです。",
+            "本体の型番と取り付け方法を照らし合わせると、交換時に部品を探し直す手間を減らせるアイテムです。",
+            "洗い方と乾かし方を商品ページで把握でき、使用後の手入れ手順をそろえられるアイテムです。",
+            "対応する本体と部品の形を先に確認でき、買い直しを避けやすくなるアイテムです。",
         ]
     elif product_type == "kids_camera":
         functions = []
         for key, value in [
             ("game_free", "ゲームなし"),
             ("smartphone_transfer", "スマホ転送"),
-            ("sd_card", "SDカード"),
+            ("sd_card_supported", "SDカード対応"),
+            ("sd_card_included", "SDカード付き"),
             ("usb_charge", "USB充電"),
         ]:
             if key in features:
@@ -2537,6 +2660,31 @@ def product_specific_distinctive_copy(
             "対象年齢・充電方式・撮った写真の転送方法を商品ページで確かめると、散歩や旅行へ持ち出す前の準備時間を減らせるカメラです。",
             "購入前に対象年齢・ゲーム機能の有無・SDカードの仕様を確認すると、写真遊びに必要な機能を選ぶ迷いを減らせるカメラです。",
             "対象年齢・充電方式・写真の保存方法を確認すれば、撮影から親子で見返すまでに迷う時間を減らせるカメラです。",
+        ]
+    elif product_type == "sleep_light":
+        titles = [
+            f"{label}｜音量と明るさを確認",
+            f"{label}｜夜のお世話で使う",
+            f"{label}｜電源方式まで確かめる",
+            f"{label}｜音と灯りを一台で",
+        ]
+        pains = [
+            "夜のお世話で音と灯りを使うなら、寝室に合う音量と明るさへ調整できるか気になりますよね。",
+            "授乳や寝室で使うライトは、必要な場所へ置ける電源方式か気になりますよね。",
+            "ホワイトノイズと灯りを一台で使う時は、それぞれを個別に調整できるか商品情報を見たいですよね。",
+            "夜に使う機器は、充電方法とコードレスで使える時間が家庭の動線に合うか気になりますよね。",
+        ]
+        scenes = [
+            f"{feature}なら、音と灯りを別々に操作できるかを把握し、夜に使う機能を選べます。",
+            f"{feature}なら、授乳場所と寝室のどちらで使うかを考えながら置き場所を決められます。",
+            f"{feature}なら、ホワイトノイズとライトの操作方法を確認して、必要な機能を使い分けられます。",
+            f"{feature}なら、充電方法とコードレス利用の仕様を確かめて、夜の動線に合うか判断できます。",
+        ]
+        closings = [
+            "充電方法・連続使用時間・置き場所を確かめると、夜のお世話の動線に合う一台か判断しやすくなります。",
+            "操作方法と置き場所を先に確認すると、夜のお世話で必要な機能へ切り替えやすくなります。",
+            "充電方法と連続使用時間を商品ページで確かめると、家庭の夜支度に合うライトか判断しやすくなります。",
+            "音と灯りを別々に調整できるか確認すると、夜に使う場面へ合う一台か具体的に比較できます。",
         ]
     elif product_type == "activity_cube":
         actions = [
@@ -2626,25 +2774,25 @@ def product_specific_distinctive_copy(
             f"{label}｜交換用品の定位置に",
             f"{label}｜家のおむつ替えを整える",
             f"{label}｜収納場所と容量を確認",
-            f"{label}｜おむつとケア用品をまとめる",
+            f"{label}｜おむつとおしりふきをまとめる",
         ]
         pains = [
             "家のおむつ替えで使う物が別々の場所にあると、交換前に必要な物を探しがちですよね。",
-            "おむつやケア用品をまとめるなら、交換場所の近くに置ける大きさか気になりますよね。",
-            "収納ボックスを選ぶ時は、入れたい物の量と家の動線の両方に合うか確かめたいですよね。",
+            "おむつやおしりふきをまとめるなら、交換場所の近くに置ける大きさか気になりますよね。",
+            "収納ボックスを選ぶ時は、入れたい物の量と家のおむつ替え動線の両方に合う大きさか気になりますよね。",
             "おむつ替え用品の定位置が決まらないと、補充する時にも残量を確認しにくいですよね。",
         ]
         scenes = [
-            f"{fact_text}のおむつストッカーなら、おむつとケア用品を交換場所の近くへまとめられます。",
+            f"{fact_text}のおむつストッカーなら、おむつとおしりふきを交換場所の近くへまとめられます。",
             f"{fact_text}の収納ボックスなので、家で使うおむつ替え用品の定位置を作れます。",
             f"{fact_text}という商品情報を手がかりに、入れたい物と設置場所に合うか具体的に比べられます。",
             f"{fact_text}のおむつストッカーなら、補充する物を一か所で確認しやすくなります。",
         ]
         closings = [
             "本体サイズと収納場所を商品ページで確認すれば、家のおむつ替えで必要な物を探す手間を減らせるストッカーです。",
-            "入れたい物の量と置き場所に合えば、おむつ替え用品を一か所へまとめられる収納です。",
-            "本体サイズと折りたたみ方を確認すれば、家の交換動線に合うか判断しやすい収納ボックスです。",
-            "容量と設置場所が家庭に合えば、おむつとケア用品の補充状況を確認しやすくなるストッカーです。",
+            "入れたい物の量と置き場所を照らし合わせると、おむつ替え用品を一か所へまとめられるアイテムです。",
+            "本体サイズと折りたたみ方を確認すると、家の交換動線に合わない収納を選ぶ迷いを減らせるアイテムです。",
+            "容量と設置場所を先に決めると、おむつとおしりふきの補充前に探す手間を減らせるアイテムです。",
         ]
     elif product_type == "diaper" and not (features & {"diaper_sheet", "diaper_pouch", "diaper_storage"}):
         titles = [f"{label}｜サイズと枚数を確認", f"{label}｜買い足す量を見極める", f"{label}｜外出分まで備える", f"{label}｜サイズアウト前に使い切る"]
@@ -2663,7 +2811,7 @@ def product_specific_distinctive_copy(
         closings = [
             "適応体重・サイズ・セット総数に加えて収納場所に置ける量か確認すれば、サイズアウト前に使い切れる量か判断しやすくなります。",
             "テープ式かパンツ式か、パッケージ記載の適応体重と総枚数まで見れば、家庭の毎日の交換ペースに合うか選びやすくなります。",
-            "サイズとセット内容、家庭の収納場所に入る量かを商品ページで確かめれば、家用と外出用へ分ける量を決めやすくなります。",
+            "サイズとセット内容、家庭の収納場所に入る量かを商品ページで確かめれば、家用と外出用へ分ける量を具体的に決めやすくなります。",
             "適応体重・サイズ・総枚数と一度に届く箱数が家庭の収納と使用量に合えば、買い過ぎと買い忘れの両方を避けやすくなります。",
         ]
     elif product_type == "nursing_support":
@@ -2731,64 +2879,64 @@ def product_specific_distinctive_copy(
             "お風呂上がりの流れに置き場所を合わせやすく、保湿前に探す手間を減らせるアイテムです。",
         ]
     elif product_type == "baby_sleep":
-        titles = [f"{label}｜寝る前の一枚を決める", f"{label}｜夜の布ものを減らす", f"{label}｜洗い替えまで考える", f"{label}｜寝冷えが気になる夜に"]
+        titles = [f"{label}｜寝る前に着せる一枚", f"{label}｜サイズと素材を確かめる", f"{label}｜夜の着替え準備に", f"{label}｜洗濯方法まで確認"]
         pains = [
             "夜中に布団を蹴っていないか気になる時期は、寝る前に何を着せるか毎晩迷いやすいですよね。",
             "季節の変わり目は、掛けものと着せる物の組み合わせを夜ごとに考えるのが手間ですよね。",
-            "夜の洗い替えが足りないと、寝る前に着せる一枚を探す時間が増えてしまいますよね。",
-            "寝冷えが気になる夜は、布団を掛け直すだけでよいか着せる物にも迷いますよね。",
+            "寝る前の着替えでは、今の体格に合うサイズと素材を商品情報から見極めたいですよね。",
+            "毎晩使う布ものは、素材だけでなく洗濯方法も家の手入れに合うか気になりますよね。",
         ]
         scenes = [
-            f"{feature}なら、掛けものを増やし過ぎず、夜に着せる一枚を決めて寝る前の支度もそろえやすくなります。",
-            f"{feature}なら、季節と洗濯ペースに合わせて夜の布ものを絞り、寝る前の支度を短くできます。",
-            f"{feature}なら、洗い替えも含めて寝る前に着せる物をそろえ、夜の支度へ移りやすくなります。",
-            f"{feature}なら、寝冷えが気になる夜に使う一枚を先に決め、着替えの準備をそろえられます。",
+            f"{feature}なら、商品ページのサイズと素材を照らし合わせ、今の体格に合う一枚か判断できます。",
+            f"{feature}なら、今の体格と季節に合うかを確認して、夜の着替えへ取り入れられます。",
+            f"{feature}なら、着せ方と本体サイズを確かめて、寝る前の支度に合うか判断できます。",
+            f"{feature}なら、素材と洗濯表示を読み、家庭で手入れを続けられるか比べられます。",
         ]
         closings = [
-            "今の月齢に合うサイズと素材を選べば、寝る前に着せる物で迷う時間と夜の着替えを始めるまでの手間を減らせる一枚です。",
-            "夜に使う布ものを絞れるので、掛けものとの組み合わせを選び直す時間を減らせる一枚です。",
-            "家の洗濯ペースに合う枚数と素材を選べば、夜の支度で着せる一枚を探す時間を減らし、寝る前に迷う時間を減らせるアイテムです。",
-            "寝る前に着せる物を一つに決めやすくなり、掛けものとの組み合わせを毎晩選び直す手間と迷う時間を減らせる一枚です。",
+            "サイズ・素材・洗濯方法を先に確かめ、家族にも着せ方を共有すると、夜の着替え前に一枚を選び直す時間を減らせる一枚です。",
+            "対象サイズと素材を商品ページで確認でき、今の体格に合わない一枚を選び直す時間を減らせるアイテムです。",
+            "着せ方と洗濯方法を家族で共有でき、夜の支度で扱い方を確認し直す手間を減らせる一枚です。",
+            "サイズ表と素材表示を読んで用途を絞れるため、寝る前に着せる物で迷う時間を減らせる一枚です。",
         ]
     elif product_type == "baby_bedding":
-        titles = [f"{label}｜寝かしつけ前の寝具に", f"{label}｜ねんね前の支度を短く", f"{label}｜寝室とリビングで使う", f"{label}｜洗い替えまで考える"]
+        titles = [f"{label}｜寝かしつけ前の寝具に", f"{label}｜本体サイズを確かめる", f"{label}｜素材と手入れ方法を見る", f"{label}｜使う場所から選ぶ"]
         pains = [
-            "寝かしつけ前に使う寝具の置き場所が寝室とリビングに分かれていると、赤ちゃんを抱えたまま取りに戻るのは手間ですよね。",
-            "ねんね前に使う布ものが決まっていないと、寝室へ移る直前に探し直すことになりますよね。",
-            "日中と夜で使う寝具を分ける時は、家のどこへ置くか決まらないと準備が増えますよね。",
-            "洗える寝具でも、洗濯後に戻す場所が決まらないと寝かしつけ前の支度が慌ただしくなりますよね。",
+            "寝かしつけ前に使う寝具は、本体サイズが普段使う場所に合うか気になりますよね。",
+            "赤ちゃん用の布ものを選ぶ時は、素材と洗濯方法が家庭の手入れに合うか気になりますよね。",
+            "日中のねんねで使う寝具は、置く場所へ収まる大きさか先に見ておきたいですよね。",
+            "抱っこから寝具へ移る場面では、商品の使い方と注意事項も判断材料になりますよね。",
         ]
         scenes = [
-            f"{feature}なら、ねんね前に使う寝具を一つに絞り、家族とも置き場所を共有しやすくなります。",
-            f"{feature}なら、寝室へ移る前に用意する寝具を決めやすくなります。",
-            f"{feature}なら、本体サイズを見ながら日中と夜の置き場所を考えられます。",
-            f"{feature}なら、洗濯後に戻す場所まで含めて寝具の準備をそろえやすくなります。",
+            f"{feature}なら、本体サイズと商品記載の使い方を見ながら、家庭で使う場面を具体的に考えられます。",
+            f"{feature}なら、素材と洗濯表示から、家庭の手入れ方法に合うか判断できます。",
+            f"{feature}なら、普段使う場所の広さと本体サイズを照らし合わせられます。",
+            f"{feature}なら、メーカー記載の用途と注意事項を読んで、使う場面に合うか判断できます。",
         ]
         closings = [
-            "本体サイズと素材を見て選べば、寝かしつけ前に寝具を探し直す手間を減らせるアイテムです。",
-            "ねんね前に用意する寝具を決められるので、寝室へ移る直前の迷いを減らせるアイテムです。",
-            "使う部屋に合うサイズを選べば、日中から夜へ移る時に寝具を探し直す手間を減らせるアイテムです。",
-            "洗濯後の置き場所まで決めやすく、寝かしつけ前に必要な寝具を探し直さずに済むので、ねんね前の布もの準備を整えられるアイテムです。",
+            "本体サイズ・素材・洗濯方法を先に確かめると、使う場所に合わず寝具を探し直す手間を減らせるアイテムです。",
+            "商品記載の用途と注意事項を読めるため、ねんね前に別の寝具を探し直す手間を減らせるアイテムです。",
+            "置く場所の広さと本体サイズを照らし合わせると、使う直前に寝具を探し直す手間を減らせるアイテムです。",
+            "素材表示と手入れ方法が分かり、日常の寝具準備で別の寝具を探し直す手間を減らせるアイテムです。",
         ]
     elif product_type == "swaddle":
-        titles = [f"{label}｜夜に着せる一枚に", f"{label}｜新生児期の夜支度", f"{label}｜洗い替えまで考える", f"{label}｜夜の着替えを迷わない"]
+        titles = [f"{label}｜夜に着せる一枚に", f"{label}｜サイズと素材を確かめる", f"{label}｜ファスナー仕様を見る", f"{label}｜着せ方まで確認"]
         pains = [
-            "眠い中で肌着や掛けものを見ながら何を着せるか考えると、新生児期の夜の着替えが慌ただしくなりますよね。",
-            "新生児期の夜は、着せる布ものが決まっていないと家族で交代するたびに説明が必要になりますよね。",
-            "夜の洗い替えまで考えると、何枚そろえるかを毎回迷いやすいですよね。",
-            "寝る前に着せる物を選び直すと、夜の着替えを始めるまでに時間がかかりますよね。",
+            "夜の着替えで使う一枚は、今の体格に合うサイズと素材か気になりますよね。",
+            "ファスナー付きの一枚を選ぶ時は、開閉方法と着せ方が家庭の支度に合うか気になりますよね。",
+            "寝る前に着せる一枚は、素材だけでなく商品記載の使用方法と注意事項も気になりますよね。",
+            "毎晩使う布ものは、サイズ表と洗濯方法が家庭の手入れに合うか気になりますよね。",
         ]
         scenes = [
-            f"{feature}なら、夜に使う布ものを一枚に絞り、着せる順番をそろえやすくなります。",
-            f"{feature}なら、新生児期の夜に使う一枚を家族へ共有しやすくなります。",
-            f"{feature}なら、家の洗濯ペースから必要な洗い替えを考えやすくなります。",
-            f"{feature}なら、寝る前に着せる一枚を先に決めておけます。",
+            f"{feature}なら、商品ページのサイズ表と着せ方から、夜の着替えに合う一枚か判断できます。",
+            f"{feature}なら、ファスナーの開閉方法と素材を確かめて、家族が扱えるか判断できます。",
+            f"{feature}なら、メーカー記載の使用方法と注意事項を読んで、使う場面に合うか比べられます。",
+            f"{feature}なら、サイズ・素材・洗濯方法を確認して、家庭で手入れを続けられるか判断できます。",
         ]
         closings = [
-            "今の月齢に合うサイズと素材を選べば、夜中に着せる物を選び直す時間を減らせる一枚です。",
-            "家族で同じ一枚を準備しやすくなり、新生児期の夜支度で迷う時間を減らせる一枚です。",
-            "洗濯ペースに合う枚数をそろえれば、夜の洗い替えを探す時間を減らせる一枚です。",
-            "寝る前に使う布ものを絞れるので、毎晩の着替え準備をシンプルにできる一枚です。",
+            "対象サイズ・素材・着せ方を先に確かめると、夜の着替えで一枚を選び直す時間を減らせる一枚です。",
+            "ファスナー仕様と洗濯方法を商品ページで確認でき、家族が扱い方で迷う時間を減らせる一枚です。",
+            "メーカー記載の使用方法と注意事項を読めるため、今の月齢で使う布ものを選び直す時間を減らせる一枚です。",
+            "サイズ表と素材表示を照らし合わせ、家族も着せ方を共有できると、家庭の夜支度で迷う時間を減らせる一枚です。",
         ]
     else:
         return None
@@ -2829,6 +2977,13 @@ def product_specific_distinctive_copy(
             scenes[(variant // len(pains)) % len(scenes)],
             closings[(variant // (len(pains) * len(scenes))) % len(closings)],
         ])
+    extra_sentences = {
+        "formula": "未開封分を置く場所も決めておくと、家族が次に開ける分を把握しやすくなります。",
+        "sound_blocks": "遊び終わった後に戻す場所も決めておくと、パーツの残りを把握しやすくなります。",
+    }
+    extra_sentence = extra_sentences.get(product_type, "")
+    if extra_sentence and variant % 2 == 0 and len(body + extra_sentence) <= 260:
+        body += extra_sentence
     if required and required not in f"{title}{body}":
         if product_type == "stroller_storage":
             stroller_titles = {
@@ -2841,7 +2996,9 @@ def product_specific_distinctive_copy(
                 "散歩": f"{label}｜散歩中の荷物を整理",
             }
             title = stroller_titles.get(required, f"{label}｜{required}を生かして荷物整理")
-        elif product_type == "diaper":
+        elif product_type == "diaper" and not (
+            features & {"diaper_sheet", "diaper_pouch", "diaper_storage"}
+        ):
             title = f"{label}｜{required}を確認"
         elif not uses_marketing_copy(attributes) and required in attributes.source_product_text:
             title = f"{label}｜{required}を楽しむ"
@@ -3540,8 +3697,9 @@ def tag_evidence_errors(
         "#軽量": "lightweight" in features,
         "#収納袋付き": "storage_bag" in features,
         "#ゲームなし": "game_free" in features,
+        "#USB充電": "usb_charge" in features,
         "#スマホ転送": "smartphone_transfer" in features,
-        "#SDカード": "sd_card" in features,
+        "#SDカード": bool(features & {"sd_card_supported", "sd_card_included"}),
         "#スワドル": "swaddle" in features,
         "#モロー反射": "moro_reflex" in features,
         "#ハンズフリー授乳": "hands_free" in features,
@@ -3549,13 +3707,22 @@ def tag_evidence_errors(
         "#抱っこ布団": "hug_futon" in features,
         "#ねんねクッション": "sleep_cushion" in features,
         "#ベビー布団": "baby_futon" in features,
+        "#ダブルガーゼ": "double_gauze" in features,
+        "#コットン素材": "cotton" in features,
+        "#洗える寝具": any(
+            term in attributes.source_product_text for term in ["洗える", "洗濯"]
+        ),
         "#授乳クッション": "nursing_cushion" in features,
         "#保湿ケア": "moisturizing" in features or "baby_lotion" in features or "baby_cream" in features,
+        "#ベビーローション": "baby_lotion" in features,
+        "#全身保湿": "全身" in attributes.source_product_text and "moisturizing" in features,
+        "#ポンプ式": "ポンプ" in attributes.source_product_text,
         "#爪ケア": "nail_care" in features,
         "#鼻吸い": "nasal_aspirator" in features,
         "#体温計": "thermometer" in features,
         "#ガーゼケット": "gauze" in features,
         "#スリーパー": "sleeper" in features,
+        "#6重ガーゼ": "6重" in attributes.source_product_text and "gauze" in features,
         "#プラネタリウム": "projector" in features or "star_projection" in features,
         "#おやすみぬいぐるみ": "plush" in features,
         "#手押し車": "walker_toy" in features,

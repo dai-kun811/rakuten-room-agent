@@ -119,11 +119,17 @@ def main() -> int:
                     }
                 )
             else:
+                source_item = next(item for item in items if item["post_slot"] == slot)
                 blocked.append(
                     {
                         "date": run_date.isoformat(),
                         "slot": slot,
                         "reason": value["reason"],
+                        "product_name": source_item["product_name"],
+                        "title": source_item["title"],
+                        "body": source_item["body"],
+                        "hashtags": source_item["hashtags"],
+                        "errors": source_item["review_reasons"],
                     }
                 )
 
@@ -157,10 +163,19 @@ def render_audit(candidates: list[dict], manifests: list[dict], blocked: list[di
     if blocked:
         lines.extend(["## manifestで遮断された候補", ""])
         lines.extend(
-            f"- {item['date']} {item['slot']}: {item['reason']}"
+            line
             for item in blocked
+            for line in (
+                f"### {item['date']} {item['slot']} — {item['product_name']}",
+                "",
+                f"- reason: {item['reason']}",
+                f"- title: {item['title']}",
+                f"- body: {item['body']}",
+                f"- hashtags: {' '.join(item['hashtags'])}",
+                f"- errors: {item['errors']}",
+                "",
+            )
         )
-        lines.append("")
     if similarities:
         lines.extend(["## 本文類似度 上位5組", ""])
         lines.extend(

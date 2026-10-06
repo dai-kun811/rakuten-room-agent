@@ -2033,6 +2033,104 @@ class FixedRuleGeneratorTest(unittest.TestCase):
                 generated.body,
             )
 
+    def test_phase3_quality_repairs_generalize_to_alternate_listings(self) -> None:
+        cases = [
+            (
+                "diaper",
+                "フェルト おむつストッカー 大容量 折りたたみ 仕切り付き",
+                "おむつストッカー 大容量 折りたたみ 仕切り 容量 本体サイズ 家庭用",
+            ),
+            (
+                "baby_bedding",
+                "ベビー布団 コットン100 洗濯可能",
+                "ベビー布団 コットン100 洗濯 本体サイズ 寝かしつけ",
+            ),
+            (
+                "baby_care",
+                "ベビークリーム 保湿 ポンプ 250ml 全身用",
+                "ベビークリーム 保湿 ポンプ 250ml 顔 全身 成分",
+            ),
+            (
+                "baby_sleep",
+                "4重ガーゼ スリーパー コットン 洗える",
+                "4重ガーゼ スリーパー コットン 洗える 通年 サイズ",
+            ),
+            (
+                "formula",
+                "液体ミルク 125ml 12本 常温保存",
+                "液体ミルク 125ml 12本 常温保存 賞味期限 授乳",
+            ),
+            (
+                "formula",
+                "フォローアップミルク 830g 2缶 9〜36カ月",
+                "フォローアップミルク 830g 2缶 9〜36カ月 賞味期限",
+            ),
+            (
+                "sound_blocks",
+                "音の鳴る積み木 10ピース 木製",
+                "音の鳴る積み木 10ピース 木製 対象年齢 1歳",
+            ),
+            (
+                "kids_camera",
+                "子ども用カメラ SDカード付き USB充電",
+                "子ども用カメラ SDカード付き USB充電 6歳",
+            ),
+        ]
+        context = GenerationContext()
+        generated_posts = []
+        for index, (product_type, name, details) in enumerate(cases):
+            item = replace(
+                product_for(product_type, suffix=f"phase3-{index}"),
+                name=name,
+                caption=details,
+                catchcopy=details,
+                url=f"https://example.com/phase3-generalization/{index}",
+            )
+            generated = FixedRulePostGenerator().generate(
+                score_product(item, date(2026, 10, 6)),
+                context=context,
+            )
+            self.assertEqual(generated.status, "ready", (name, generated.quality_errors))
+            self.assertEqual(len(generated.hashtags), 5, (name, generated.hashtags))
+            self.assertEqual(
+                len(generated.attributes.confirmed_features),
+                len(set(generated.attributes.confirmed_features)),
+                name,
+            )
+            generated_posts.append(generated)
+
+        storage = generated_posts[0]
+        self.assertIn("#家の収納", storage.hashtags)
+        self.assertNotIn("外出", f"{storage.title}{storage.body}")
+        self.assertNotIn("ケア用品", f"{storage.title}{storage.body}")
+
+        liquid_formula = generated_posts[4]
+        self.assertIn("12本", liquid_formula.body)
+        self.assertNotIn("セットのセット", liquid_formula.body)
+
+        sound_blocks = generated_posts[6]
+        self.assertEqual(sound_blocks.body.count("10ピース"), 1)
+
+        camera = generated_posts[7]
+        self.assertIn("SDカード付き", camera.body)
+        self.assertIn("#SDカード", camera.hashtags)
+
+    def test_bare_sd_card_does_not_claim_inclusion_or_support(self) -> None:
+        item = replace(
+            product_for("kids_camera", suffix="bare-sd"),
+            name="キッズカメラ SDカード USB充電",
+            caption="キッズカメラ SDカード USB充電 5歳",
+            catchcopy="キッズカメラ SDカード USB充電 5歳",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(item, date(2026, 10, 6)),
+            context=GenerationContext(),
+        )
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("#SDカード", generated.hashtags)
+        self.assertNotIn("SDカード付き", generated.body)
+        self.assertNotIn("SDカード対応", generated.body)
+
     def test_each_type_has_at_least_eight_coherent_patterns(self) -> None:
         for product_type, patterns in PATTERNS.items():
             self.assertGreaterEqual(len(patterns), 8, product_type)

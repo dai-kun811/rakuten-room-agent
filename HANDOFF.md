@@ -25,15 +25,15 @@
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-10-06の再設計移行状態（Phase 1・2完了、Phase 3品質ゲート不合格で停止）:
+2026-10-06の再設計移行状態（Phase 1・2完了、Phase 3品質ゲート合格。Phase 4開始前で停止）:
 
 - 全自動実行はユーザーにより停止済み。本番投稿、Windowsスケジュール、GitHub Actions設定、外部サービス設定は変更していない。
 - Phase 1は運用契約、JST日付境界、状態遷移、incident経路、manifest/incidentスキーマを実装し、commit `6eebc34`。Phase 2はWAL/FULL同期、`BEGIN IMMEDIATE`、CAS遷移、イベント同時記録、バックアップ、旧台帳の冪等移行を備えたSQLite状態ストアを実装し、commit `7ea8a3a`。
 - Phase 3は既存generation reportとのdual outputでmanifest v2を生成し、枠ごとに独立して`ready`/`blocked`へ判定する基盤を実装。部分成功時も正常枠を失わない。commit `99f998f`。いずれもローカルcommitで未push。
-- manifest v2 8本から、本番相当の30日履歴を反映したready投稿23件を抽出して手動監査。本番投稿はしていない。自動ゲートが1件（液体ミルク）を遮断した。
-- 手動監査結果は合格9、要改善4、不合格10。紙おむつへの別サブタイプ文混入、「セットのセット」、SDカード対応を付属と断定、未確認のギフト・デザイン・新生児・寝冷え・洗い替え訴求、おむつストッカーの不適切な確認点などを検出。基準は緩和していない。詳細は `docs/ROOM_PHASE3_QUALITY_AUDIT.md`。
-- 全291テスト、`git diff --check`は成功。ローカル監査全文はignoredの`reports/phase3-manifest-quality-audit/quality-audit-sample.md`。
-- Phase 3完了条件は、上記原因を修正後に同じ23件と境界ケースを再生成し、20〜30件の人手監査で不合格0件にすること。ユーザー指示どおり現時点では原因・改善案の提示までで止め、Phase 4 shadow modeや本番接続へ進まない。
+- Phase 3品質改善では、紙おむつ/シート/ポーチ/ストッカーのサブタイプ分離、粉・液体・フォローアップミルクの数量表現、SDカードの対応/付属分離、根拠付きタグ、玩具の未確認ギフト/デザイン撤去、ケアセット品数、鼻吸い器用ノズル専用文、弱い定型表現と重複を生成経路単位で修正した。品質基準は緩和していない。
+- 同じmanifest v2監査を再生成し、8 manifest・代表24件がready 24 / blocked 0。人手の7観点監査も合格24 / 要改善0 / 不合格0。最大本文類似度0.732で遮断閾値0.75未満。本番投稿はしていない。詳細は `docs/ROOM_PHASE3_QUALITY_AUDIT.md`、ローカル全文はignoredの`reports/phase3-manifest-quality-audit/quality-audit-sample.md`。
+- 別商品名・数量・素材・月齢・SDカード表記等の境界ケース9系統を回帰テストへ追加し、過学習でないことを確認。全293テスト、`git diff --check`が成功。
+- Phase 3品質ゲートは完了。ユーザー指示どおりPhase 4 shadow mode、本番投稿、スケジュール変更、pushは未実施。次回はユーザーがPhase 4開始を明示した場合だけ、既定の段階移行計画に沿ってshadow modeへ進む。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
