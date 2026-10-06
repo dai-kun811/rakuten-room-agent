@@ -3528,6 +3528,15 @@ def external_safety_errors(post: GeneratedPost, attributes: ProductAttributes) -
     if "背中スイッチ" in external_text:
         errors.append("unsupported_product_claim: back_switchを外部出力")
     if attributes.product_type == "nursing_support":
+        manual_review_terms = ("自分で飲む", "セルフミルク", "ママ代行")
+        matched = next(
+            (term for term in manual_review_terms if term in attributes.source_product_text),
+            "",
+        )
+        if matched:
+            errors.append(
+                f"manual_review_required: 授乳補助商品の安全な使用判断が必要: {matched}"
+            )
         if any(term in external_text for term in NURSING_SUPPORT_UNSAFE_TERMS):
             errors.append("content_type_mismatch: nursing_supportに睡眠場所と誤解される表現")
         if body_pressure_claim_is_unsafe(external_text):
@@ -3593,6 +3602,7 @@ def quantity_consistency_errors(post: GeneratedPost, attributes: ProductAttribut
 
 def has_duplicate_benefit_repetition(sentences: list[str]) -> bool:
     groups = [
+        (2, ("撮った写真",)),
         (2, ("帰宅後", "見返", "振り返", "写真を選ぶ")),
         (3, ("家の中", "おうち時間", "室内遊び")),
         (3, ("遊び方が広が", "遊び方を増や", "遊び方が増", "遊びが広が", "遊びを増や")),

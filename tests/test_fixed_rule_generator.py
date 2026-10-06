@@ -51,7 +51,7 @@ def product_for(product_type: str, *, suffix: str = "") -> Product:
             "モロー反射 おくるみ スワドル 新生児 夜 洗える コットン",
         ),
         "nursing_support": (
-            "ハンズフリー授乳 ママ代行ミルク屋さん",
+            "ハンズフリー授乳 ミルクサポート 哺乳瓶ホルダー",
             "ハンズフリー授乳 ミルクサポート 哺乳瓶ホルダー 授乳準備",
         ),
         "baby_bedding": (
@@ -950,6 +950,37 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertTrue(
             any("duplicate_phrase" in error for error in validate_post(changed, changed.attributes)),
+        )
+
+    def test_repeated_took_photo_phrase_is_rejected(self) -> None:
+        generated = generate("kids_camera")
+        changed = replace(
+            generated,
+            body=(
+                "【キッズカメラ｜子ども目線の写真遊び】外出先で写真を撮りたい時に使えます。"
+                "撮った写真は帰宅後に親子で見返せます。"
+                "撮った写真を家族で選べば、外出の出来事を振り返れます。"
+            ),
+        )
+        self.assertTrue(
+            any("duplicate_phrase" in error for error in validate_post(changed, changed.attributes))
+        )
+
+    def test_autonomous_feeding_support_requires_manual_review(self) -> None:
+        product = replace(
+            product_for("nursing_support"),
+            name="授乳クッション セルフミルク 赤ちゃんが自分で飲む 哺乳瓶ホルダー",
+            caption="ハンズフリー授乳 ママ代行 哺乳瓶ホルダー",
+            catchcopy="赤ちゃんが自分で飲む授乳補助商品",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 6)),
+            context=GenerationContext(),
+        )
+        self.assertEqual(generated.status, "needs_review")
+        self.assertTrue(
+            any("manual_review_required" in error for error in generated.quality_errors),
+            generated.quality_errors,
         )
 
     def test_normal_run_never_calls_openai(self) -> None:

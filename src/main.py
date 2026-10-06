@@ -9,7 +9,6 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from fixed_rule_generator import (
     GENERATION_MODE,
@@ -35,8 +34,8 @@ from sheets import (
     scored_product_to_row,
     target_sheet_for_status,
 )
+from room_operation_contract import JST
 
-JST = ZoneInfo("Asia/Tokyo")
 LOGGER = logging.getLogger("rakuten-room-agent")
 POST_SLOTS = ("morning", "noon", "evening")
 TARGET_READY_POSTS = len(POST_SLOTS)
@@ -80,6 +79,21 @@ PAIN_SOLVER_PRODUCT_TYPES = {
     "sleep_light",
     "stroller_storage",
 }
+SHADOW_FORBIDDEN_SHEETS_METHODS = frozenset(
+    {"append_error", "append_products", "ensure_headers", "update_row"}
+)
+
+
+class ReadOnlySheetsClient:
+    """Fail closed if shadow generation reaches any Sheets mutation."""
+
+    def __init__(self, client: SheetsClient) -> None:
+        self._client = client
+
+    def __getattr__(self, name: str):
+        if name in SHADOW_FORBIDDEN_SHEETS_METHODS:
+            raise RuntimeError(f"Sheets write blocked in ROOM shadow mode: {name}")
+        return getattr(self._client, name)
 
 
 
@@ -89,6 +103,7 @@ def main() -> int:
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
     run_id = uuid.uuid4().hex[:12]
+    shadow_mode = shadow_mode_enabled()
 
     try:
         application_id = get_required_env("RAKUTEN_APPLICATION_ID")
@@ -112,6 +127,10 @@ def main() -> int:
             output_sheet_name,
             categories,
         )
+        if shadow_mode:
+            LOGGER.warning(
+                "ROOM_SHADOW_MODE有効: 外部書き込みを禁止し、実商品データの生成レポートだけを作成します。"
+            )
         LOGGER.info(
             "外部サービス設定 access_key_configured=%s referer_configured=%s generation_mode=%s openai_api_calls=0",
             bool(access_key),
@@ -121,8 +140,11 @@ def main() -> int:
         LOGGER.info("OpenAI API未使用: 固定ルール生成のみで実行します。")
 
         sheets_client = SheetsClient(spreadsheet_id, service_account_json)
-        sheets_client.ensure_headers(output_sheet_name)
-        sheets_client.ensure_headers(review_sheet_name)
+        if shadow_mode:
+            sheets_client = ReadOnlySheetsClient(sheets_client)
+        if not shadow_mode:
+            sheets_client.ensure_headers(output_sheet_name)
+            sheets_client.ensure_headers(review_sheet_name)
 
         rakuten_client = RakutenApiClient(
             application_id,
@@ -146,12 +168,13 @@ def main() -> int:
         if not products:
             reason = fetch_report.failure_summary()
             LOGGER.error("楽天APIから商品を取得できませんでした run_id=%s reason=%s", run_id, reason)
-            sheets_client.append_error(
-                review_sheet_name,
-                today=today,
-                run_id=run_id,
-                reason=reason,
-            )
+            if not shadow_mode:
+                sheets_client.append_error(
+                    review_sheet_name,
+                    today=today,
+                    run_id=run_id,
+                    reason=reason,
+                )
             return 0
 
         existing_urls = sheets_client.read_existing_urls(output_sheet_name)
@@ -209,12 +232,13 @@ def main() -> int:
         if not eligible_products:
             reason = "楽天APIから商品は取得できましたが、既存URLまたは類似商品とすべて重複しました。"
             LOGGER.error("%s run_id=%s", reason, run_id)
-            sheets_client.append_error(
-                review_sheet_name,
-                today=today,
-                run_id=run_id,
-                reason=reason,
-            )
+            if not shadow_mode:
+                sheets_client.append_error(
+                    review_sheet_name,
+                    today=today,
+                    run_id=run_id,
+                    reason=reason,
+                )
             return 0
 
         tiers = build_selection_tiers_from_env()
@@ -247,12 +271,13 @@ def main() -> int:
                 f"条件別候補数={filter_counts} 上位候補={details}"
             )
             LOGGER.error("%s run_id=%s", reason, run_id)
-            sheets_client.append_error(
-                review_sheet_name,
-                today=today,
-                run_id=run_id,
-                reason=reason,
-            )
+            if not shadow_mode:
+                sheets_client.append_error(
+                    review_sheet_name,
+                    today=today,
+                    run_id=run_id,
+                    reason=reason,
+                )
             return 0
 
         generator = FixedRulePostGenerator()
@@ -298,10 +323,10 @@ def main() -> int:
                 post_slot = POST_SLOTS[ready_slot_index]
                 ready_slot_index += 1
                 ready_rows.append(row)
-                write_sheet = output_sheet_name if all_slots_ready else ""
+                write_sheet = output_sheet_name if all_slots_ready and not shadow_mode else ""
             else:
                 review_rows.append(row)
-                write_sheet = review_sheet_name
+                write_sheet = "" if shadow_mode else review_sheet_name
             report_items.append(
                 GenerationReportItem(
                     scored=item,
@@ -335,19 +360,27 @@ def main() -> int:
             items=report_items,
             required_post_slots=POST_SLOTS,
         )
-        sheets_client.append_products(
-            output_sheet_name,
-            ready_rows if all_slots_ready else [],
-        )
-        sheets_client.append_products(review_sheet_name, review_rows)
-        LOGGER.info(
-            "Googleスプレッドシート追記完了 run_id=%s ready_sheet=%s ready_rows=%s review_sheet=%s review_rows=%s",
-            run_id,
-            output_sheet_name,
-            len(ready_rows) if all_slots_ready else 0,
-            review_sheet_name,
-            len(review_rows),
-        )
+        if shadow_mode:
+            LOGGER.info(
+                "shadow生成完了 run_id=%s ready_rows=%s review_rows=%s external_writes=0",
+                run_id,
+                len(ready_rows) if all_slots_ready else 0,
+                len(review_rows),
+            )
+        else:
+            sheets_client.append_products(
+                output_sheet_name,
+                ready_rows if all_slots_ready else [],
+            )
+            sheets_client.append_products(review_sheet_name, review_rows)
+            LOGGER.info(
+                "Googleスプレッドシート追記完了 run_id=%s ready_sheet=%s ready_rows=%s review_sheet=%s review_rows=%s",
+                run_id,
+                output_sheet_name,
+                len(ready_rows) if all_slots_ready else 0,
+                review_sheet_name,
+                len(review_rows),
+            )
         return 0 if all_slots_ready else 1
     except Exception:
         LOGGER.exception("処理中にエラーが発生しました run_id=%s", run_id)
@@ -615,6 +648,11 @@ def get_required_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"必須の環境変数が設定されていません: {name}")
     return value
+
+
+def shadow_mode_enabled(value: str | None = None) -> bool:
+    raw = os.getenv("ROOM_SHADOW_MODE", "") if value is None else value
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 if __name__ == "__main__":

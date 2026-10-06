@@ -13,6 +13,7 @@ from fixed_rule_generator import classify_product_type
 zoneinfo.ZoneInfo = lambda _key: timezone.utc
 from main import (
     POST_SLOTS,
+    ReadOnlySheetsClient,
     SEARCH_KEYWORDS_PER_CATEGORY,
     SEARCH_PAGES_PER_KEYWORD,
     TARGET_READY_POSTS,
@@ -24,6 +25,7 @@ from main import (
     is_supported_room_product,
     parse_blocked_urls,
     selection_axis,
+    shadow_mode_enabled,
 )
 from rakuten_api import Product
 from scoring import score_product
@@ -46,6 +48,25 @@ def scored(name: str, url: str, total_score: int):
 
 
 class MainSelectionTest(unittest.TestCase):
+    def test_shadow_mode_parser_is_explicit(self) -> None:
+        for value in ("1", "true", "YES", "on"):
+            self.assertTrue(shadow_mode_enabled(value))
+        for value in ("", "0", "false", "shadow"):
+            self.assertFalse(shadow_mode_enabled(value))
+
+    def test_shadow_sheets_proxy_allows_reads_and_blocks_writes(self) -> None:
+        class FakeSheets:
+            def read_existing_urls(self, _name):
+                return {"https://example.com/item"}
+
+            def append_products(self, *_args):
+                raise AssertionError("must be blocked before delegate")
+
+        client = ReadOnlySheetsClient(FakeSheets())
+        self.assertEqual(client.read_existing_urls("Sheet1"), {"https://example.com/item"})
+        with self.assertRaisesRegex(RuntimeError, "write blocked"):
+            client.append_products("Sheet1", [])
+
     def test_daily_search_uses_additional_keywords_and_pages(self) -> None:
         self.assertEqual(SEARCH_KEYWORDS_PER_CATEGORY, 6)
         self.assertEqual(SEARCH_PAGES_PER_KEYWORD, 3)

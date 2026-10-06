@@ -49,6 +49,8 @@ def write_generation_reports(
     fetch_report: FetchReport | None,
     items: list[GenerationReportItem],
     required_post_slots: tuple[str, ...] = (),
+    manifest_actions_run_id: str | int | None = None,
+    manifest_head_sha: str | None = None,
 ) -> list[Path]:
     report_dir.mkdir(parents=True, exist_ok=True)
     payload = build_report_payload(
@@ -71,8 +73,8 @@ def write_generation_reports(
     )
     write_csv_report(csv_path, payload["items"])
     write_markdown_report(md_path, payload)
-    actions_run_id = os.getenv("GITHUB_RUN_ID", "").strip() or run_id
-    head_sha = os.getenv("GITHUB_SHA", "").strip() or run_id
+    actions_run_id = manifest_actions_run_id or os.getenv("GITHUB_RUN_ID", "").strip() or run_id
+    head_sha = manifest_head_sha or os.getenv("GITHUB_SHA", "").strip() or run_id
     revision = _positive_integer_env("ROOM_MANIFEST_REVISION", "GITHUB_RUN_NUMBER")
     supersedes_revision = _optional_positive_integer_env("ROOM_MANIFEST_SUPERSEDES_REVISION")
     manifest_path = write_manifest_v2(
