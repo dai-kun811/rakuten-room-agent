@@ -193,7 +193,10 @@ class RoomPoster:
 
     @staticmethod
     def _click_submit(submit: Any) -> None:
-        submit.click(force=True)
+        # A forced click can bypass Playwright's actionability checks and fire
+        # against a covered/stale Angular button without submitting the form.
+        # A normal click makes a no-op fail before we mistake it for a send.
+        submit.click()
 
     def _wait_for_item_name(self, page: Any) -> None:
         try:

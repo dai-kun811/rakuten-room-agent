@@ -63,7 +63,9 @@ class RoomLiveGateway:
             )
         except RoomPostError as exc:
             raise classify_room_error(exc) from exc
-        return Confirmation.PRESENT if self.verifier(body) else Confirmation.UNKNOWN
+        # Verify the exact submitted comment, including hashtags.  A body-only
+        # match can collide with an older post whose tags or source item differ.
+        return Confirmation.PRESENT if self.verifier(comment) else Confirmation.UNKNOWN
 
 
 class AuthenticatedRoomVerifier:
@@ -84,10 +86,10 @@ class AuthenticatedRoomVerifier:
         self.attempts = attempts
         self.timeout_ms = timeout_ms
 
-    def __call__(self, body: str) -> bool:
+    def __call__(self, comment: str) -> bool:
         from playwright.sync_api import sync_playwright
 
-        expected = normalize_visible_text(body)
+        expected = normalize_visible_text(comment)
         if len(expected) < 20:
             raise RoomPostError("実ROOM確認に使う本文が短すぎます。")
         with sync_playwright() as playwright:

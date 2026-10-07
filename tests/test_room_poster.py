@@ -53,21 +53,21 @@ class RoomPosterTest(unittest.TestCase):
 
         self.assertFalse(RoomPoster._response_confirms_post(Response()))
 
-    def test_click_submit_uses_forced_click_after_enabled_check(self) -> None:
+    def test_click_submit_uses_actionable_click_after_enabled_check(self) -> None:
         class Submit:
-            clicked_force = None
+            clicked = False
 
             @staticmethod
             def is_disabled() -> bool:
                 return False
 
-            def click(self, *, force: bool) -> None:
-                self.clicked_force = force
+            def click(self) -> None:
+                self.clicked = True
 
         submit = Submit()
         RoomPoster._assert_submit_enabled(submit)
         RoomPoster._click_submit(submit)
-        self.assertTrue(submit.clicked_force)
+        self.assertTrue(submit.clicked)
 
     def test_click_submit_rejects_disabled_button(self) -> None:
         class Submit:
@@ -75,7 +75,7 @@ class RoomPosterTest(unittest.TestCase):
             def is_disabled() -> bool:
                 return True
 
-            def click(self, *, force: bool) -> None:
+            def click(self) -> None:
                 raise AssertionError("disabled submit should not be clicked")
 
         with self.assertRaisesRegex(RoomPostError, "無効"):

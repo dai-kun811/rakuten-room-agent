@@ -18,6 +18,7 @@ from room_operation_contract import (
 )
 from room_state_store import (
     DEFAULT_RETRY_BUDGET,
+    RetryBudgetExhausted,
     RoomStateStore,
     StateConflictError,
 )
@@ -209,6 +210,75 @@ class RoomStateStoreTests(unittest.TestCase):
         self.assertEqual(posted.status, SlotStatus.POSTED)
         self.assertEqual(self.store.get_post_attempt(claimed.attempt_id)["status"], "posted")
         self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.RESOLVED.value)
+
+    def test_authenticated_absence_allows_only_one_audited_retry(self) -> None:
+        self.store.create_slot(
+            "2026-10-08", "morning", status=SlotStatus.READY, manifest_revision=299,
+            normalized_url="https://item.rakuten.co.jp/shop/item",
+            content_hash="c" * 64, product_type="test", now=NOW,
+        )
+        first = self.store.claim_post_attempt("2026-10-08", "morning", expected_version=0, now=NOW)
+        self.store.advance_post_attempt(
+            first.attempt_id, expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.SUBMITTING,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            target_attempt_status=SlotStatus.SUBMITTING.value, submit_started=True, now=NOW,
+        )
+        self.store.advance_post_attempt(
+            first.attempt_id, expected_slot_status=SlotStatus.SUBMITTING,
+            target_slot_status=SlotStatus.UNCERTAIN,
+            expected_attempt_status=SlotStatus.SUBMITTING.value,
+            target_attempt_status=SlotStatus.UNCERTAIN.value, submit_started=True, now=NOW,
+        )
+        incident = self.store.create_incident(
+            "2026-10-08", reason=ReasonCode.POST_RESULT_UNCERTAIN,
+            slot="morning", component="orchestrator", last_safe_state="uncertain",
+            next_action="verify authenticated ROOM", manifest_revision=299, now=NOW,
+        )
+        self.store.transition_incident(
+            incident, expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.NEEDS_HUMAN, next_action="verify authenticated ROOM", now=NOW,
+        )
+        ready = self.store.resolve_uncertain_as_not_posted(
+            "2026-10-08", "morning", evidence_source="authenticated_room_exact_comment",
+            evidence_note="latest card and 117 loaded cards do not contain exact comment", now=NOW,
+        )
+        self.assertEqual(ready.status, SlotStatus.READY)
+        old_attempt = self.store.get_post_attempt(first.attempt_id)
+        self.assertEqual(old_attempt["status"], "confirmed_not_posted")
+        self.assertEqual(old_attempt["submit_started"], 1)
+        self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.RESOLVED.value)
+        retry = self.store.claim_post_attempt(
+            "2026-10-08", "morning", expected_version=ready.version, now=NOW
+        )
+        self.assertTrue(retry.idempotency_key.endswith(":retry1"))
+        self.store.advance_post_attempt(
+            retry.attempt_id, expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.SUBMITTING,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            target_attempt_status=SlotStatus.SUBMITTING.value, submit_started=True, now=NOW,
+        )
+        self.store.advance_post_attempt(
+            retry.attempt_id, expected_slot_status=SlotStatus.SUBMITTING,
+            target_slot_status=SlotStatus.UNCERTAIN,
+            expected_attempt_status=SlotStatus.SUBMITTING.value,
+            target_attempt_status=SlotStatus.UNCERTAIN.value, submit_started=True, now=NOW,
+        )
+        second_incident = self.store.create_incident(
+            "2026-10-08", reason=ReasonCode.POST_RESULT_UNCERTAIN,
+            slot="morning", component="orchestrator", last_safe_state="uncertain",
+            next_action="verify authenticated ROOM", manifest_revision=299, now=NOW,
+        )
+        self.store.transition_incident(
+            second_incident, expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.NEEDS_HUMAN, next_action="verify authenticated ROOM", now=NOW,
+        )
+        with self.assertRaises(RetryBudgetExhausted):
+            self.store.resolve_uncertain_as_not_posted(
+                "2026-10-08", "morning",
+                evidence_source="authenticated_room_exact_comment",
+                evidence_note="second absence cannot authorize another retry", now=NOW,
+            )
 
     def test_slot_state_and_event_are_committed_together(self) -> None:
         self.store.create_slot("2026-10-06", "morning", now=NOW)

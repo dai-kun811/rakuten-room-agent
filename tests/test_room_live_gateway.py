@@ -54,6 +54,18 @@ class RoomLiveGatewayTests(unittest.TestCase):
     def test_visible_text_normalization_ignores_layout_whitespace(self) -> None:
         self.assertEqual(normalize_visible_text(" 本文\n です "), "本文です")
 
+    def test_verifier_receives_exact_comment_including_hashtags(self) -> None:
+        observed = []
+        gateway = RoomLiveGateway(FakePoster(), lambda comment: observed.append(comment) or True)
+        result = gateway.submit(
+            self.candidate(), before_submit=lambda: None, after_submit=lambda: None
+        )
+        self.assertEqual(result, Confirmation.PRESENT)
+        self.assertEqual(
+            observed,
+            ["十分な長さがある固有の投稿本文です。商品の確認点も自然に案内します。\n\n#育児"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -546,7 +546,17 @@ class RoomStateStore:
                 raise StateConflictError(f"slot is not claimable: {day}:{slot} actual={actual}")
             if not row["normalized_url"] or not row["content_hash"]:
                 raise StateIntegrityError("claim requires manifest URL and content hash")
-            key = build_idempotency_key(day, slot, row["normalized_url"], row["content_hash"])
+            base_key = build_idempotency_key(day, slot, row["normalized_url"], row["content_hash"])
+            confirmed_absent = connection.execute(
+                """SELECT COUNT(*) AS count FROM post_attempts
+                   WHERE routine_date = ? AND slot = ?
+                     AND normalized_url = ? AND content_hash = ?
+                     AND status = 'confirmed_not_posted'""",
+                (day, slot, row["normalized_url"], row["content_hash"]),
+            ).fetchone()["count"]
+            if int(confirmed_absent) > DEFAULT_RETRY_BUDGET.pre_submit_retries:
+                raise StateConflictError("confirmed-absence retry budget exhausted")
+            key = base_key if int(confirmed_absent) == 0 else f"{base_key}:retry{confirmed_absent}"
             attempt_id = f"{day}-{slot}-{uuid4().hex[:12]}"
             try:
                 connection.execute(
@@ -579,7 +589,7 @@ class RoomStateStore:
             row = connection.execute("SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)).fetchone()
             if row is None or row["status"] != SlotStatus.FAILED_PRE_SUBMIT.value:
                 raise StateConflictError("slot is not a failed pre-submit attempt")
-            attempt = connection.execute("SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ? ORDER BY created_at DESC LIMIT 1", (day, slot)).fetchone()
+            attempt = connection.execute("SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ? ORDER BY created_at DESC, rowid DESC LIMIT 1", (day, slot)).fetchone()
             if attempt is None or attempt["status"] != SlotStatus.FAILED_PRE_SUBMIT.value or int(attempt["submit_started"]):
                 raise StateConflictError("failed attempt is not safely retryable")
             connection.execute("DELETE FROM post_attempts WHERE attempt_id = ?", (attempt["attempt_id"],))
@@ -655,7 +665,7 @@ class RoomStateStore:
                 """SELECT * FROM post_attempts
                    WHERE routine_date = ? AND slot = ?
                      AND status NOT IN ('posted','failed_pre_submit')
-                   ORDER BY created_at DESC LIMIT 1""",
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
                 (day, slot),
             ).fetchone()
         return dict(row) if row is not None else None
@@ -812,7 +822,7 @@ class RoomStateStore:
             ).fetchone()
             attempt = connection.execute(
                 """SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ?
-                   ORDER BY created_at DESC LIMIT 1""",
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
                 (day, slot),
             ).fetchone()
             if row is None or row["status"] != SlotStatus.UNCERTAIN.value:
@@ -828,7 +838,7 @@ class RoomStateStore:
                 raise StateConflictError("uncertain attempt is not safely submitted")
             incident = connection.execute(
                 """SELECT * FROM incidents WHERE routine_date = ? AND slot = ?
-                   AND reason_code = ? AND status = ? ORDER BY created_at DESC LIMIT 1""",
+                   AND reason_code = ? AND status = ? ORDER BY created_at DESC, rowid DESC LIMIT 1""",
                 (day, slot, ReasonCode.POST_RESULT_UNCERTAIN.value, IncidentStatus.NEEDS_HUMAN.value),
             ).fetchone()
             if incident is None:
@@ -863,6 +873,123 @@ class RoomStateStore:
                 from_status=IncidentStatus.NEEDS_HUMAN.value, to_status=IncidentStatus.RESOLVED.value,
                 payload={"event": "human_confirmed_room_post", "evidence_source": source, "reposted": False},
                 timestamp=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+            ).fetchone()
+        assert updated is not None
+        return _slot_record(updated)
+
+    def resolve_uncertain_as_not_posted(
+        self,
+        routine_date: date | str,
+        slot: str,
+        *,
+        evidence_source: str,
+        evidence_note: str,
+        now: datetime | None = None,
+    ) -> SlotRecord:
+        """Authorize one retry after authenticated ROOM proves the send absent.
+
+        The original submit-started attempt is retained as immutable audit
+        evidence.  A later claim receives a suffixed idempotency key, and the
+        configured one-retry budget prevents an unbounded resend loop.
+        """
+        day = _date_text(routine_date)
+        _validate_slot(slot)
+        source = evidence_source.strip()
+        note = evidence_note.strip()
+        if not source or not note:
+            raise StateStoreError("authenticated absence evidence source and note are required")
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?",
+                (day, slot),
+            ).fetchone()
+            attempt = connection.execute(
+                """SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ?
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (day, slot),
+            ).fetchone()
+            if row is None or row["status"] != SlotStatus.UNCERTAIN.value:
+                actual = "missing" if row is None else str(row["status"])
+                raise StateConflictError(
+                    f"slot is not evidence-resolvable uncertain: {day}:{slot} actual={actual}"
+                )
+            if (
+                attempt is None
+                or attempt["status"] != SlotStatus.UNCERTAIN.value
+                or not int(attempt["submit_started"])
+            ):
+                raise StateConflictError("uncertain attempt is not a submitted attempt")
+            incident = connection.execute(
+                """SELECT * FROM incidents WHERE routine_date = ? AND slot = ?
+                   AND reason_code = ? AND status = ? ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (day, slot, ReasonCode.POST_RESULT_UNCERTAIN.value, IncidentStatus.NEEDS_HUMAN.value),
+            ).fetchone()
+            if incident is None:
+                raise StateConflictError("needs-human post-result incident is missing")
+            previous_absent = connection.execute(
+                """SELECT COUNT(*) AS count FROM post_attempts
+                   WHERE routine_date = ? AND slot = ?
+                     AND normalized_url = ? AND content_hash = ?
+                     AND status = 'confirmed_not_posted'""",
+                (day, slot, row["normalized_url"], row["content_hash"]),
+            ).fetchone()["count"]
+            if int(previous_absent) >= DEFAULT_RETRY_BUDGET.pre_submit_retries:
+                raise RetryBudgetExhausted("confirmed-absence retry budget exhausted")
+            attempts = json.loads(str(incident["attempts_json"] or "{}"))
+            attempts["pre_submit_retries"] = int(previous_absent) + 1
+            updated_attempt = connection.execute(
+                """UPDATE post_attempts SET status = 'confirmed_not_posted', updated_at = ?
+                   WHERE attempt_id = ? AND status = ? AND submit_started = 1""",
+                (timestamp, attempt["attempt_id"], SlotStatus.UNCERTAIN.value),
+            )
+            failed = connection.execute(
+                """UPDATE slots SET status = ?, version = version + 1, updated_at = ?
+                   WHERE routine_date = ? AND slot = ? AND status = ? AND version = ?""",
+                (SlotStatus.FAILED_PRE_SUBMIT.value, timestamp, day, slot,
+                 SlotStatus.UNCERTAIN.value, row["version"]),
+            )
+            ready = connection.execute(
+                """UPDATE slots SET status = ?, version = version + 1, updated_at = ?
+                   WHERE routine_date = ? AND slot = ? AND status = ?""",
+                (SlotStatus.READY.value, timestamp, day, slot, SlotStatus.FAILED_PRE_SUBMIT.value),
+            )
+            if updated_attempt.rowcount != 1 or failed.rowcount != 1 or ready.rowcount != 1:
+                raise StateConflictError("authenticated absence resolution compare-and-swap failed")
+            resolved_incident = connection.execute(
+                """UPDATE incidents SET status = ?, attempts_json = ?, next_action = ?, updated_at = ?
+                   WHERE incident_id = ? AND status = ?""",
+                (IncidentStatus.RESOLVED.value, json.dumps(attempts, sort_keys=True),
+                 "authenticated ROOM confirmed absent; one bounded retry authorized",
+                 timestamp, incident["incident_id"], IncidentStatus.NEEDS_HUMAN.value),
+            )
+            if resolved_incident.rowcount != 1:
+                raise StateConflictError("authenticated absence incident resolution failed")
+            self._append_event(
+                connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
+                from_status=SlotStatus.UNCERTAIN.value, to_status=SlotStatus.FAILED_PRE_SUBMIT.value,
+                payload={"attempt_id": attempt["attempt_id"], "event": "authenticated_room_absence",
+                         "evidence_source": source, "evidence_note": note, "reposted": False},
+                timestamp=timestamp,
+            )
+            self._append_event(
+                connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
+                from_status=SlotStatus.FAILED_PRE_SUBMIT.value, to_status=SlotStatus.READY.value,
+                payload={"event": "bounded_confirmed_absence_retry",
+                         "retry": int(previous_absent) + 1,
+                         "limit": DEFAULT_RETRY_BUDGET.pre_submit_retries},
+                timestamp=timestamp,
+            )
+            self._append_event(
+                connection, routine_date=day, aggregate_type="incident",
+                aggregate_key=str(incident["incident_id"]),
+                from_status=IncidentStatus.NEEDS_HUMAN.value,
+                to_status=IncidentStatus.RESOLVED.value,
+                payload={"event": "authenticated_room_absence", "evidence_source": source,
+                         "retry_authorized": True}, timestamp=timestamp,
             )
             updated = connection.execute(
                 "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
