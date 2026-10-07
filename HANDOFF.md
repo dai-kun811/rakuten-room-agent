@@ -492,3 +492,12 @@
 - The new morning URL `https://item.rakuten.co.jp/maryplus/babyswaddle` matched the actual `POSTED` morning URL from 2026-10-07. This is a duplicate-post risk. No ROOM action, post attempt, retry, or noon/evening canary was performed.
 - Morning was moved to `BLOCKED` and incident `2026-10-08-duplicate_risk-4a52caec` was created as `NEEDS_HUMAN`. Noon/evening remain `READY` but are not owned because the ordered canary stopped at morning.
 - Phase 7 and all later phases remain stopped pending a safe, non-duplicating replacement decision. Do not reuse the duplicated candidate or bypass the gate.
+
+## 2026-10-08 duplicate-cause fix and replacement
+
+- Root cause: artifact-only shadow generation could not see the local SQLite/legacy ledger, while the prior shadow-confirmed POSTED URL was not yet represented in Sheets. Candidate selection therefore treated the prior URL as new.
+- Fix `fdf4703`: normalize and merge an explicit confirmed `ROOM_POSTED_HISTORY_URLS` set into the same `existing_urls` guard used before scoring. Added workflow inputs to both daily and fenced-recovery workflows, plus regression coverage proving a prior normalized URL is excluded.
+- Full regression after the fix: 351 tests passed; diff check passed. The fix is pushed to branch/main.
+- Replacement generation run `37648249934` succeeded with recovery `recovery-20261008-02`, revision `299`, and no external writes. The duplicated morning URL was supplied as confirmed history.
+- Replacement manifest was validated and accepted. New morning URL is `https://item.rakuten.co.jp/plusiine/okurumi04`; noon/evening remained `https://item.rakuten.co.jp/bebechambre/951215` and `https://item.rakuten.co.jp/calmisence/hipseatse` respectively. The duplicate-risk incident was resolved with the replacement evidence.
+- At 01:05 JST, morning is not yet due (08:00). No post attempt or ROOM action has been made for 2026-10-08. Phase 7 canary resumes at the valid morning window, then noon and evening in order.
