@@ -592,9 +592,18 @@ class RoomStateStore:
             attempt = connection.execute("SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ? ORDER BY created_at DESC, rowid DESC LIMIT 1", (day, slot)).fetchone()
             if attempt is None or attempt["status"] != SlotStatus.FAILED_PRE_SUBMIT.value or int(attempt["submit_started"]):
                 raise StateConflictError("failed attempt is not safely retryable")
-            connection.execute("DELETE FROM post_attempts WHERE attempt_id = ?", (attempt["attempt_id"],))
+            # Preserve the failed attempt for audit while releasing its unique
+            # idempotency key for the one bounded retry.  submit_started=0 is
+            # checked above, so this cannot hide a possibly-sent submission.
+            reclaimed_key = f"{attempt['idempotency_key']}:reclaimed:{attempt['attempt_id']}"
+            connection.execute(
+                """UPDATE post_attempts
+                   SET idempotency_key = ?, status = 'failed_pre_submit_reclaimed', updated_at = ?
+                   WHERE attempt_id = ? AND status = ? AND submit_started = 0""",
+                (reclaimed_key, timestamp, attempt["attempt_id"], SlotStatus.FAILED_PRE_SUBMIT.value),
+            )
             connection.execute("UPDATE slots SET status = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ? AND status = ?", (SlotStatus.READY.value, timestamp, day, slot, SlotStatus.FAILED_PRE_SUBMIT.value))
-            self._append_event(connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}", from_status=SlotStatus.FAILED_PRE_SUBMIT.value, to_status=SlotStatus.READY.value, payload={"event": "bounded_pre_submit_retry"}, timestamp=timestamp)
+            self._append_event(connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}", from_status=SlotStatus.FAILED_PRE_SUBMIT.value, to_status=SlotStatus.READY.value, payload={"event": "bounded_pre_submit_retry", "preserved_attempt_id": str(attempt["attempt_id"])}, timestamp=timestamp)
             updated = connection.execute("SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)).fetchone()
         assert updated is not None
         return _slot_record(updated)
@@ -664,7 +673,10 @@ class RoomStateStore:
             row = connection.execute(
                 """SELECT * FROM post_attempts
                    WHERE routine_date = ? AND slot = ?
-                     AND status NOT IN ('posted','failed_pre_submit')
+                     AND status NOT IN (
+                         'posted','failed_pre_submit','failed_pre_submit_reclaimed',
+                         'confirmed_not_posted'
+                     )
                    ORDER BY created_at DESC, rowid DESC LIMIT 1""",
                 (day, slot),
             ).fetchone()

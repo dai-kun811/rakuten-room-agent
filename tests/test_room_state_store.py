@@ -294,6 +294,30 @@ class RoomStateStoreTests(unittest.TestCase):
             self.store.get_incident(second_incident)["fingerprint"],
         )
 
+    def test_pre_submit_reset_preserves_failed_attempt_audit_row(self) -> None:
+        self.store.create_slot(
+            "2026-10-08", "noon", status=SlotStatus.READY,
+            normalized_url="https://item.rakuten.co.jp/shop/noon",
+            content_hash="d" * 64, now=NOW,
+        )
+        attempt = self.store.claim_post_attempt("2026-10-08", "noon", expected_version=0, now=NOW)
+        self.store.advance_post_attempt(
+            attempt.attempt_id, expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.FAILED_PRE_SUBMIT,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            target_attempt_status=SlotStatus.FAILED_PRE_SUBMIT.value,
+            submit_started=False, now=NOW,
+        )
+        ready = self.store.reset_failed_pre_submit("2026-10-08", "noon", now=NOW)
+        preserved = self.store.get_post_attempt(attempt.attempt_id)
+        self.assertEqual(ready.status, SlotStatus.READY)
+        self.assertEqual(preserved["status"], "failed_pre_submit_reclaimed")
+        self.assertEqual(preserved["submit_started"], 0)
+        retry = self.store.claim_post_attempt(
+            "2026-10-08", "noon", expected_version=ready.version, now=NOW
+        )
+        self.assertNotEqual(retry.attempt_id, attempt.attempt_id)
+
     def test_slot_state_and_event_are_committed_together(self) -> None:
         self.store.create_slot("2026-10-06", "morning", now=NOW)
         with closing(self.store.connect()) as connection:
