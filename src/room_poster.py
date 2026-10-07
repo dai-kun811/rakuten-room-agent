@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 class RoomPostError(RuntimeError):
@@ -59,7 +59,14 @@ class RoomPoster:
         self.headless = headless
         self.timeout_ms = timeout_ms
 
-    def post(self, product_url: str, comment: str) -> RoomPostResult:
+    def post(
+        self,
+        product_url: str,
+        comment: str,
+        *,
+        before_submit: Callable[[], None] | None = None,
+        after_submit: Callable[[], None] | None = None,
+    ) -> RoomPostResult:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
 
@@ -112,7 +119,12 @@ class RoomPoster:
                         and item.request.method == "POST",
                         timeout=self.timeout_ms,
                     ) as response_info:
+                        self._assert_submit_enabled(submit)
+                        if before_submit is not None:
+                            before_submit()
                         self._click_submit(submit)
+                        if after_submit is not None:
+                            after_submit()
                     response = response_info.value
                 except PlaywrightTimeoutError:
                     pass
@@ -170,7 +182,7 @@ class RoomPoster:
         return isinstance(payload, dict) and payload.get("status") == "success"
 
     @staticmethod
-    def _click_submit(submit: Any) -> None:
+    def _assert_submit_enabled(submit: Any) -> None:
         try:
             if submit.is_disabled():
                 raise RoomPostError("ROOM投稿ボタンが無効です。")
@@ -178,6 +190,9 @@ class RoomPoster:
             raise
         except Exception:
             pass
+
+    @staticmethod
+    def _click_submit(submit: Any) -> None:
         submit.click(force=True)
 
     def _wait_for_item_name(self, page: Any) -> None:
@@ -210,6 +225,8 @@ class RoomPoster:
     @staticmethod
     def _assert_authenticated(page: Any) -> None:
         url = page.url.lower()
+        if "captcha" in url:
+            raise RoomPostError("楽天ROOMでCAPTCHAを検出しました。")
         if "login" in url or "signin" in url:
             raise RoomPostError("楽天ROOMのログイン状態が期限切れです。")
         password = page.locator('input[type="password"]').first
@@ -219,4 +236,12 @@ class RoomPoster:
         except RoomPostError:
             raise
         except Exception:
+            pass
+        try:
+            visible = page.locator("body").inner_text(timeout=2_000)
+        except Exception:
             return
+        if re.search(r"captcha|ロボットではありません|画像認証", visible, re.IGNORECASE):
+            raise RoomPostError("楽天ROOMでCAPTCHAを検出しました。")
+        if re.search(r"アカウント.{0,12}(利用制限|制限中)|投稿できません", visible):
+            raise RoomPostError("楽天ROOMアカウントの利用制限を検出しました。")

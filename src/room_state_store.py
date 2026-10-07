@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -208,6 +209,9 @@ CREATE TABLE IF NOT EXISTS legacy_imports (
 class RoomStateStore:
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
+        # Complements SQLite CAS inside one process. Cross-process execution is
+        # serialized by the orchestrator lock file before any browser action.
+        self.execution_lock = threading.RLock()
 
     def connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)

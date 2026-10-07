@@ -79,6 +79,17 @@ class RoomOrchestrator:
         *,
         now: datetime,
     ) -> ExecutionOutcome:
+        with self.store.execution_lock:
+            return self._execute_slot(routine_date, slot, candidate, now=now)
+
+    def _execute_slot(
+        self,
+        routine_date: str,
+        slot: str,
+        candidate: Mapping[str, Any],
+        *,
+        now: datetime,
+    ) -> ExecutionOutcome:
         current = self.store.get_slot(routine_date, slot)
         if current is None:
             raise StateConflictError(f"slot does not exist: {routine_date}:{slot}")

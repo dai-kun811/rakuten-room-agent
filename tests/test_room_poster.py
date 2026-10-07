@@ -65,6 +65,7 @@ class RoomPosterTest(unittest.TestCase):
                 self.clicked_force = force
 
         submit = Submit()
+        RoomPoster._assert_submit_enabled(submit)
         RoomPoster._click_submit(submit)
         self.assertTrue(submit.clicked_force)
 
@@ -78,7 +79,7 @@ class RoomPosterTest(unittest.TestCase):
                 raise AssertionError("disabled submit should not be clicked")
 
         with self.assertRaisesRegex(RoomPostError, "無効"):
-            RoomPoster._click_submit(Submit())
+            RoomPoster._assert_submit_enabled(Submit())
 
     def test_wait_for_item_name_uses_angular_item_signal(self) -> None:
         class Page:
@@ -136,6 +137,13 @@ class RoomPosterTest(unittest.TestCase):
         self.assertEqual(page.default_timeout, 30_000)
         self.assertEqual(page.navigation_timeout, 60_000)
         self.assertEqual(page.load_timeout, 30_000)
+
+    def test_auth_check_stops_on_captcha_url(self) -> None:
+        class Page:
+            url = "https://room.rakuten.co.jp/captcha"
+
+        with self.assertRaisesRegex(RoomPostError, "CAPTCHA"):
+            RoomPoster._assert_authenticated(Page())
 
 
 if __name__ == "__main__":

@@ -41,6 +41,9 @@
 - Phase 5専用を含む全316テストが合格し、`git diff --check`も合格。incident重複、retry上限超過、lease競合、revision上書き防止、DB↔旧ledger相互引き継ぎをテスト済み。Phase 6へは進めず、ローカルcommit前の最終差分監査待ち。
 - Phase 6では本番未接続のOrchestrator、post attempt idempotency、障害注入試験を追加。DB/claim/submit/confirm/POSTED各境界のクラッシュ、同時trigger、22:30 cutoff、disk full、DB破損、git divergence等を検証し、外部送信重複0を確認した。
 - 安全レビューで、破損DB接続ハンドル残存、SUBMITTING再開時の状態固定、POSTED後ledger同期前クラッシュ、22:30 cutoff未強制の4件を検出・修正。全331テスト合格。詳細は`docs/ROOM_PHASE6_FAULT_INJECTION_REPORT.md`。
+- Phase 7本番canaryの前提実装を開始。新workerは明示的なactive-slot所有権、dry-run既定、OS排他、送信直前/直後DB境界、認証済み実ROOM本文確認後のみPOSTEDを備える。旧AutoPoster/PostGuardと新Orchestratorのスケジュールは無効のまま。
+- 安全レビューで同時triggerの2本目が正常送信中をUNCERTAINへ落とす競合を検出し、state store内の実行排他と本番workerのcross-process lockで修正。対象33テスト、全340テスト、diff check、秘密情報差分scanが合格。
+- 旧4タスクXMLとlegacy ledgerを`.local/room-worker/rollback/phase7-pre-canary-20261007`へSHA-256台帳付きで退避。まだ新Orchestratorによる本番投稿、workflow dispatch、pushは未実施。次はfresh fetch/divergence確認後に隔離branchをpushし、そのbranchで1回だけmanifest v2を生成して朝枠canary前のDB/ledger/実ROOM照合を行う。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
