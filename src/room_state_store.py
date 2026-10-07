@@ -326,6 +326,27 @@ class RoomStateStore:
             if result.rowcount != 1:
                 raise StateConflictError("recovery lease is missing or expired")
 
+    def rebind_preflight_recovery_control(
+        self,
+        recovery_id: str,
+        *,
+        owner_id: str,
+        expected_head_sha: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Rebind only a failed-before-generation lease to the actual dispatch ref."""
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            result = connection.execute(
+                """UPDATE recovery_controls
+                   SET expected_head_sha = ?, updated_at = ?
+                   WHERE recovery_id = ? AND status = 'running' AND owner_id = ?
+                     AND replacement_run_id IS NULL""",
+                (expected_head_sha, timestamp, recovery_id, owner_id),
+            )
+            if result.rowcount != 1:
+                raise StateConflictError("recovery control cannot be rebound")
+
     def assert_recovery_control(
         self,
         recovery_id: str,
