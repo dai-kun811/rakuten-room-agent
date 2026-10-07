@@ -477,3 +477,10 @@
 - Applied to `2026-10-07:morning` (manifest revision 297, URL `https://item.rakuten.co.jp/maryplus/babyswaddle`), then synced the compatibility ledger exactly once. DB, attempt, ledger, and incident now agree; the pre-submit incident was also resolved after the successful post.
 - Current day remains partial: `morning=posted`, `noon=ready`, `evening=ready`. The posting window is closed after 22:30 JST, so noon/evening must not be posted late or by bypassing the gate. Phase 7 cannot be declared complete tonight; no Phase 8 action is permitted until the remaining canary slots are executed in their valid window.
 - Full regression: 350 tests passed; `py_compile` and `git diff --check` passed. The implementation is committed as `8f063ae` and pushed to the isolated branch and `main` without force-push.
+
+## 2026-10-07 Phase 7 cutoff handling
+
+- JST check at 23:51 confirmed the same routine date (`2026-10-07`), but the 22:30 posting cutoff had passed.
+- No noon/evening browser action, retry, repost, or cutoff bypass was performed. Both `noon` and `evening` were transitioned from `READY` to `EXPIRED_UNPOSTED` with an audit reason `posting_window_closed`.
+- Final day state: `morning=POSTED`, `noon=EXPIRED_UNPOSTED`, `evening=EXPIRED_UNPOSTED`; one morning `posted` ledger row and one posted attempt only. No noon/evening attempts exist.
+- Phase 7 is not complete because the noon/evening canaries were not executed inside their valid window. Phase 8+ remains blocked; next operation is the following day's normal generation/canary flow, without automatic catch-up posting.
