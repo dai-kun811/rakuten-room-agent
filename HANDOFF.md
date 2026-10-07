@@ -501,3 +501,10 @@
 - Replacement generation run `37648249934` succeeded with recovery `recovery-20261008-02`, revision `299`, and no external writes. The duplicated morning URL was supplied as confirmed history.
 - Replacement manifest was validated and accepted. New morning URL is `https://item.rakuten.co.jp/plusiine/okurumi04`; noon/evening remained `https://item.rakuten.co.jp/bebechambre/951215` and `https://item.rakuten.co.jp/calmisence/hipseatse` respectively. The duplicate-risk incident was resolved with the replacement evidence.
 - At 01:05 JST, morning is not yet due (08:00). No post attempt or ROOM action has been made for 2026-10-08. Phase 7 canary resumes at the valid morning window, then noon and evening in order.
+
+## 2026-10-08 morning canary UNCERTAIN stop
+
+- At 08:21 JST, revision 299 morning preflight passed: new URL `https://item.rakuten.co.jp/plusiine/okurumi04`, no match against all known POSTED URLs, and no prior 2026-10-08 attempt/ledger row.
+- The canary reached the submit boundary and ended `UNCERTAIN` (attempt `2026-10-08-morning-cfd9f98a1ae2`, `submit_started=1`, incident `2026-10-08-post_result_uncertain-11865a46`).
+- Current state: morning `UNCERTAIN`, noon/evening `READY`; today legacy ledger has no rows. No automatic repost, no noon/evening canary, and no Phase 8+ action was performed.
+- Phase 7 is stopped at the required human ROOM-result confirmation gate. Do not retry or repost morning until actual ROOM presence is confirmed.
