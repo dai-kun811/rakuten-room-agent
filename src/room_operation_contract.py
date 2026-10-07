@@ -120,7 +120,7 @@ SLOT_TRANSITIONS: dict[SlotStatus, frozenset[SlotStatus]] = {
         {SlotStatus.POSTED, SlotStatus.UNCERTAIN}
     ),
     SlotStatus.FAILED_PRE_SUBMIT: frozenset(
-        {SlotStatus.CLAIMED, SlotStatus.BLOCKED, SlotStatus.EXPIRED_UNPOSTED}
+        {SlotStatus.READY, SlotStatus.CLAIMED, SlotStatus.BLOCKED, SlotStatus.EXPIRED_UNPOSTED}
     ),
     SlotStatus.UNCERTAIN: frozenset(
         {SlotStatus.POSTED, SlotStatus.FAILED_PRE_SUBMIT}

@@ -83,6 +83,14 @@ class RoomStateStoreTests(unittest.TestCase):
         )
         self.assertEqual(value["budget_consumed"], 1)
 
+    def test_pre_submit_budget_reclaim_requires_no_submit_started(self) -> None:
+        incident = self.store.create_incident("2026-10-06", reason=ReasonCode.FAILED_PRE_SUBMIT, slot="morning", component="test", last_safe_state=SlotStatus.FAILED_PRE_SUBMIT.value, next_action="retry", now=NOW)
+        self.store.transition_incident(incident, expected_status=IncidentStatus.OPEN, target_status=IncidentStatus.AUTO_RECOVERING, next_action="retry", now=NOW)
+        self.store.consume_retry_budget(incident, budget_key="pre_submit_retries", now=NOW)
+        self.store.reclaim_pre_submit_budget(incident, now=NOW)
+        row = self.store.get_incident(incident)
+        self.assertEqual(json.loads(row["attempts_json"]), {"pre_submit_retries": 0})
+
     def test_slot_transition_uses_compare_and_swap(self) -> None:
         original = self.store.create_slot("2026-10-06", "morning", now=NOW)
         ready = self.store.transition_slot(

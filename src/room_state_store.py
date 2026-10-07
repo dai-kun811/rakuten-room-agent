@@ -571,6 +571,24 @@ class RoomStateStore:
             )
         return PostAttemptRecord(attempt_id, key, day, slot, SlotStatus.CLAIMED.value, False)
 
+    def reset_failed_pre_submit(self, routine_date: date | str, slot: str, *, now: datetime | None = None) -> SlotRecord:
+        """Return a definitely-not-submitted attempt to READY for its single retry."""
+        day = _date_text(routine_date)
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute("SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)).fetchone()
+            if row is None or row["status"] != SlotStatus.FAILED_PRE_SUBMIT.value:
+                raise StateConflictError("slot is not a failed pre-submit attempt")
+            attempt = connection.execute("SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ? ORDER BY created_at DESC LIMIT 1", (day, slot)).fetchone()
+            if attempt is None or attempt["status"] != SlotStatus.FAILED_PRE_SUBMIT.value or int(attempt["submit_started"]):
+                raise StateConflictError("failed attempt is not safely retryable")
+            connection.execute("DELETE FROM post_attempts WHERE attempt_id = ?", (attempt["attempt_id"],))
+            connection.execute("UPDATE slots SET status = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ? AND status = ?", (SlotStatus.READY.value, timestamp, day, slot, SlotStatus.FAILED_PRE_SUBMIT.value))
+            self._append_event(connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}", from_status=SlotStatus.FAILED_PRE_SUBMIT.value, to_status=SlotStatus.READY.value, payload={"event": "bounded_pre_submit_retry"}, timestamp=timestamp)
+            updated = connection.execute("SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)).fetchone()
+        assert updated is not None
+        return _slot_record(updated)
+
     def advance_post_attempt(
         self,
         attempt_id: str,
@@ -924,6 +942,27 @@ class RoomStateStore:
                 timestamp=timestamp,
             )
             return RetryReservation(incident_id, budget_key, attempt, limit, attempt >= limit)
+
+    def reclaim_pre_submit_budget(self, incident_id: str, *, budget_key: str = "pre_submit_retries", now: datetime | None = None) -> None:
+        """Reclaim a retry consumed by a proven browser-startup failure only."""
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute("SELECT routine_date, slot, status, attempts_json FROM incidents WHERE incident_id = ?", (incident_id,)).fetchone()
+            if row is None or row["status"] != IncidentStatus.AUTO_RECOVERING.value:
+                raise StateConflictError("incident is not an auto-recovering pre-submit incident")
+            attempts = json.loads(str(row["attempts_json"] or "{}"))
+            current = int(attempts.get(budget_key, 0))
+            if current < 1:
+                raise StateConflictError("no retry budget is available to reclaim")
+            unsafe = connection.execute(
+                "SELECT COUNT(*) AS count FROM post_attempts WHERE routine_date = ? AND slot = ? AND submit_started = 1",
+                (row["routine_date"], row["slot"]),
+            ).fetchone()["count"]
+            if int(unsafe):
+                raise StateConflictError("cannot reclaim budget after submit started")
+            attempts[budget_key] = current - 1
+            connection.execute("UPDATE incidents SET attempts_json = ?, updated_at = ? WHERE incident_id = ?", (json.dumps(attempts, sort_keys=True), timestamp, incident_id))
+            self._append_event(connection, routine_date=str(row["routine_date"]), aggregate_type="incident", aggregate_key=incident_id, from_status=row["status"], to_status=row["status"], payload={"event": "pre_submit_budget_reclaimed", "budget_key": budget_key}, timestamp=timestamp)
 
     def accept_manifest(self, payload: Mapping[str, Any], *, now: datetime | None = None) -> int:
         validate_manifest_v2(payload)
