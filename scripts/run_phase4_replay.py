@@ -22,10 +22,56 @@ from room_manifest_v2 import build_manifest_v2
 from room_operation_contract import JST, POST_SLOTS
 from room_orchestrator_shadow import audit_shadow_manifests, evaluate_shadow_manifest
 from room_shadow_replay import ready_history_records, replay_generation_report
-from run_phase4_shadow import fetch_distinct_reports, github_headers, github_token
+from run_phase4_shadow import (
+    REPO_API,
+    _download_report,
+    _get_json,
+    _report_time,
+    fetch_distinct_reports,
+    github_headers,
+    github_token,
+)
 
 
-def run_replay(*, start: date, days: int, max_runs: int, output_dir: Path) -> dict[str, Any]:
+def fetch_pinned_reports(
+    session: requests.Session,
+    *,
+    headers: dict[str, str],
+    run_ids: list[str],
+) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for run_id in run_ids:
+        run = _get_json(session, f"{REPO_API}/actions/runs/{run_id}", headers=headers)
+        if run.get("conclusion") != "success":
+            raise RuntimeError(f"source run is not successful: {run_id}")
+        report = _download_report(session, run, headers=headers)
+        if report is None:
+            raise RuntimeError(f"source artifact is unavailable: {run_id}")
+        generated_at = _report_time(report, run)
+        if tuple(report.get("required_post_slots", [])) != POST_SLOTS:
+            raise RuntimeError(f"source run does not use the three-slot contract: {run_id}")
+        observations.append(
+            {
+                "day": generated_at.date().isoformat(),
+                "run": run,
+                "report": report,
+                "generated_at": generated_at,
+            }
+        )
+    unique_days = {value["day"] for value in observations}
+    if len(unique_days) != len(observations):
+        raise RuntimeError("pinned runs must represent distinct JST routine dates")
+    return observations
+
+
+def run_replay(
+    *,
+    start: date,
+    days: int,
+    max_runs: int,
+    output_dir: Path,
+    source_run_ids: list[str] | None = None,
+) -> dict[str, Any]:
     head_sha = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=PROJECT_ROOT,
@@ -33,14 +79,29 @@ def run_replay(*, start: date, days: int, max_runs: int, output_dir: Path) -> di
         capture_output=True,
         text=True,
     ).stdout.strip()
+    headers = github_headers(github_token())
     with requests.Session() as session:
-        observations, incompatible = fetch_distinct_reports(
-            session,
-            headers=github_headers(github_token()),
-            target_days=days,
-            max_runs=max_runs,
-            observation_start=start,
-        )
+        if source_run_ids:
+            observations = fetch_pinned_reports(
+                session,
+                headers=headers,
+                run_ids=source_run_ids,
+            )
+            incompatible: list[dict[str, Any]] = []
+        else:
+            observations, incompatible = fetch_distinct_reports(
+                session,
+                headers=headers,
+                target_days=days,
+                max_runs=max_runs,
+                observation_start=start,
+            )
+    for observation in observations:
+        routine_day = date.fromisoformat(observation["day"])
+        if routine_day < start:
+            raise RuntimeError(f"source day precedes replay window: {routine_day}")
+        if routine_day.weekday() >= 5:
+            raise RuntimeError(f"source day is not a business day: {routine_day}")
 
     manifests: list[dict[str, Any]] = []
     observations_summary: list[dict[str, Any]] = []
@@ -135,6 +196,11 @@ def main() -> int:
     parser.add_argument("--days", type=int, default=3)
     parser.add_argument("--max-runs", type=int, default=100)
     parser.add_argument(
+        "--run-ids",
+        default="",
+        help="Comma-separated successful three-slot Actions run IDs for reproducible replay",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=PROJECT_ROOT / "reports" / "phase4-replay",
@@ -145,6 +211,7 @@ def main() -> int:
         days=args.days,
         max_runs=args.max_runs,
         output_dir=args.output_dir,
+        source_run_ids=[value.strip() for value in args.run_ids.split(",") if value.strip()],
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if summary["ready_for_phase5"] else 2
