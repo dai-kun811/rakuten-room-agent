@@ -470,3 +470,10 @@
 
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。
+## 2026-10-07 morning UNCERTAIN human reconciliation
+
+- User confirmed the matching `morning` item is present in the authenticated Rakuten ROOM screen. No repost or browser submit was performed for reconciliation.
+- Added `RoomStateStore.resolve_uncertain_as_posted`, an atomic, evidence-required transition that only accepts `UNCERTAIN` + `submit_started=1` + matching `NEEDS_HUMAN` post-result incident. It updates the slot and attempt to `posted`, resolves that incident, and records `reposted=false` in the event audit.
+- Applied to `2026-10-07:morning` (manifest revision 297, URL `https://item.rakuten.co.jp/maryplus/babyswaddle`), then synced the compatibility ledger exactly once. DB, attempt, ledger, and incident now agree; the pre-submit incident was also resolved after the successful post.
+- Current day remains partial: `morning=posted`, `noon=ready`, `evening=ready`. The posting window is closed after 22:30 JST, so noon/evening must not be posted late or by bypassing the gate. Phase 7 cannot be declared complete tonight; no Phase 8 action is permitted until the remaining canary slots are executed in their valid window.
+- Full regression: 350 tests passed; `py_compile` and `git diff --check` passed. The implementation change is uncommitted at this handoff point.

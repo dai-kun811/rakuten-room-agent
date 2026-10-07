@@ -740,9 +740,12 @@ class RoomStateStore:
         target_status: IncidentStatus,
         next_action: str,
         lease_owner: str | None = None,
+        manual_resolution: bool = False,
         now: datetime | None = None,
     ) -> None:
-        validate_incident_transition(expected_status, target_status)
+        validate_incident_transition(
+            expected_status, target_status, manual_resolution=manual_resolution
+        )
         timestamp = _timestamp(now)
         with self.transaction() as connection:
             row = connection.execute(
@@ -784,6 +787,88 @@ class RoomStateStore:
                 payload={"next_action": next_action},
                 timestamp=timestamp,
             )
+
+    def resolve_uncertain_as_posted(
+        self,
+        routine_date: date | str,
+        slot: str,
+        *,
+        evidence_source: str,
+        evidence_note: str,
+        now: datetime | None = None,
+    ) -> SlotRecord:
+        """Reconcile a human-confirmed ROOM post without sending again."""
+        day = _date_text(routine_date)
+        _validate_slot(slot)
+        source = evidence_source.strip()
+        note = evidence_note.strip()
+        if not source or not note:
+            raise StateStoreError("human evidence source and note are required")
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?",
+                (day, slot),
+            ).fetchone()
+            attempt = connection.execute(
+                """SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ?
+                   ORDER BY created_at DESC LIMIT 1""",
+                (day, slot),
+            ).fetchone()
+            if row is None or row["status"] != SlotStatus.UNCERTAIN.value:
+                actual = "missing" if row is None else str(row["status"])
+                raise StateConflictError(
+                    f"slot is not human-resolvable uncertain: {day}:{slot} actual={actual}"
+                )
+            if (
+                attempt is None
+                or attempt["status"] != SlotStatus.UNCERTAIN.value
+                or not int(attempt["submit_started"])
+            ):
+                raise StateConflictError("uncertain attempt is not safely submitted")
+            incident = connection.execute(
+                """SELECT * FROM incidents WHERE routine_date = ? AND slot = ?
+                   AND reason_code = ? AND status = ? ORDER BY created_at DESC LIMIT 1""",
+                (day, slot, ReasonCode.POST_RESULT_UNCERTAIN.value, IncidentStatus.NEEDS_HUMAN.value),
+            ).fetchone()
+            if incident is None:
+                raise StateConflictError("needs-human post-result incident is missing")
+            updated_attempt = connection.execute(
+                """UPDATE post_attempts SET status = ?, updated_at = ?
+                   WHERE attempt_id = ? AND status = ? AND submit_started = 1""",
+                (SlotStatus.POSTED.value, timestamp, attempt["attempt_id"], SlotStatus.UNCERTAIN.value),
+            )
+            updated_slot = connection.execute(
+                """UPDATE slots SET status = ?, version = version + 1, updated_at = ?
+                   WHERE routine_date = ? AND slot = ? AND status = ? AND version = ?""",
+                (SlotStatus.POSTED.value, timestamp, day, slot, SlotStatus.UNCERTAIN.value, row["version"]),
+            )
+            if updated_attempt.rowcount != 1 or updated_slot.rowcount != 1:
+                raise StateConflictError("human post resolution compare-and-swap failed")
+            connection.execute(
+                """UPDATE incidents SET status = ?, next_action = ?, updated_at = ?
+                   WHERE incident_id = ? AND status = ?""",
+                (IncidentStatus.RESOLVED.value, "human-confirmed ROOM post; no repost", timestamp,
+                 incident["incident_id"], IncidentStatus.NEEDS_HUMAN.value),
+            )
+            self._append_event(
+                connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
+                from_status=SlotStatus.UNCERTAIN.value, to_status=SlotStatus.POSTED.value,
+                payload={"attempt_id": attempt["attempt_id"], "event": "human_confirmed_room_post",
+                         "evidence_source": source, "evidence_note": note, "reposted": False},
+                timestamp=timestamp,
+            )
+            self._append_event(
+                connection, routine_date=day, aggregate_type="incident", aggregate_key=str(incident["incident_id"]),
+                from_status=IncidentStatus.NEEDS_HUMAN.value, to_status=IncidentStatus.RESOLVED.value,
+                payload={"event": "human_confirmed_room_post", "evidence_source": source, "reposted": False},
+                timestamp=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+            ).fetchone()
+        assert updated is not None
+        return _slot_record(updated)
 
     def get_incident(self, incident_id: str) -> dict[str, Any] | None:
         with closing(self.connect()) as connection:

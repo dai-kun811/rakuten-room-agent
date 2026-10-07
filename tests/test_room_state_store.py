@@ -174,6 +174,42 @@ class RoomStateStoreTests(unittest.TestCase):
         )
         self.assertEqual(cleared.status, SlotStatus.FAILED_PRE_SUBMIT)
 
+    def test_human_confirmed_uncertain_resolves_posted_without_repost(self) -> None:
+        self.store.create_slot(
+            "2026-10-07", "morning", status=SlotStatus.READY,
+            normalized_url="https://item.rakuten.co.jp/example/item",
+            content_hash="a" * 64, manifest_revision=297,
+        )
+        claimed = self.store.claim_post_attempt("2026-10-07", "morning", expected_version=0)
+        self.store.advance_post_attempt(
+            claimed.attempt_id, expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.SUBMITTING,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            target_attempt_status=SlotStatus.SUBMITTING.value, submit_started=True,
+        )
+        self.store.advance_post_attempt(
+            claimed.attempt_id, expected_slot_status=SlotStatus.SUBMITTING,
+            target_slot_status=SlotStatus.UNCERTAIN,
+            expected_attempt_status=SlotStatus.SUBMITTING.value,
+            target_attempt_status=SlotStatus.UNCERTAIN.value, submit_started=True,
+        )
+        incident = self.store.create_incident(
+            "2026-10-07", reason=ReasonCode.POST_RESULT_UNCERTAIN,
+            slot="morning", component="test", last_safe_state="uncertain",
+            next_action="wait for human", manifest_revision=297,
+        )
+        self.store.transition_incident(
+            incident, expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.NEEDS_HUMAN, next_action="wait for human",
+        )
+        posted = self.store.resolve_uncertain_as_posted(
+            "2026-10-07", "morning", evidence_source="authenticated_room",
+            evidence_note="operator confirmed matching morning item; no repost",
+        )
+        self.assertEqual(posted.status, SlotStatus.POSTED)
+        self.assertEqual(self.store.get_post_attempt(claimed.attempt_id)["status"], "posted")
+        self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.RESOLVED.value)
+
     def test_slot_state_and_event_are_committed_together(self) -> None:
         self.store.create_slot("2026-10-06", "morning", now=NOW)
         with closing(self.store.connect()) as connection:

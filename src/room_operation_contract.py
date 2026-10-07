@@ -261,10 +261,16 @@ def validate_slot_transition(
 def validate_incident_transition(
     current: IncidentStatus | str,
     target: IncidentStatus | str,
+    *,
+    manual_resolution: bool = False,
 ) -> None:
     source = IncidentStatus(current)
     destination = IncidentStatus(target)
-    if destination not in INCIDENT_TRANSITIONS[source]:
+    if destination not in INCIDENT_TRANSITIONS[source] and not (
+        manual_resolution
+        and source is IncidentStatus.NEEDS_HUMAN
+        and destination is IncidentStatus.RESOLVED
+    ):
         raise TransitionError(
             f"unsafe incident transition: {source.value} -> {destination.value}"
         )

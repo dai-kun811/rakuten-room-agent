@@ -116,3 +116,11 @@ was attempted. Resumption remains blocked until this exact API check returns
 - The repaired morning canary reached the submit boundary but ended in `UNCERTAIN` (`2026-10-07-post_result_uncertain-0be298b4`). The database records `morning=uncertain` and `submit_started=1`. No retry, repost, noon/evening canary, PostGuard, or Phase 8 action was performed.
 
 Phase 7 is stopped at the human-safety gate. An authenticated human must confirm the morning ROOM result before any state resolution; automatic reposting is prohibited.
+
+## Human-confirmed morning reconciliation (2026-10-07)
+
+- The user confirmed the matching morning item in the authenticated ROOM screen. No repost was performed.
+- Added and tested an evidence-required atomic reconciliation path. It accepts only the existing `UNCERTAIN` slot with `submit_started=1` and its matching `NEEDS_HUMAN` incident, then updates the slot and post attempt to `POSTED`, resolves the post-result incident, and records `reposted=false`.
+- Morning is now `POSTED` in SQLite (revision 297, URL `https://item.rakuten.co.jp/maryplus/babyswaddle`), one compatible `posted` ledger row exists, and the post attempt is `posted`. The earlier pre-submit incident is resolved; the stuck-run incidents remain retained and unresolved where appropriate.
+- Noon and evening remain `READY`. At 22:40 JST the 22:30 posting window is closed, so no late canary or gate bypass was attempted. Phase 7 remains incomplete and Phase 8 is not started.
+- Full regression after the change: 350 tests passed.
