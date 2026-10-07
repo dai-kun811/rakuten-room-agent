@@ -956,7 +956,7 @@ class RoomStateStore:
                 legacy_status = str(event.get("status", ""))
                 if legacy_status not in {"reserved", "posted", "failed"}:
                     raise ValueError("unsupported legacy status")
-            except (json.JSONDecodeError, ValueError):
+            except (json.JSONDecodeError, ValueError, StateStoreError):
                 malformed += 1
                 continue
             new_lines.append((line_hash, line_number))

@@ -71,6 +71,14 @@ BATH_TOWEL_PRODUCT_TERMS = [
     "タオルポンチョ",
 ]
 
+UNSUPPORTED_NURSING_DEVICE_TERMS = [
+    "搾乳器",
+    "搾乳機",
+    "さく乳器",
+    "さく乳機",
+    "搾乳ポンプ",
+]
+
 BABY_BEDDING_BASE_PATTERN = r"(?:抱っこ布団|ねんねクッション|ベビー布団)"
 BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
     rf"(?:"
@@ -161,6 +169,12 @@ def classify_room_product_type(product: Product) -> str:
     if contains_any(text, MAGNETIC_BLOCK_ACCESSORY_TERMS):
         return "unknown"
     if contains_any(text, BATH_TOWEL_PRODUCT_TERMS):
+        return "unknown"
+    # A breast pump can contain broad terms such as "授乳用品" and
+    # "ハンズフリー", but bottle-holder/cushion copy is factually wrong for
+    # this medical-adjacent device. Keep the whole device class out of
+    # automatic posting until it has dedicated attributes and copy rules.
+    if contains_any(text, UNSUPPORTED_NURSING_DEVICE_TERMS):
         return "unknown"
     # Replacement covers are accessories, not the bedding body assumed by
     # the automatic copy.  Keep an actual futon/cushion sold with a cover

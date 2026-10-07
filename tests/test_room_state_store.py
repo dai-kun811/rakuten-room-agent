@@ -227,6 +227,40 @@ class RoomStateStoreTests(unittest.TestCase):
         assert evening is not None
         self.assertEqual(evening.status, SlotStatus.FAILED_PRE_SUBMIT)
 
+    def test_legacy_six_slot_history_is_skipped_without_aborting_migration(self) -> None:
+        ledger = Path(self.temp_dir.name) / "post-ledger.jsonl"
+        ledger.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "post_slot": "2026-10-04:morning_1",
+                            "status": "posted",
+                            "normalized_url": "https://item.rakuten.co.jp/shop/old",
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "post_slot": "2026-10-06:morning",
+                            "status": "posted",
+                            "normalized_url": "https://item.rakuten.co.jp/shop/current",
+                        }
+                    ),
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = self.store.import_legacy_ledger(ledger, now=NOW)
+
+        self.assertEqual(result.imported_lines, 1)
+        self.assertEqual(result.malformed_lines, 1)
+        self.assertIsNone(self.store.get_slot("2026-10-04", "morning"))
+        self.assertEqual(
+            self.store.get_slot("2026-10-06", "morning").status,
+            SlotStatus.POSTED,
+        )
+
     def test_backup_is_consistent_and_readable(self) -> None:
         self.store.create_slot("2026-10-06", "morning", now=NOW)
         backup_path = Path(self.temp_dir.name) / "backup" / "operations.db"

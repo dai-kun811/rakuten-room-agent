@@ -228,6 +228,16 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_breast_pump_is_not_treated_as_bottle_holder_support(self) -> None:
+        product = replace(
+            product_for("nursing_support"),
+            name="電動さく乳器 ハンズフリー 電動搾乳器",
+            caption="母乳育児向けの搾乳ポンプ",
+            catchcopy="授乳用品",
+        )
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
     def test_specific_listing_facts_survive_quality_rewrites(self) -> None:
         cases = [
             (
