@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
@@ -228,6 +228,19 @@ def routine_date_jst(now: datetime) -> date:
     if now.tzinfo is None or now.utcoffset() is None:
         raise ContractError("routine date requires a timezone-aware datetime")
     return now.astimezone(JST).date()
+
+
+def posting_window_open(
+    routine_date: date | str,
+    now: datetime,
+    *,
+    cutoff: time = time(22, 30),
+) -> bool:
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ContractError("posting window requires a timezone-aware datetime")
+    day = routine_date if isinstance(routine_date, date) else _parse_iso_date(str(routine_date))
+    local = now.astimezone(JST)
+    return local.date() == day and local.time().replace(tzinfo=None) < cutoff
 
 
 def validate_slot_transition(

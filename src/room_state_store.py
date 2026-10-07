@@ -19,6 +19,7 @@ from room_operation_contract import (
     SlotStatus,
     TransitionError,
     incident_fingerprint,
+    build_idempotency_key,
     normalize_product_url,
     route_for_reason,
     RetryBudget,
@@ -72,6 +73,16 @@ class CatchUpPlan:
     expired_slots: tuple[str, ...]
     human_review_slots: tuple[str, ...]
     missing_today_slots: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PostAttemptRecord:
+    attempt_id: str
+    idempotency_key: str
+    routine_date: str
+    slot: str
+    status: str
+    submit_started: bool
 
 
 @dataclass(frozen=True)
@@ -201,11 +212,15 @@ class RoomStateStore:
     def connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=5.0, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = FULL")
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = FULL")
+        except Exception:
+            connection.close()
+            raise
         return connection
 
     def initialize(self) -> None:
@@ -395,6 +410,122 @@ class RoomStateStore:
             ).fetchone()
         assert new_row is not None
         return _slot_record(new_row)
+
+    def claim_post_attempt(
+        self,
+        routine_date: date | str,
+        slot: str,
+        *,
+        expected_version: int,
+        now: datetime | None = None,
+    ) -> PostAttemptRecord:
+        day = _date_text(routine_date)
+        _validate_slot(slot)
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+            ).fetchone()
+            if row is None or row["status"] != SlotStatus.READY.value or row["version"] != expected_version:
+                actual = "missing" if row is None else f"{row['status']}@{row['version']}"
+                raise StateConflictError(f"slot is not claimable: {day}:{slot} actual={actual}")
+            if not row["normalized_url"] or not row["content_hash"]:
+                raise StateIntegrityError("claim requires manifest URL and content hash")
+            key = build_idempotency_key(day, slot, row["normalized_url"], row["content_hash"])
+            attempt_id = f"{day}-{slot}-{uuid4().hex[:12]}"
+            try:
+                connection.execute(
+                    """INSERT INTO post_attempts(
+                           attempt_id, idempotency_key, routine_date, slot,
+                           normalized_url, content_hash, status, created_at, updated_at
+                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (attempt_id, key, day, slot, row["normalized_url"], row["content_hash"], SlotStatus.CLAIMED.value, timestamp, timestamp),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise StateConflictError("duplicate post attempt rejected by idempotency key") from exc
+            claimed = connection.execute(
+                "UPDATE slots SET status = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ? AND status = ? AND version = ?",
+                (SlotStatus.CLAIMED.value, timestamp, day, slot, SlotStatus.READY.value, expected_version),
+            )
+            if claimed.rowcount != 1:
+                raise StateConflictError("slot claim compare-and-swap failed")
+            self._append_event(
+                connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
+                from_status=SlotStatus.READY.value, to_status=SlotStatus.CLAIMED.value,
+                payload={"attempt_id": attempt_id, "idempotency_key": key}, timestamp=timestamp,
+            )
+        return PostAttemptRecord(attempt_id, key, day, slot, SlotStatus.CLAIMED.value, False)
+
+    def advance_post_attempt(
+        self,
+        attempt_id: str,
+        *,
+        expected_slot_status: SlotStatus,
+        target_slot_status: SlotStatus,
+        expected_attempt_status: str,
+        target_attempt_status: str,
+        submit_started: bool | None = None,
+        now: datetime | None = None,
+    ) -> SlotRecord:
+        validate_slot_transition(expected_slot_status, target_slot_status)
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            attempt = connection.execute(
+                "SELECT * FROM post_attempts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+            if attempt is None or attempt["status"] != expected_attempt_status:
+                actual = "missing" if attempt is None else str(attempt["status"])
+                raise StateConflictError(f"stale post attempt: expected={expected_attempt_status} actual={actual}")
+            day, slot = str(attempt["routine_date"]), str(attempt["slot"])
+            row = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+            ).fetchone()
+            if row is None or row["status"] != expected_slot_status.value:
+                actual = "missing" if row is None else str(row["status"])
+                raise StateConflictError(f"stale slot during post attempt: expected={expected_slot_status.value} actual={actual}")
+            next_submit_started = int(attempt["submit_started"] if submit_started is None else submit_started)
+            attempt_updated = connection.execute(
+                "UPDATE post_attempts SET status = ?, submit_started = ?, updated_at = ? WHERE attempt_id = ? AND status = ?",
+                (target_attempt_status, next_submit_started, timestamp, attempt_id, expected_attempt_status),
+            )
+            slot_updated = connection.execute(
+                "UPDATE slots SET status = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ? AND status = ?",
+                (target_slot_status.value, timestamp, day, slot, expected_slot_status.value),
+            )
+            if attempt_updated.rowcount != 1 or slot_updated.rowcount != 1:
+                raise StateConflictError("post attempt compare-and-swap failed")
+            self._append_event(
+                connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
+                from_status=expected_slot_status.value, to_status=target_slot_status.value,
+                payload={"attempt_id": attempt_id}, timestamp=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+            ).fetchone()
+        assert updated is not None
+        return _slot_record(updated)
+
+    def get_post_attempt(self, attempt_id: str) -> dict[str, Any] | None:
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM post_attempts WHERE attempt_id = ?", (attempt_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def get_active_post_attempt(
+        self, routine_date: date | str, slot: str
+    ) -> dict[str, Any] | None:
+        day = _date_text(routine_date)
+        _validate_slot(slot)
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                """SELECT * FROM post_attempts
+                   WHERE routine_date = ? AND slot = ?
+                     AND status NOT IN ('posted','failed_pre_submit')
+                   ORDER BY created_at DESC LIMIT 1""",
+                (day, slot),
+            ).fetchone()
+        return dict(row) if row is not None else None
 
     def create_incident(
         self,

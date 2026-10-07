@@ -25,7 +25,7 @@
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-10-07の再設計移行状態（Phase 1〜4完了、Phase 5実装・検証完了。Phase 6は未開始）:
+2026-10-07の再設計移行状態（Phase 1〜5完了、Phase 6障害注入試験完了。Phase 7 canary開始前）:
 
 - 全自動実行はユーザーにより停止済み。本番投稿、Windowsスケジュール、GitHub Actions設定、外部サービス設定は変更していない。
 - Phase 1は運用契約、JST日付境界、状態遷移、incident経路、manifest/incidentスキーマを実装し、commit `6eebc34`。Phase 2はWAL/FULL同期、`BEGIN IMMEDIATE`、CAS遷移、イベント同時記録、バックアップ、旧台帳の冪等移行を備えたSQLite状態ストアを実装し、commit `7ea8a3a`。
@@ -39,6 +39,8 @@
 - `docs/ROOM_PHASE4_SHADOW_REPORT.md`に再検証の詳細を追記。`ready_for_phase5=true`相当のゲートを満たしたが、ユーザー指示によりPhase 5へは進めていない。ローカルcommit `005307a`までで、pushはしていない。
 - Phase 5では、root-cause fingerprint付きincident再利用、retry budgetの原子的消費と`BUDGET_EXHAUSTED`、incident lease、前日expire、UNCERTAINを保持するcatch-up計画、manifest revisionの単調更新、旧ledgerへの冪等互換同期をstate storeへ追加した。Codex自動修正、本番投稿、Actions/Windows接続、pushは行っていない。
 - Phase 5専用を含む全316テストが合格し、`git diff --check`も合格。incident重複、retry上限超過、lease競合、revision上書き防止、DB↔旧ledger相互引き継ぎをテスト済み。Phase 6へは進めず、ローカルcommit前の最終差分監査待ち。
+- Phase 6では本番未接続のOrchestrator、post attempt idempotency、障害注入試験を追加。DB/claim/submit/confirm/POSTED各境界のクラッシュ、同時trigger、22:30 cutoff、disk full、DB破損、git divergence等を検証し、外部送信重複0を確認した。
+- 安全レビューで、破損DB接続ハンドル残存、SUBMITTING再開時の状態固定、POSTED後ledger同期前クラッシュ、22:30 cutoff未強制の4件を検出・修正。全331テスト合格。詳細は`docs/ROOM_PHASE6_FAULT_INJECTION_REPORT.md`。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
