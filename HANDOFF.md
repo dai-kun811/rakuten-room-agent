@@ -21,7 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-07 JST
+最終更新: 2026-10-08 08:38 JST
+
+## 2026-10-08 Phase 7 canary 現在位置
+
+- revision 299 / recovery `recovery-20261008-02` の morning は `POSTED`。URL は `https://item.rakuten.co.jp/plusiine/okurumi04`。noon / evening は revision 299 の `READY` を維持し、時刻前のため未実行。
+- 初回morning attempt `2026-10-08-morning-cfd9f98a1ae2` は `UNCERTAIN` だったが、認証済みROOMの最新は前日maryplus投稿、商品数227、今回の完全一致本文なし（読み込み済み117カード）だったため未投稿と確定。本文正規化hashも expected `edef99cb...d30f` / latest `4108288b...342a5` で不一致。
+- 未投稿確定時だけ1回の再送を許可し、元attemptを `confirmed_not_posted` のまま保持する非破壊復旧を実装。forced clickを廃止し、完全な本文+hashtagsで実ROOM確認するよう修正。commit `1f13f48`。
+- 同じroot-causeの解決済みincidentが再発時の解決を妨げる一意制約問題を、行削除/schema変更なしで終端識別子のみ分離して修正。commit `6d995e2`。
+- system PythonにPlaywrightがなく再送前に `failed_pre_submit` となった。`submit_started=0` を確認し、attempt行を削除せず `failed_pre_submit_reclaimed` として保持する復旧へ変更。全354テスト合格。commit `00d328d`。
+- 正しい`.venv`で1回限定再実行した結果は再び `UNCERTAIN` だったが、認証済みROOMで今回の完全一致本文1件、PLUSiiNEの商品画像、商品数227→228を確認。再投稿せずattempt/slotを`POSTED`、incidentを`RESOLVED`へ確定し、旧ledgerへ1行同期した。
+- `POSTED`後に同一morningを再実行し、`attempt_id=null` のno-opで二重送信なしを確認。SQLite quick check正常、旧ledgerの当日morning `posted` は1行。
+- 旧Windowsタスクと自動スケジュールは無効のまま。次は2026-10-08 12:00 JST以降、同じrevision 299のnoonだけを実行し、DB / attempt / ledger / 認証済みROOM / incidentを照合する。morningは再送しない。noon合格後も19:00まではeveningを前倒ししない。
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 

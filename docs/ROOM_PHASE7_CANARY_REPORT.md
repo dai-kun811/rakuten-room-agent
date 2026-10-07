@@ -2,8 +2,8 @@
 
 ## Gate status
 
-- Status: `BLOCKED_EXTERNAL_QUEUE`
-- Production slots posted by the new Orchestrator: none yet
+- Status: `MORNING_PASSED_WAITING_NOON`
+- Production slots posted by the new Orchestrator: morning (2026-10-08 revision 299)
 - Old `RakutenROOMAutoPoster` / `RakutenROOMPostGuard`: disabled and retained
 - Scheduled new Orchestrator: not installed or enabled
 
@@ -115,7 +115,15 @@ was attempted. Resumption remains blocked until this exact API check returns
 - The moved `.venv` was repaired after two browser-startup failures. Both had `submit_started=0`; only that non-submit budget was reclaimed. Full regression passed with 349 tests.
 - The repaired morning canary reached the submit boundary but ended in `UNCERTAIN` (`2026-10-07-post_result_uncertain-0be298b4`). The database records `morning=uncertain` and `submit_started=1`. No retry, repost, noon/evening canary, PostGuard, or Phase 8 action was performed.
 
-Phase 7 is stopped at the human-safety gate. An authenticated human must confirm the morning ROOM result before any state resolution; automatic reposting is prohibited.
+At that point Phase 7 stopped at the human-safety gate; automatic reposting remained prohibited until the later authenticated reconciliation below.
+
+## 2026-10-08 autonomous UNCERTAIN reconciliation
+
+- The first revision 299 morning attempt was absent from the authenticated ROOM: profile count 227, exact comment absent from 117 loaded cards, and the latest-card body hash differed. It was not marked posted.
+- A bounded confirmed-absence recovery was added. It retains the original submit-started attempt, allows exactly one retry with a distinct idempotency key, and refuses a second absence retry.
+- The retry initially failed before submit because the system Python lacked Playwright. `submit_started=0` was proven; the failed attempt was preserved, the existing pre-submit budget was consumed once, and the worker was rerun with the project virtual environment.
+- The resulting `UNCERTAIN` was reconciled without another send after the authenticated ROOM showed one exact full comment, the PLUSiiNE product image, and profile count 228. SQLite slot and attempt are `POSTED`; the incident is resolved; the compatibility ledger has exactly one 2026-10-08 morning posted row.
+- A same-slot apply rerun returned `POSTED` with `attempt_id=null`, proving the duplicate-send no-op. Noon and evening remain ready and are not eligible before their JST gates.
 
 ## Human-confirmed morning reconciliation (2026-10-07)
 
