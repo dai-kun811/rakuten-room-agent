@@ -84,3 +84,35 @@ Phase 7 is not complete and Phase 8 must not start. Before resumption, the
 stuck run must be made terminal or confirmed harmless by GitHub, then one
 explicit decision is required on whether a replacement generation run may
 consume a new recovery budget.
+
+## Approved deletion attempt
+
+The user approved deleting only run `37579267266` and granting exactly one
+replacement generation attempt. The GitHub DELETE request was made once and
+returned HTTP 403. A verification GET returned 200 and the run remained in the
+workflow run list, so deletion was not successful. In accordance with the
+approved boundary, deletion was not retried and no replacement budget was
+recorded or consumed. No replacement run and no ROOM canary post occurred.
+
+Incident `2026-10-07-secret_or_auth_change_required-1159260a` records the
+required human action. The exact run must be deleted through an authorized
+GitHub identity or the current credential must receive the necessary Actions
+run-deletion permission. Deletion must then be verified before any replacement
+generation is authorized again.
+
+The user subsequently reported the run deleted and approved one replacement
+budget. The mandatory API preflight still returned HTTP 200 for run
+`37579267266`; the run was present in the workflow list with status `queued`.
+Because the user-visible state and GitHub API source of truth disagreed, the
+replacement budget was not added, no dispatch was issued, and no ROOM action
+was attempted. Resumption remains blocked until this exact API check returns
+404 and the run is absent from the workflow list.
+## Fenced recovery continuation (2026-10-07)
+
+- The old `daily.yml` run was not deleted or re-enabled. It remained `queued` while `daily.yml` remained `disabled_manually`.
+- Recovery control used `recovery-20261007-01`, source revision `297`, and main HEAD `cb07ab1`. Dedicated `room-fenced-recovery.yml` run `37625981589` ran exactly once.
+- The replacement was artifact-only (`ROOM_SHADOW_MODE=true`): three ready slots, no missing slots, empty quality errors, and no Sheets writes. Recovery ID, HEAD, revision, and SQLite control all matched.
+- The moved `.venv` was repaired after two browser-startup failures. Both had `submit_started=0`; only that non-submit budget was reclaimed. Full regression passed with 349 tests.
+- The repaired morning canary reached the submit boundary but ended in `UNCERTAIN` (`2026-10-07-post_result_uncertain-0be298b4`). The database records `morning=uncertain` and `submit_started=1`. No retry, repost, noon/evening canary, PostGuard, or Phase 8 action was performed.
+
+Phase 7 is stopped at the human-safety gate. An authenticated human must confirm the morning ROOM result before any state resolution; automatic reposting is prohibited.

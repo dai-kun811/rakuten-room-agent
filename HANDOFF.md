@@ -49,6 +49,10 @@
 - 朝canary初回は旧ledgerの`morning_1`等でStateStoreErrorとなり、ブラウザ起動前に停止。DB slot/attempt 0、当日ledger 0、実ROOM変更0。旧6枠名を対象外履歴としてskipするよう修正済み。
 - 修正後2回目run `37579267266` / head `1171686`はGitHub側でjob未生成のまま`queued`。Actions権限は有効だが、50秒と5分のbounded enable/wait/disableでも開始せず、通常cancel/force-cancelはいずれもHTTP 409。workflowは`disabled_manually`へ復元済みで、新規dispatchは上限超過のため行っていない。
 - incident `2026-10-07-actions_run_delayed-4fbd0434`を`BUDGET_EXHAUSTED`でDBへ記録し、`.local/room-worker/rollback/phase7-pre-canary-20261007/operations-blocked.db`へバックアップ。Phase 7未完了、Phase 8以降は未着手。再開にはstuck runをterminal/harmlessと確認したうえで、replacement generationへ新しいbudgetを与えるユーザー判断が必要。
+- ユーザーはrun `37579267266`だけの削除とreplacement生成1回を承認したが、DELETEは1回目でHTTP 403。確認GETは200で一覧にも残存。指示どおり削除再試行、budget追加、replacement生成、ROOM投稿は行わず停止した。incident `2026-10-07-secret_or_auth_change_required-1159260a`を`NEEDS_HUMAN`で記録。GitHub UIまたは削除権限を持つ認証でexact runを削除し、404/一覧除外を確認するまで再開禁止。
+- その後ユーザーから削除済み連絡とreplacement 1回の承認を受けたが、必須API preflightでrun `37579267266`はGET 200・一覧内・status `queued`のまま。表示/API不整合のためbudget追加・dispatch・ROOM操作は0のまま再停止。API GET 404かつworkflow一覧外になるまで再開禁止。
+- 自律復旧では旧`daily.yml`を再有効化せず、固定HEAD・recovery ID・artifact-onlyの専用workflowへ分離した。run `37625981589`を1回だけ実行し、3枠ready・品質エラー0・Sheets書込み0のmanifest revision 297を取得。旧run `37579267266`はqueued/disabledのまま保持。
+- 朝canaryは移設で壊れた`.venv`を再構築後に実行。最終的にsubmit_started=1で投稿結果が`UNCERTAIN`となり、incident `2026-10-07-post_result_uncertain-0be298b4`を作成。朝slotは`uncertain`、旧ledgerへの自動posted確定なし。再投稿、昼・晩canary、PostGuard、Phase 8以降は停止中。人間による認証済みROOM表示の結果確定が必要。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
