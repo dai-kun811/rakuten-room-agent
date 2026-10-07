@@ -11,6 +11,10 @@ on:
         description: "Recovery-only product URLs to exclude from this generation run"
         required: false
         default: ""
+      posted_history_urls:
+        description: "Confirmed historical POSTED URLs to exclude before candidate selection"
+        required: false
+        default: ""
       reuse_urls:
         description: "Recovery-only unposted same-day URLs allowed despite sheet history"
         required: false
@@ -57,6 +61,7 @@ jobs:
           RELAXED_MIN_REVIEW_AVERAGE: ${{ vars.RELAXED_MIN_REVIEW_AVERAGE || '4.0' }}
           RELAXED_MIN_TOTAL_SCORE: ${{ vars.RELAXED_MIN_TOTAL_SCORE || '40' }}
           ROOM_BLOCKED_URLS: ${{ github.event.inputs.blocked_urls || '' }}
+          ROOM_POSTED_HISTORY_URLS: ${{ github.event.inputs.posted_history_urls || '' }}
           ROOM_REUSE_URLS: ${{ github.event.inputs.reuse_urls || '' }}
         run: python src/main.py
 

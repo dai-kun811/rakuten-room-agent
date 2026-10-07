@@ -20,6 +20,7 @@ from main import (
     apply_recovery_reuse,
     apply_recovery_history_reuse,
     diversify_products,
+    deduplicate_products,
     exclude_non_room_candidates,
     generate_until_ready,
     is_supported_room_product,
@@ -214,6 +215,19 @@ class MainSelectionTest(unittest.TestCase):
             {selection_axis(item) for item in selected},
             {"daily_need", "pain_solver", "discovery"},
         )
+
+    def test_posted_history_urls_are_normalized_for_candidate_exclusion(self) -> None:
+        history = parse_blocked_urls(
+            "https://item.rakuten.co.jp/maryplus/babyswaddle/?scid=x\n"
+            "https://item.rakuten.co.jp/shop/other"
+        )
+        products = [
+            scored("スワドル おくるみ", "https://item.rakuten.co.jp/maryplus/babyswaddle", 100).product,
+            scored("おしりふき", "https://item.rakuten.co.jp/shop/new", 90).product,
+        ]
+        kept, removed = deduplicate_products(products, existing_urls=history)
+        self.assertEqual(removed, 1)
+        self.assertEqual([item.url for item in kept], ["https://item.rakuten.co.jp/shop/new"])
 
     def test_diversify_products_prefers_types_not_used_in_the_last_week(self) -> None:
         candidates = [

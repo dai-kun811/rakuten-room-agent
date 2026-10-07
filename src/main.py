@@ -181,6 +181,7 @@ def main() -> int:
         if output_sheet_name != source_sheet_name:
             existing_urls.update(sheets_client.read_existing_urls(source_sheet_name))
         blocked_urls = parse_blocked_urls(os.getenv("ROOM_BLOCKED_URLS"))
+        posted_history_urls = parse_blocked_urls(os.getenv("ROOM_POSTED_HISTORY_URLS"))
         reuse_urls = parse_blocked_urls(os.getenv("ROOM_REUSE_URLS"))
         existing_urls = apply_recovery_reuse(
             existing_urls,
@@ -190,11 +191,22 @@ def main() -> int:
         if blocked_urls & reuse_urls:
             raise RuntimeError("Recovery URL cannot be both blocked and reusable.")
         existing_urls.update(blocked_urls)
+        # A shadow/recovery run may receive a signed handoff of locally
+        # confirmed POSTED URLs that are not yet present in Sheets.  Treat
+        # these exactly like the canonical historical URL set: normalize
+        # first, then exclude before candidate scoring and slot assignment.
+        existing_urls.update(posted_history_urls)
         if blocked_urls:
             LOGGER.info(
                 "復旧用の投稿不可URLを除外します run_id=%s blocked_urls=%s",
                 run_id,
                 len(blocked_urls),
+            )
+        if posted_history_urls:
+            LOGGER.info(
+                "過去POSTED履歴URLを候補除外へ反映します run_id=%s posted_history_urls=%s",
+                run_id,
+                len(posted_history_urls),
             )
         if reuse_urls:
             LOGGER.info(
