@@ -25,7 +25,7 @@
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
-2026-10-07の再設計移行状態（Phase 1・2完了、Phase 3品質ゲート合格、Phase 4 shadow再検証完了。Phase 5は未開始）:
+2026-10-07の再設計移行状態（Phase 1〜4完了、Phase 5実装・検証完了。Phase 6は未開始）:
 
 - 全自動実行はユーザーにより停止済み。本番投稿、Windowsスケジュール、GitHub Actions設定、外部サービス設定は変更していない。
 - Phase 1は運用契約、JST日付境界、状態遷移、incident経路、manifest/incidentスキーマを実装し、commit `6eebc34`。Phase 2はWAL/FULL同期、`BEGIN IMMEDIATE`、CAS遷移、イベント同時記録、バックアップ、旧台帳の冪等移行を備えたSQLite状態ストアを実装し、commit `7ea8a3a`。
@@ -37,6 +37,8 @@
 - Phase 3改善後の現行コードで、実artifactの商品固有フィールドだけを再入力して生成する決定的replayを実施した。対象は固定run `36998884713`（2026-10-02）、`37304001370`（2026-10-05）、`37382865080`（2026-10-06）の3営業日で、旧生成本文・旧品質欄は再利用していない。
 - shadow結果は9候補すべて`would_claim`、朝・昼・晩9/9枠ready、URL重複0、最大本文類似度0.69、品質エラー0。明示的な自力授乳を示す語は人手確認へ送り、一般的なハンズフリー商品を一律遮断しない安全ルールを維持した。
 - `docs/ROOM_PHASE4_SHADOW_REPORT.md`に再検証の詳細を追記。`ready_for_phase5=true`相当のゲートを満たしたが、ユーザー指示によりPhase 5へは進めていない。ローカルcommit `005307a`までで、pushはしていない。
+- Phase 5では、root-cause fingerprint付きincident再利用、retry budgetの原子的消費と`BUDGET_EXHAUSTED`、incident lease、前日expire、UNCERTAINを保持するcatch-up計画、manifest revisionの単調更新、旧ledgerへの冪等互換同期をstate storeへ追加した。Codex自動修正、本番投稿、Actions/Windows接続、pushは行っていない。
+- Phase 5専用を含む全316テストが合格し、`git diff --check`も合格。incident重複、retry上限超過、lease競合、revision上書き防止、DB↔旧ledger相互引き継ぎをテスト済み。Phase 6へは進めず、ローカルcommit前の最終差分監査待ち。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 

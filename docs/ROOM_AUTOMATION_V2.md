@@ -76,6 +76,19 @@ SUBMITTED_UNCONFIRMED
 
 品質確認で不合格になったslotだけを`blocked`とし、品質合格済みの別slotは停止しない。
 
+## Phase 5状態復旧契約（本番未接続）
+
+Phase 5ではSQLite状態ストアに復旧制御だけを実装する。投稿worker、GitHub Actions、Windowsタスク、Codex実行器からは呼び出さない。
+
+- incidentは`reason + component + slot`のroot-cause fingerprintで同一営業日内を重複抑止する。日付はdedupeスコープとして別に扱う。
+- retryは`RetryBudget`のキー別上限を`BEGIN IMMEDIATE`内で原子的に消費し、上限到達時は`BUDGET_EXHAUSTED`へ遷移する。
+- incident leaseは所有者と期限をCASで取得・更新・解放する。期限切れleaseは別workerが引き継げる。
+- 前日以前の未投稿slotは`EXPIRED_UNPOSTED`へ移し、`UNCERTAIN`は自動解除せず`NEEDS_HUMAN`相当のcatch-up対象として保持する。
+- manifestはrevisionを単調増加で受理し、`CLAIMED`以降（投稿結果不明を含む）のslotを後着revisionで上書きしない。
+- 旧`post-ledger.jsonl`へは上書きせず、互換形式を冪等追記できる。旧ledgerからのimportと相互に引き継げる。
+
+Phase 5完了条件は、これらの状態操作をテストで確認し、本番投稿・Codex自動修正・外部スケジュール変更を行わないことである。
+
 ## Phase 1の非目標
 
 - SQLite DBを作らない。

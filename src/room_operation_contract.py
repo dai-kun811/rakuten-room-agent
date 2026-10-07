@@ -139,6 +139,7 @@ INCIDENT_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
             IncidentStatus.AUTO_RECOVERING,
             IncidentStatus.CODEX_QUEUED,
             IncidentStatus.NEEDS_HUMAN,
+            IncidentStatus.BUDGET_EXHAUSTED,
         }
     ),
     IncidentStatus.AUTO_RECOVERING: frozenset(
@@ -150,7 +151,11 @@ INCIDENT_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
         }
     ),
     IncidentStatus.CODEX_QUEUED: frozenset(
-        {IncidentStatus.CODEX_WORKING, IncidentStatus.NEEDS_HUMAN}
+        {
+            IncidentStatus.CODEX_WORKING,
+            IncidentStatus.NEEDS_HUMAN,
+            IncidentStatus.BUDGET_EXHAUSTED,
+        }
     ),
     IncidentStatus.CODEX_WORKING: frozenset(
         {
@@ -292,8 +297,11 @@ def incident_fingerprint(
     _parse_iso_date(day)
     if slot and slot not in POST_SLOTS:
         raise ContractError(f"unknown post slot: {slot}")
+    # The fingerprint identifies the root cause and scope, not the calendar
+    # day.  The state store scopes deduplication by routine_date separately so
+    # an unresolved incident from yesterday cannot suppress today's incident.
     canonical = json.dumps(
-        {"component": component.strip(), "reason": code, "routine_date": day, "slot": slot},
+        {"component": component.strip(), "reason": code, "slot": slot},
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

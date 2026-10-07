@@ -5,7 +5,7 @@ import json
 import sqlite3
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 from uuid import uuid4
@@ -21,6 +21,9 @@ from room_operation_contract import (
     incident_fingerprint,
     normalize_product_url,
     route_for_reason,
+    RetryBudget,
+    DEFAULT_RETRY_BUDGET,
+    validate_manifest_v2,
     validate_incident_transition,
     validate_slot_transition,
 )
@@ -42,6 +45,33 @@ class StateConflictError(StateStoreError):
 
 class StateIntegrityError(StateStoreError):
     pass
+
+
+class RetryBudgetExhausted(StateStoreError):
+    """Raised when an incident has consumed its bounded retry budget."""
+
+
+@dataclass(frozen=True)
+class RetryReservation:
+    incident_id: str
+    budget_key: str
+    attempt: int
+    limit: int
+    exhausted: bool
+
+
+@dataclass(frozen=True)
+class LegacySyncResult:
+    written_lines: int
+    duplicate_lines: int
+    skipped_slots: int
+
+
+@dataclass(frozen=True)
+class CatchUpPlan:
+    expired_slots: tuple[str, ...]
+    human_review_slots: tuple[str, ...]
+    missing_today_slots: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -392,10 +422,11 @@ class RoomStateStore:
             existing = connection.execute(
                 """
                 SELECT incident_id FROM incidents
-                WHERE fingerprint = ? AND status NOT IN ('resolved', 'needs_human', 'budget_exhausted')
+                WHERE fingerprint = ? AND routine_date = ?
+                  AND status NOT IN ('resolved', 'needs_human', 'budget_exhausted')
                 ORDER BY created_at DESC LIMIT 1
                 """,
-                (fingerprint,),
+                (fingerprint, day),
             ).fetchone()
             if existing is not None:
                 return str(existing["incident_id"])
@@ -444,6 +475,7 @@ class RoomStateStore:
         expected_status: IncidentStatus,
         target_status: IncidentStatus,
         next_action: str,
+        lease_owner: str | None = None,
         now: datetime | None = None,
     ) -> None:
         validate_incident_transition(expected_status, target_status)
@@ -458,6 +490,13 @@ class RoomStateStore:
                 raise StateConflictError(
                     f"stale incident state: expected={expected_status.value} actual={actual}"
                 )
+            if lease_owner is not None:
+                lease = connection.execute(
+                    "SELECT lease_owner, lease_expires_at FROM incidents WHERE incident_id = ?",
+                    (incident_id,),
+                ).fetchone()
+                if not _lease_is_owned(lease, lease_owner, timestamp):
+                    raise StateConflictError("incident lease is missing or expired")
             connection.execute(
                 """
                 UPDATE incidents SET status = ?, next_action = ?, updated_at = ?
@@ -482,6 +521,268 @@ class RoomStateStore:
                 timestamp=timestamp,
             )
 
+    def get_incident(self, incident_id: str) -> dict[str, Any] | None:
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM incidents WHERE incident_id = ?", (incident_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def acquire_incident_lease(
+        self,
+        incident_id: str,
+        *,
+        owner: str,
+        ttl_seconds: int = 300,
+        now: datetime | None = None,
+    ) -> bool:
+        if not owner.strip() or ttl_seconds <= 0:
+            raise StateStoreError("lease owner and positive ttl are required")
+        timestamp = _timestamp(now)
+        expires = _timestamp((now or datetime.now().astimezone()) + timedelta(seconds=ttl_seconds))
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT status, lease_owner, lease_expires_at FROM incidents WHERE incident_id = ?",
+                (incident_id,),
+            ).fetchone()
+            if row is None:
+                raise StateConflictError(f"incident does not exist: {incident_id}")
+            if row["status"] in {
+                IncidentStatus.RESOLVED.value,
+                IncidentStatus.NEEDS_HUMAN.value,
+                IncidentStatus.BUDGET_EXHAUSTED.value,
+            }:
+                return False
+            if row["lease_owner"] and not _lease_expired(row["lease_expires_at"], timestamp):
+                if row["lease_owner"] != owner:
+                    return False
+                connection.execute(
+                    "UPDATE incidents SET lease_expires_at = ?, updated_at = ? WHERE incident_id = ? AND lease_owner = ?",
+                    (expires, timestamp, incident_id, owner),
+                )
+                return True
+            updated = connection.execute(
+                """UPDATE incidents SET lease_owner = ?, lease_expires_at = ?, updated_at = ?
+                   WHERE incident_id = ? AND (lease_owner IS NULL OR lease_expires_at IS NULL
+                   OR lease_expires_at <= ?)""",
+                (owner, expires, timestamp, incident_id, timestamp),
+            )
+            if updated.rowcount != 1:
+                return False
+            self._append_event(
+                connection,
+                routine_date=_incident_day(connection, incident_id),
+                aggregate_type="incident",
+                aggregate_key=incident_id,
+                from_status=row["status"],
+                to_status=row["status"],
+                payload={"event": "lease_acquired", "owner": owner, "lease_expires_at": expires},
+                timestamp=timestamp,
+            )
+            return True
+
+    def release_incident_lease(
+        self, incident_id: str, *, owner: str, now: datetime | None = None
+    ) -> bool:
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            updated = connection.execute(
+                """UPDATE incidents SET lease_owner = NULL, lease_expires_at = NULL, updated_at = ?
+                   WHERE incident_id = ? AND lease_owner = ?""",
+                (timestamp, incident_id, owner),
+            )
+            if updated.rowcount != 1:
+                return False
+            row = connection.execute(
+                "SELECT routine_date, status FROM incidents WHERE incident_id = ?", (incident_id,)
+            ).fetchone()
+            if row is not None:
+                self._append_event(
+                    connection,
+                    routine_date=str(row["routine_date"]),
+                    aggregate_type="incident",
+                    aggregate_key=incident_id,
+                    from_status=str(row["status"]),
+                    to_status=str(row["status"]),
+                    payload={"event": "lease_released", "owner": owner},
+                    timestamp=timestamp,
+                )
+            return True
+
+    def consume_retry_budget(
+        self,
+        incident_id: str,
+        *,
+        budget_key: str,
+        budget: RetryBudget = DEFAULT_RETRY_BUDGET,
+        now: datetime | None = None,
+    ) -> RetryReservation:
+        limits = {
+            "transient_attempts": budget.transient_attempts,
+            "actions_dispatches": budget.actions_dispatches,
+            "artifact_fetch_attempts": budget.artifact_fetch_attempts,
+            "pre_submit_retries": budget.pre_submit_retries,
+            "database_restores": budget.database_restores,
+            "codex_fix_cycles": budget.codex_fix_cycles,
+            "actions_recovery_runs": budget.actions_recovery_runs,
+        }
+        if budget_key not in limits:
+            raise StateStoreError(f"unknown retry budget key: {budget_key}")
+        limit = limits[budget_key]
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT routine_date, status, attempts_json FROM incidents WHERE incident_id = ?",
+                (incident_id,),
+            ).fetchone()
+            if row is None:
+                raise StateConflictError(f"incident does not exist: {incident_id}")
+            attempts = json.loads(str(row["attempts_json"] or "{}"))
+            current = int(attempts.get(budget_key, 0))
+            if current >= limit:
+                if row["status"] not in {
+                    IncidentStatus.RESOLVED.value,
+                    IncidentStatus.NEEDS_HUMAN.value,
+                    IncidentStatus.BUDGET_EXHAUSTED.value,
+                }:
+                    validate_incident_transition(row["status"], IncidentStatus.BUDGET_EXHAUSTED)
+                    connection.execute(
+                        "UPDATE incidents SET status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
+                        (IncidentStatus.BUDGET_EXHAUSTED.value, "stop automatic retries", timestamp, incident_id),
+                    )
+                    self._append_event(
+                        connection,
+                        routine_date=str(row["routine_date"]),
+                        aggregate_type="incident",
+                        aggregate_key=incident_id,
+                        from_status=str(row["status"]),
+                        to_status=IncidentStatus.BUDGET_EXHAUSTED.value,
+                        payload={"budget_key": budget_key, "limit": limit},
+                        timestamp=timestamp,
+                    )
+                return RetryReservation(incident_id, budget_key, current, limit, True)
+            attempt = current + 1
+            attempts[budget_key] = attempt
+            connection.execute(
+                "UPDATE incidents SET attempts_json = ?, updated_at = ? WHERE incident_id = ?",
+                (json.dumps(attempts, sort_keys=True), timestamp, incident_id),
+            )
+            self._append_event(
+                connection,
+                routine_date=str(row["routine_date"]),
+                aggregate_type="incident",
+                aggregate_key=incident_id,
+                from_status=str(row["status"]),
+                to_status=str(row["status"]),
+                payload={"event": "retry_reserved", "budget_key": budget_key, "attempt": attempt, "limit": limit},
+                timestamp=timestamp,
+            )
+            return RetryReservation(incident_id, budget_key, attempt, limit, attempt >= limit)
+
+    def accept_manifest(self, payload: Mapping[str, Any], *, now: datetime | None = None) -> int:
+        validate_manifest_v2(payload)
+        day = str(payload["routine_date_jst"])
+        revision = int(payload["revision"])
+        manifest_hash = hashlib.sha256(
+            json.dumps(dict(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            existing_hash = connection.execute(
+                "SELECT revision FROM manifests WHERE manifest_hash = ?", (manifest_hash,)
+            ).fetchone()
+            if existing_hash is not None:
+                return int(existing_hash["revision"])
+            latest = connection.execute(
+                "SELECT MAX(revision) AS revision FROM manifests WHERE routine_date = ?", (day,)
+            ).fetchone()["revision"]
+            if latest is not None and revision <= int(latest):
+                raise StateConflictError(f"manifest revision is not newer: {revision} <= {latest}")
+            connection.execute(
+                "INSERT INTO manifests(routine_date, revision, manifest_hash, actions_run_id, head_sha, payload_json, accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (day, revision, manifest_hash, str(payload["actions_run_id"]), str(payload["head_sha"]), json.dumps(dict(payload), ensure_ascii=False, sort_keys=True), timestamp),
+            )
+            self._ensure_day(connection, day, timestamp)
+            for slot in POST_SLOTS:
+                current = connection.execute(
+                    "SELECT * FROM slots WHERE routine_date = ? AND slot = ?", (day, slot)
+                ).fetchone()
+                if current is not None and str(current["status"]) in {
+                    SlotStatus.CLAIMED.value, SlotStatus.SUBMITTING.value,
+                    SlotStatus.SUBMITTED_UNCONFIRMED.value, SlotStatus.UNCERTAIN.value,
+                    SlotStatus.POSTED.value,
+                }:
+                    continue
+                value = payload["slots"][slot]
+                target = SlotStatus.READY if value["status"] == "ready" else SlotStatus.BLOCKED
+                candidate = value.get("candidate") or {}
+                normalized = normalize_product_url(str(candidate.get("normalized_url", ""))) if candidate else ""
+                content_hash = str(candidate.get("content_hash", "")) if candidate else ""
+                product_type = str(candidate.get("product_type", "")) if candidate else ""
+                if current is None:
+                    connection.execute(
+                        "INSERT INTO slots(routine_date, slot, status, manifest_revision, normalized_url, content_hash, product_type, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (day, slot, target.value, revision, normalized, content_hash, product_type, timestamp),
+                    )
+                    old = None
+                else:
+                    old = str(current["status"])
+                    connection.execute(
+                        "UPDATE slots SET status = ?, manifest_revision = ?, normalized_url = ?, content_hash = ?, product_type = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ?",
+                        (target.value, revision, normalized, content_hash, product_type, timestamp, day, slot),
+                    )
+                self._append_event(connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}", from_status=old, to_status=target.value, payload={"manifest_revision": revision}, timestamp=timestamp)
+            return revision
+
+    def expire_previous_days(self, before: date | str, *, now: datetime | None = None) -> dict[str, int]:
+        cutoff = _date_text(before)
+        timestamp = _timestamp(now)
+        expirable = {
+            SlotStatus.PENDING.value, SlotStatus.READY.value, SlotStatus.CLAIMED.value,
+            SlotStatus.FAILED_PRE_SUBMIT.value, SlotStatus.BLOCKED.value,
+        }
+        expired = 0
+        held = 0
+        with self.transaction() as connection:
+            rows = connection.execute(
+                "SELECT routine_date, slot, status, version FROM slots WHERE routine_date < ?", (cutoff,)
+            ).fetchall()
+            for row in rows:
+                status = str(row["status"])
+                if status in expirable:
+                    connection.execute(
+                        "UPDATE slots SET status = ?, version = version + 1, updated_at = ? WHERE routine_date = ? AND slot = ? AND version = ?",
+                        (SlotStatus.EXPIRED_UNPOSTED.value, timestamp, row["routine_date"], row["slot"], row["version"]),
+                    )
+                    self._append_event(connection, routine_date=str(row["routine_date"]), aggregate_type="slot", aggregate_key=f"{row['routine_date']}:{row['slot']}", from_status=status, to_status=SlotStatus.EXPIRED_UNPOSTED.value, payload={"boundary": cutoff}, timestamp=timestamp)
+                    expired += 1
+                elif status not in {SlotStatus.POSTED.value, SlotStatus.EXPIRED_UNPOSTED.value}:
+                    held += 1
+            incidents = connection.execute(
+                "SELECT incident_id, routine_date, status FROM incidents WHERE routine_date < ? AND status IN ('open','auto_recovering','codex_queued','codex_working','validating')",
+                (cutoff,),
+            ).fetchall()
+            for row in incidents:
+                validate_incident_transition(row["status"], IncidentStatus.NEEDS_HUMAN)
+                connection.execute(
+                    "UPDATE incidents SET status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
+                    (IncidentStatus.NEEDS_HUMAN.value, "manual review after routine-day boundary", timestamp, row["incident_id"]),
+                )
+                self._append_event(connection, routine_date=str(row["routine_date"]), aggregate_type="incident", aggregate_key=str(row["incident_id"]), from_status=str(row["status"]), to_status=IncidentStatus.NEEDS_HUMAN.value, payload={"boundary": cutoff}, timestamp=timestamp)
+        return {"expired_slots": expired, "held_slots": held, "expired_incidents": len(incidents)}
+
+    def build_catch_up_plan(self, today: date | str) -> CatchUpPlan:
+        day = _date_text(today)
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                "SELECT routine_date, slot, status FROM slots WHERE routine_date < ? AND status NOT IN ('posted','expired_unposted') ORDER BY routine_date, slot",
+                (day,),
+            ).fetchall()
+            today_rows = {str(row["slot"]): str(row["status"]) for row in connection.execute("SELECT slot, status FROM slots WHERE routine_date = ?", (day,)).fetchall()}
+        expired = tuple(f"{row['routine_date']}:{row['slot']}" for row in rows if row["status"] != SlotStatus.UNCERTAIN.value)
+        human = tuple(f"{row['routine_date']}:{row['slot']}" for row in rows if row["status"] == SlotStatus.UNCERTAIN.value)
+        missing = tuple(slot for slot in POST_SLOTS if slot not in today_rows)
+        return CatchUpPlan(expired, human, missing)
     def import_legacy_ledger(
         self,
         path: Path | str,
@@ -599,6 +900,47 @@ class RoomStateStore:
                 )
 
         return LegacyImportResult(imported, duplicates, malformed, len(latest_by_slot))
+
+    def sync_legacy_ledger(
+        self,
+        path: Path | str,
+        *,
+        routine_date: date | str | None = None,
+        now: datetime | None = None,
+    ) -> LegacySyncResult:
+        """Append a rollback-compatible projection without overwriting the old ledger."""
+        source = Path(path)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = _timestamp(now)
+        day_filter = _date_text(routine_date) if routine_date is not None else None
+        with closing(self.connect()) as connection:
+            query = "SELECT * FROM slots WHERE status IN ('claimed','submitting','submitted_unconfirmed','uncertain','posted','failed_pre_submit')"
+            params: tuple[Any, ...] = ()
+            if day_filter is not None:
+                query += " AND routine_date = ?"
+                params = (day_filter,)
+            rows = connection.execute(query + " ORDER BY routine_date, slot", params).fetchall()
+        existing_lines = set(source.read_text(encoding="utf-8").splitlines()) if source.exists() else set()
+        pending: list[str] = []
+        for row in rows:
+            status = str(row["status"])
+            legacy_status = "posted" if status == SlotStatus.POSTED.value else "failed" if status == SlotStatus.FAILED_PRE_SUBMIT.value else "reserved"
+            event = {
+                "post_slot": f"{row['routine_date']}:{row['slot']}",
+                "status": legacy_status,
+                "normalized_url": str(row["normalized_url"]),
+                "product_type": str(row["product_type"]),
+                "source": "state_store_v2_compat",
+            }
+            line = json.dumps(event, ensure_ascii=False, sort_keys=True)
+            if line not in existing_lines:
+                pending.append(line)
+                existing_lines.add(line)
+        if pending:
+            with source.open("a", encoding="utf-8", newline="\n") as handle:
+                for line in pending:
+                    handle.write(line + "\n")
+        return LegacySyncResult(len(pending), len(rows) - len(pending), 0)
 
     def export_snapshot(self, routine_date: date | str) -> dict[str, Any]:
         day = _date_text(routine_date)
@@ -733,3 +1075,30 @@ def _timestamp(now: datetime | None) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise StateStoreError("timestamp requires a timezone-aware datetime")
     return value.isoformat()
+
+
+def _lease_expired(value: str | None, timestamp: str) -> bool:
+    if not value:
+        return True
+    try:
+        return datetime.fromisoformat(value) <= datetime.fromisoformat(timestamp)
+    except ValueError as exc:
+        raise StateIntegrityError("invalid incident lease timestamp") from exc
+
+
+def _lease_is_owned(row: sqlite3.Row | None, owner: str, timestamp: str) -> bool:
+    return bool(
+        row is not None
+        and row["lease_owner"] == owner
+        and row["lease_expires_at"]
+        and not _lease_expired(row["lease_expires_at"], timestamp)
+    )
+
+
+def _incident_day(connection: sqlite3.Connection, incident_id: str) -> str:
+    row = connection.execute(
+        "SELECT routine_date FROM incidents WHERE incident_id = ?", (incident_id,)
+    ).fetchone()
+    if row is None:
+        raise StateConflictError(f"incident does not exist: {incident_id}")
+    return str(row["routine_date"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 import tempfile
 import unittest
@@ -10,11 +11,13 @@ from pathlib import Path
 
 from room_operation_contract import (
     IncidentStatus,
+    POST_SLOTS,
     ReasonCode,
     SlotStatus,
     TransitionError,
 )
 from room_state_store import (
+    DEFAULT_RETRY_BUDGET,
     RoomStateStore,
     StateConflictError,
 )
@@ -157,6 +160,16 @@ class RoomStateStoreTests(unittest.TestCase):
             next_action="wait for bounded codex recovery",
             now=NOW,
         )
+        other_day = self.store.create_incident(
+            "2026-10-07",
+            reason=ReasonCode.QUALITY_POOL_EXHAUSTED,
+            slot="noon",
+            component="generator",
+            last_safe_state="morning_posted",
+            next_action="codex diagnosis",
+            now=NOW,
+        )
+        self.assertNotEqual(first, other_day)
 
     def test_legacy_import_is_idempotent_and_uses_latest_slot_event(self) -> None:
         ledger = Path(self.temp_dir.name) / "post-ledger.jsonl"
@@ -239,6 +252,95 @@ class RoomStateStoreTests(unittest.TestCase):
             )
         with self.assertRaises(Exception):
             self.store.initialize()
+
+    def test_retry_budget_is_atomic_and_transitions_to_budget_exhausted(self) -> None:
+        incident = self.store.create_incident(
+            "2026-10-06", reason=ReasonCode.TRANSIENT_NETWORK,
+            component="worker", last_safe_state="ready", next_action="retry", now=NOW,
+        )
+        first = self.store.consume_retry_budget(incident, budget_key="transient_attempts", now=NOW)
+        second = self.store.consume_retry_budget(incident, budget_key="transient_attempts", now=NOW)
+        third = self.store.consume_retry_budget(incident, budget_key="transient_attempts", now=NOW)
+        self.assertEqual((first.attempt, second.attempt), (1, 2))
+        self.assertTrue(second.exhausted)
+        self.assertTrue(third.exhausted)
+        self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.BUDGET_EXHAUSTED.value)
+
+    def test_incident_lease_is_exclusive_and_expires(self) -> None:
+        incident = self.store.create_incident(
+            "2026-10-06", reason=ReasonCode.TRANSIENT_NETWORK,
+            component="worker", last_safe_state="ready", next_action="retry", now=NOW,
+        )
+        self.assertTrue(self.store.acquire_incident_lease(incident, owner="a", ttl_seconds=60, now=NOW))
+        self.assertFalse(self.store.acquire_incident_lease(incident, owner="b", ttl_seconds=60, now=NOW))
+        later = NOW.replace(minute=2)
+        self.assertTrue(self.store.acquire_incident_lease(incident, owner="b", ttl_seconds=60, now=later))
+        with self.assertRaises(StateConflictError):
+            self.store.transition_incident(
+                incident, expected_status=IncidentStatus.OPEN,
+                target_status=IncidentStatus.AUTO_RECOVERING, next_action="recover",
+                lease_owner="a", now=later,
+            )
+
+    def test_incident_recovery_status_path_is_bounded(self) -> None:
+        incident = self.store.create_incident(
+            "2026-10-06", reason=ReasonCode.CLASSIFICATION_UNSUPPORTED,
+            component="generator", last_safe_state="ready", next_action="recover", now=NOW,
+        )
+        self.store.transition_incident(incident, expected_status=IncidentStatus.OPEN,
+                                       target_status=IncidentStatus.AUTO_RECOVERING,
+                                       next_action="bounded retry", now=NOW)
+        self.store.transition_incident(incident, expected_status=IncidentStatus.AUTO_RECOVERING,
+                                       target_status=IncidentStatus.CODEX_QUEUED,
+                                       next_action="codex disabled in Phase 5", now=NOW)
+        self.store.transition_incident(incident, expected_status=IncidentStatus.CODEX_QUEUED,
+                                       target_status=IncidentStatus.NEEDS_HUMAN,
+                                       next_action="wait for Phase 6 authorization", now=NOW)
+        self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.NEEDS_HUMAN.value)
+
+    def test_previous_day_expire_and_catch_up_hold_uncertain(self) -> None:
+        self.store.create_slot("2026-10-05", "morning", status=SlotStatus.READY, now=NOW)
+        self.store.create_slot("2026-10-05", "noon", status=SlotStatus.UNCERTAIN, now=NOW)
+        result = self.store.expire_previous_days("2026-10-06", now=NOW)
+        self.assertEqual(result["expired_slots"], 1)
+        self.assertEqual(self.store.get_slot("2026-10-05", "morning").status, SlotStatus.EXPIRED_UNPOSTED)
+        plan = self.store.build_catch_up_plan("2026-10-06")
+        self.assertEqual(plan.expired_slots, ())
+        self.assertEqual(plan.human_review_slots, ("2026-10-05:noon",))
+        self.assertEqual(plan.missing_today_slots, POST_SLOTS)
+
+    def test_manifest_revision_updates_only_safe_slots(self) -> None:
+        def manifest(revision: int, suffix: str) -> dict:
+            slots = {}
+            for slot in POST_SLOTS:
+                url = f"https://item.rakuten.co.jp/shop/{slot}-{suffix}"
+                body = f"{slot} の確認済み商品情報です。"
+                slots[slot] = {"status": "ready", "candidate": {
+                    "product_url": url, "normalized_url": url, "product_name": slot,
+                    "product_type": "test", "body": body,
+                    "content_hash": hashlib.sha256(body.encode()).hexdigest(),
+                    "quality": {"status": "passed", "errors": []},
+                }}
+            return {"schema_version": 2, "routine_date_jst": "2026-10-06", "revision": revision,
+                    "actions_run_id": f"run-{revision}", "head_sha": "a" * 40,
+                    "generated_at": "2026-10-06T07:00:00+09:00", "slots": slots}
+        self.assertEqual(self.store.accept_manifest(manifest(1, "one"), now=NOW), 1)
+        slot = self.store.get_slot("2026-10-06", "morning")
+        self.store.transition_slot("2026-10-06", "morning", expected_status=slot.status,
+                                   expected_version=slot.version, target_status=SlotStatus.CLAIMED, now=NOW)
+        self.assertEqual(self.store.accept_manifest(manifest(2, "two"), now=NOW), 2)
+        self.assertEqual(self.store.get_slot("2026-10-06", "morning").status, SlotStatus.CLAIMED)
+        self.assertTrue(self.store.get_slot("2026-10-06", "noon").normalized_url.endswith("noon-two"))
+
+    def test_legacy_sync_is_idempotent_and_importable(self) -> None:
+        ledger = Path(self.temp_dir.name) / "compat-ledger.jsonl"
+        self.store.create_slot("2026-10-06", "morning", status=SlotStatus.POSTED,
+                               normalized_url="https://item.rakuten.co.jp/shop/morning", now=NOW)
+        first = self.store.sync_legacy_ledger(ledger, routine_date="2026-10-06", now=NOW)
+        second = self.store.sync_legacy_ledger(ledger, routine_date="2026-10-06", now=NOW)
+        self.assertEqual(first.written_lines, 1)
+        self.assertEqual(second.written_lines, 0)
+        self.assertEqual(self.store.import_legacy_ledger(ledger, now=NOW).imported_lines, 1)
 
 
 if __name__ == "__main__":
