@@ -314,14 +314,22 @@ class RoomStateStore:
                 (recovery_id, day, old_run_id, expected_head_sha, revision, owner_id, expires, timestamp, timestamp),
             )
 
-    def complete_recovery_control(self, recovery_id: str, *, owner_id: str, now: datetime | None = None) -> None:
+    def complete_recovery_control(
+        self,
+        recovery_id: str,
+        *,
+        owner_id: str,
+        replacement_run_id: str | None = None,
+        now: datetime | None = None,
+    ) -> None:
         timestamp = _timestamp(now)
         with self.transaction() as connection:
             result = connection.execute(
                 """UPDATE recovery_controls
-                   SET status = 'ready', owner_id = NULL, lease_expires_at = NULL, updated_at = ?
+                   SET status = 'ready', owner_id = NULL, lease_expires_at = NULL,
+                       replacement_run_id = COALESCE(?, replacement_run_id), updated_at = ?
                    WHERE recovery_id = ? AND status = 'running' AND owner_id = ?""",
-                (timestamp, recovery_id, owner_id),
+                (replacement_run_id, timestamp, recovery_id, owner_id),
             )
             if result.rowcount != 1:
                 raise StateConflictError("recovery lease is missing or expired")

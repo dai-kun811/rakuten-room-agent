@@ -62,11 +62,12 @@ class RoomStateStoreTests(unittest.TestCase):
                 owner_id="owner-b",
                 now=NOW,
             )
-        self.store.complete_recovery_control("recovery-20261007-01", owner_id="owner-a", now=NOW)
+        self.store.complete_recovery_control("recovery-20261007-01", owner_id="owner-a", replacement_run_id="37625981589", now=NOW)
         control = self.store.assert_recovery_control(
             "recovery-20261007-01", expected_head_sha="a" * 40, revision=297
         )
         self.assertEqual(control["status"], "ready")
+        self.assertEqual(control["replacement_run_id"], "37625981589")
 
     def test_preflight_recovery_can_rebind_head_without_new_budget(self) -> None:
         self.store.reserve_recovery_control(
