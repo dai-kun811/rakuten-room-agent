@@ -855,10 +855,12 @@ class RoomStateStore:
             )
             if updated_attempt.rowcount != 1 or updated_slot.rowcount != 1:
                 raise StateConflictError("human post resolution compare-and-swap failed")
+            terminal_fingerprint = self._terminal_incident_fingerprint(connection, incident)
             connection.execute(
-                """UPDATE incidents SET status = ?, next_action = ?, updated_at = ?
+                """UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ?
                    WHERE incident_id = ? AND status = ?""",
-                (IncidentStatus.RESOLVED.value, "human-confirmed ROOM post; no repost", timestamp,
+                (terminal_fingerprint, IncidentStatus.RESOLVED.value,
+                 "authenticated ROOM confirmed post; no repost", timestamp,
                  incident["incident_id"], IncidentStatus.NEEDS_HUMAN.value),
             )
             self._append_event(
@@ -871,7 +873,8 @@ class RoomStateStore:
             self._append_event(
                 connection, routine_date=day, aggregate_type="incident", aggregate_key=str(incident["incident_id"]),
                 from_status=IncidentStatus.NEEDS_HUMAN.value, to_status=IncidentStatus.RESOLVED.value,
-                payload={"event": "human_confirmed_room_post", "evidence_source": source, "reposted": False},
+                payload={"event": "authenticated_room_confirmed_post", "evidence_source": source,
+                         "root_cause_fingerprint": str(incident["fingerprint"]), "reposted": False},
                 timestamp=timestamp,
             )
             updated = connection.execute(
@@ -959,10 +962,12 @@ class RoomStateStore:
             )
             if updated_attempt.rowcount != 1 or failed.rowcount != 1 or ready.rowcount != 1:
                 raise StateConflictError("authenticated absence resolution compare-and-swap failed")
+            terminal_fingerprint = self._terminal_incident_fingerprint(connection, incident)
             resolved_incident = connection.execute(
-                """UPDATE incidents SET status = ?, attempts_json = ?, next_action = ?, updated_at = ?
+                """UPDATE incidents SET fingerprint = ?, status = ?, attempts_json = ?, next_action = ?, updated_at = ?
                    WHERE incident_id = ? AND status = ?""",
-                (IncidentStatus.RESOLVED.value, json.dumps(attempts, sort_keys=True),
+                (terminal_fingerprint, IncidentStatus.RESOLVED.value,
+                 json.dumps(attempts, sort_keys=True),
                  "authenticated ROOM confirmed absent; one bounded retry authorized",
                  timestamp, incident["incident_id"], IncidentStatus.NEEDS_HUMAN.value),
             )
@@ -989,6 +994,7 @@ class RoomStateStore:
                 from_status=IncidentStatus.NEEDS_HUMAN.value,
                 to_status=IncidentStatus.RESOLVED.value,
                 payload={"event": "authenticated_room_absence", "evidence_source": source,
+                         "root_cause_fingerprint": str(incident["fingerprint"]),
                          "retry_authorized": True}, timestamp=timestamp,
             )
             updated = connection.execute(
@@ -996,6 +1002,29 @@ class RoomStateStore:
             ).fetchone()
         assert updated is not None
         return _slot_record(updated)
+
+    @staticmethod
+    def _terminal_incident_fingerprint(
+        connection: sqlite3.Connection, incident: sqlite3.Row
+    ) -> str:
+        """Keep recurrent resolved incidents without dropping audit history.
+
+        The schema's legacy UNIQUE(fingerprint, status) constraint permits one
+        resolved row per root cause.  For later occurrences, the canonical root
+        cause remains in the event payload and this row receives a deterministic
+        terminal-only identity.  No incident row is deleted or overwritten.
+        """
+        fingerprint = str(incident["fingerprint"])
+        conflict = connection.execute(
+            """SELECT 1 FROM incidents WHERE fingerprint = ? AND status = ?
+               AND incident_id <> ? LIMIT 1""",
+            (fingerprint, IncidentStatus.RESOLVED.value, incident["incident_id"]),
+        ).fetchone()
+        if conflict is None:
+            return fingerprint
+        return hashlib.sha256(
+            f"{fingerprint}\nresolved-occurrence\n{incident['incident_id']}".encode("utf-8")
+        ).hexdigest()
 
     def get_incident(self, incident_id: str) -> dict[str, Any] | None:
         with closing(self.connect()) as connection:

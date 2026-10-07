@@ -279,6 +279,20 @@ class RoomStateStoreTests(unittest.TestCase):
                 evidence_source="authenticated_room_exact_comment",
                 evidence_note="second absence cannot authorize another retry", now=NOW,
             )
+        posted = self.store.resolve_uncertain_as_posted(
+            "2026-10-08", "morning",
+            evidence_source="authenticated_room_exact_comment",
+            evidence_note="retry exact comment is present; no further send", now=NOW,
+        )
+        self.assertEqual(posted.status, SlotStatus.POSTED)
+        self.assertEqual(
+            self.store.get_incident(second_incident)["status"],
+            IncidentStatus.RESOLVED.value,
+        )
+        self.assertNotEqual(
+            self.store.get_incident(incident)["fingerprint"],
+            self.store.get_incident(second_incident)["fingerprint"],
+        )
 
     def test_slot_state_and_event_are_committed_together(self) -> None:
         self.store.create_slot("2026-10-06", "morning", now=NOW)
