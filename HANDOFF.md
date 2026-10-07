@@ -484,3 +484,11 @@
 - No noon/evening browser action, retry, repost, or cutoff bypass was performed. Both `noon` and `evening` were transitioned from `READY` to `EXPIRED_UNPOSTED` with an audit reason `posting_window_closed`.
 - Final day state: `morning=POSTED`, `noon=EXPIRED_UNPOSTED`, `evening=EXPIRED_UNPOSTED`; one morning `posted` ledger row and one posted attempt only. No noon/evening attempts exist.
 - Phase 7 is not complete because the noon/evening canaries were not executed inside their valid window. Phase 8+ remains blocked; next operation is the following day's normal generation/canary flow, without automatic catch-up posting.
+
+## 2026-10-08 Phase 7 duplicate-risk stop
+
+- JST date crossed to `2026-10-08`. A new artifact-only fenced generation completed successfully as run `37642212993`, recovery `recovery-20261008-01`, manifest revision `298`, HEAD `e2d8df905630d40482f0d8e668f3ea494d8bf51d`.
+- Manifest validation passed with all three slots ready and no quality errors. It was accepted as a new routine date only; 2026-10-07 slots were not reused.
+- The new morning URL `https://item.rakuten.co.jp/maryplus/babyswaddle` matched the actual `POSTED` morning URL from 2026-10-07. This is a duplicate-post risk. No ROOM action, post attempt, retry, or noon/evening canary was performed.
+- Morning was moved to `BLOCKED` and incident `2026-10-08-duplicate_risk-4a52caec` was created as `NEEDS_HUMAN`. Noon/evening remain `READY` but are not owned because the ordered canary stopped at morning.
+- Phase 7 and all later phases remain stopped pending a safe, non-duplicating replacement decision. Do not reuse the duplicated candidate or bypass the gate.
