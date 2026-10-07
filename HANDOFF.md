@@ -43,7 +43,12 @@
 - 安全レビューで、破損DB接続ハンドル残存、SUBMITTING再開時の状態固定、POSTED後ledger同期前クラッシュ、22:30 cutoff未強制の4件を検出・修正。全331テスト合格。詳細は`docs/ROOM_PHASE6_FAULT_INJECTION_REPORT.md`。
 - Phase 7本番canaryの前提実装を開始。新workerは明示的なactive-slot所有権、dry-run既定、OS排他、送信直前/直後DB境界、認証済み実ROOM本文確認後のみPOSTEDを備える。旧AutoPoster/PostGuardと新Orchestratorのスケジュールは無効のまま。
 - 安全レビューで同時triggerの2本目が正常送信中をUNCERTAINへ落とす競合を検出し、state store内の実行排他と本番workerのcross-process lockで修正。対象33テスト、全340テスト、diff check、秘密情報差分scanが合格。
-- 旧4タスクXMLとlegacy ledgerを`.local/room-worker/rollback/phase7-pre-canary-20261007`へSHA-256台帳付きで退避。まだ新Orchestratorによる本番投稿、workflow dispatch、pushは未実施。次はfresh fetch/divergence確認後に隔離branchをpushし、そのbranchで1回だけmanifest v2を生成して朝枠canary前のDB/ledger/実ROOM照合を行う。
+- 旧4タスクXMLとlegacy ledgerを`.local/room-worker/rollback/phase7-pre-canary-20261007`へSHA-256台帳付きで退避した。
+- Phase 7 pre-canary実装はcommit `5e3d5cb`、bounded dispatch補助は`9a09409`、実データで判明した搾乳器誤分類と旧6枠ledger移行停止の修正は`1171686`として隔離branchへpush済み。全344テスト合格。
+- 初回run `37578206857` / revision 295はsuccessだったが、晩枠の電動搾乳器を哺乳瓶ホルダー型授乳補助として記述する品質不一致を人手監査で検出したため、3候補とも未投稿。搾乳器クラスを専用モデル完成まで自動対象外にする一般修正を実施した。
+- 朝canary初回は旧ledgerの`morning_1`等でStateStoreErrorとなり、ブラウザ起動前に停止。DB slot/attempt 0、当日ledger 0、実ROOM変更0。旧6枠名を対象外履歴としてskipするよう修正済み。
+- 修正後2回目run `37579267266` / head `1171686`はGitHub側でjob未生成のまま`queued`。Actions権限は有効だが、50秒と5分のbounded enable/wait/disableでも開始せず、通常cancel/force-cancelはいずれもHTTP 409。workflowは`disabled_manually`へ復元済みで、新規dispatchは上限超過のため行っていない。
+- incident `2026-10-07-actions_run_delayed-4fbd0434`を`BUDGET_EXHAUSTED`でDBへ記録し、`.local/room-worker/rollback/phase7-pre-canary-20261007/operations-blocked.db`へバックアップ。Phase 7未完了、Phase 8以降は未着手。再開にはstuck runをterminal/harmlessと確認したうえで、replacement generationへ新しいbudgetを与えるユーザー判断が必要。
 
 2026-10-05 08:20 JSTの当日状態（3枠化は検証済み・push承認待ち）:
 
