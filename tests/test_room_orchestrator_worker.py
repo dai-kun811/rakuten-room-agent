@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from room_operation_contract import SlotStatus
 from room_orchestrator import Confirmation
-from room_orchestrator_worker import execute, safe_summary, slot_is_due
+from room_orchestrator_worker import execute, load_fenced_manifest, safe_summary, slot_is_due
 from room_state_store import RoomStateStore
 
 
@@ -102,6 +102,26 @@ class RoomOrchestratorWorkerTests(unittest.TestCase):
         encoded = json.dumps(safe_summary(manifest(), {"morning"}, NOW), ensure_ascii=False)
         self.assertNotIn("投稿本文", encoded)
         self.assertNotIn("item.rakuten.co.jp", encoded)
+
+    def test_local_fenced_manifest_rejects_wrong_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "manifest.json"
+            value = manifest()
+            value["recovery_id"] = "recovery-20261007-01"
+            value["generation_channel"] = "local_fenced_recovery"
+            path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            loaded = load_fenced_manifest(
+                path,
+                expected_head_sha="a" * 40,
+                expected_recovery_id="recovery-20261007-01",
+            )
+            self.assertEqual(loaded["recovery_id"], "recovery-20261007-01")
+            with self.assertRaisesRegex(RuntimeError, "HEAD"):
+                load_fenced_manifest(
+                    path,
+                    expected_head_sha="b" * 40,
+                    expected_recovery_id="recovery-20261007-01",
+                )
 
 
 if __name__ == "__main__":

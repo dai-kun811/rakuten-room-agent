@@ -42,6 +42,32 @@ class RoomStateStoreTests(unittest.TestCase):
         self.assertEqual(synchronous, 2)
         self.store.quick_check()
 
+    def test_recovery_control_consumes_budget_once_and_checks_fence(self) -> None:
+        self.store.reserve_recovery_control(
+            recovery_id="recovery-20261007-01",
+            routine_date="2026-10-07",
+            old_run_id="37579267266",
+            expected_head_sha="a" * 40,
+            revision=297,
+            owner_id="owner-a",
+            now=NOW,
+        )
+        with self.assertRaises(StateConflictError):
+            self.store.reserve_recovery_control(
+                recovery_id="recovery-20261007-01",
+                routine_date="2026-10-07",
+                old_run_id="37579267266",
+                expected_head_sha="a" * 40,
+                revision=297,
+                owner_id="owner-b",
+                now=NOW,
+            )
+        self.store.complete_recovery_control("recovery-20261007-01", owner_id="owner-a", now=NOW)
+        control = self.store.assert_recovery_control(
+            "recovery-20261007-01", expected_head_sha="a" * 40, revision=297
+        )
+        self.assertEqual(control["status"], "ready")
+
     def test_slot_transition_uses_compare_and_swap(self) -> None:
         original = self.store.create_slot("2026-10-06", "morning", now=NOW)
         ready = self.store.transition_slot(

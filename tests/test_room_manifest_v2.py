@@ -146,6 +146,17 @@ class RoomManifestV2Tests(unittest.TestCase):
         with self.assertRaises(ContractError):
             self.build(report(), revision=0)
 
+    def test_recovery_manifest_requires_fenced_channel_and_valid_id(self) -> None:
+        payload = self.build(report(), revision=3)
+        payload["recovery_id"] = "recovery-20261007-01"
+        with self.assertRaises(ContractError):
+            validate_manifest_v2(payload)
+        payload["generation_channel"] = "local_fenced_recovery"
+        validate_manifest_v2(payload)
+        payload["recovery_id"] = "short"
+        with self.assertRaises(ContractError):
+            validate_manifest_v2(payload)
+
 
 if __name__ == "__main__":
     unittest.main()

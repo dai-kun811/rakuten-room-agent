@@ -77,6 +77,8 @@ def write_generation_reports(
     head_sha = manifest_head_sha or os.getenv("GITHUB_SHA", "").strip() or run_id
     revision = _positive_integer_env("ROOM_MANIFEST_REVISION", "GITHUB_RUN_NUMBER")
     supersedes_revision = _optional_positive_integer_env("ROOM_MANIFEST_SUPERSEDES_REVISION")
+    recovery_id = os.getenv("ROOM_RECOVERY_ID", "").strip() or None
+    generation_channel = os.getenv("ROOM_GENERATION_CHANNEL", "").strip() or None
     manifest_path = write_manifest_v2(
         report_dir,
         payload,
@@ -85,6 +87,8 @@ def write_generation_reports(
         revision=revision,
         generated_at=executed_at,
         supersedes_revision=supersedes_revision,
+        recovery_id=recovery_id,
+        generation_channel=generation_channel,
     )
     return [json_path, csv_path, md_path, manifest_path]
 

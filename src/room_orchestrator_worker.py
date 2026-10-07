@@ -37,9 +37,12 @@ def fetch_latest_manifest(
     headers: Mapping[str, str],
     now: datetime,
     expected_head_sha: str | None = None,
+    expected_run_id: str | None = None,
+    expected_recovery_id: str | None = None,
+    workflow_file: str = "daily.yml",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     response = session.get(
-        f"{REPO_API}/actions/workflows/daily.yml/runs",
+        f"{REPO_API}/actions/workflows/{workflow_file}/runs",
         headers=dict(headers),
         params={"status": "success", "per_page": 20},
         timeout=30,
@@ -47,6 +50,8 @@ def fetch_latest_manifest(
     response.raise_for_status()
     day = routine_date_jst(now).isoformat()
     for run in response.json().get("workflow_runs", []):
+        if expected_run_id and str(run.get("id", "")) != expected_run_id:
+            continue
         if expected_head_sha and str(run.get("head_sha", "")) != expected_head_sha:
             continue
         artifacts = session.get(
@@ -89,8 +94,37 @@ def fetch_latest_manifest(
             continue
         if str(manifest["head_sha"]) != str(run.get("head_sha", "")):
             continue
+        if expected_recovery_id and str(manifest.get("recovery_id", "")) != expected_recovery_id:
+            continue
         return run, manifest
     raise RuntimeError("today's validated manifest v2 was not found")
+
+
+def load_fenced_manifest(
+    path: Path,
+    *,
+    expected_head_sha: str,
+    expected_recovery_id: str,
+    state_store: RoomStateStore | None = None,
+    expected_revision: int | None = None,
+) -> dict[str, Any]:
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    validate_manifest_v2(manifest)
+    if str(manifest.get("head_sha", "")) != expected_head_sha:
+        raise RuntimeError("local recovery manifest HEAD does not match the fence")
+    if str(manifest.get("recovery_id", "")) != expected_recovery_id:
+        raise RuntimeError("local recovery manifest recovery_id does not match the fence")
+    if str(manifest.get("generation_channel", "")) != "local_fenced_recovery":
+        raise RuntimeError("local recovery manifest has an invalid generation channel")
+    if expected_revision is not None and int(manifest.get("revision", 0)) != expected_revision:
+        raise RuntimeError("local recovery manifest revision does not match the fence")
+    if state_store is not None:
+        state_store.assert_recovery_control(
+            expected_recovery_id,
+            expected_head_sha=expected_head_sha,
+            revision=int(manifest["revision"]),
+        )
+    return manifest
 
 
 def slot_is_due(slot: str, now: datetime) -> bool:
@@ -170,6 +204,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--active-slots", required=True, help="comma-separated canary ownership")
     parser.add_argument("--apply", action="store_true", help="allow one external ROOM submission")
     parser.add_argument("--expected-head-sha", default="")
+    parser.add_argument("--expected-run-id", default="")
+    parser.add_argument("--expected-recovery-id", default="")
+    parser.add_argument("--manifest-path", default="")
+    parser.add_argument("--recovery-db", default="")
+    parser.add_argument("--expected-revision", type=int, default=0)
     return parser.parse_args()
 
 
@@ -192,15 +231,29 @@ def main() -> int:
         return 2
     now = datetime.now(tz=JST)
     try:
-        import requests
-
-        with requests.Session() as session:
-            _, manifest = fetch_latest_manifest(
-                session,
-                headers=github_headers(github_token()),
-                now=now,
-                expected_head_sha=args.expected_head_sha or None,
+        if args.manifest_path:
+            if not args.expected_head_sha or not args.expected_recovery_id:
+                raise RuntimeError("local manifest requires HEAD and recovery ID fences")
+            recovery_store = RoomStateStore(args.recovery_db) if args.recovery_db else None
+            manifest = load_fenced_manifest(
+                Path(args.manifest_path),
+                expected_head_sha=args.expected_head_sha,
+                expected_recovery_id=args.expected_recovery_id,
+                state_store=recovery_store,
+                expected_revision=args.expected_revision or None,
             )
+        else:
+            import requests
+
+            with requests.Session() as session:
+                _, manifest = fetch_latest_manifest(
+                    session,
+                    headers=github_headers(github_token()),
+                    now=now,
+                    expected_head_sha=args.expected_head_sha or None,
+                    expected_run_id=args.expected_run_id or None,
+                    expected_recovery_id=args.expected_recovery_id or None,
+                )
         logger.info("Manifest preflight: %s", json.dumps(safe_summary(manifest, active_slots, now)))
         if not args.apply:
             logger.info("Dry-run complete; no ROOM mutation was attempted.")

@@ -203,6 +203,21 @@ CREATE TABLE IF NOT EXISTS legacy_imports (
     source_line INTEGER NOT NULL,
     imported_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS recovery_controls (
+    recovery_id TEXT PRIMARY KEY,
+    routine_date TEXT NOT NULL,
+    old_run_id TEXT NOT NULL,
+    expected_head_sha TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    status TEXT NOT NULL,
+    owner_id TEXT,
+    lease_expires_at TEXT,
+    budget_consumed INTEGER NOT NULL DEFAULT 0 CHECK (budget_consumed IN (0, 1)),
+    replacement_run_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -263,6 +278,73 @@ class RoomStateStore:
         results = [str(row[0]) for row in rows]
         if results != ["ok"]:
             raise StateIntegrityError("database quick_check failed: " + "; ".join(results))
+
+    def reserve_recovery_control(
+        self,
+        *,
+        recovery_id: str,
+        routine_date: date | str,
+        old_run_id: str,
+        expected_head_sha: str,
+        revision: int,
+        owner_id: str,
+        lease_seconds: int = 3600,
+        now: datetime | None = None,
+    ) -> None:
+        if not recovery_id or not old_run_id or not expected_head_sha or not owner_id:
+            raise StateStoreError("recovery control identity is required")
+        if revision < 1 or lease_seconds < 1:
+            raise StateStoreError("recovery revision and lease must be positive")
+        self.initialize()
+        base = now or datetime.now().astimezone()
+        timestamp = _timestamp(base)
+        expires = _timestamp(base + timedelta(seconds=lease_seconds))
+        day = _date_text(routine_date)
+        with self.transaction() as connection:
+            existing = connection.execute(
+                "SELECT 1 FROM recovery_controls WHERE recovery_id = ?", (recovery_id,)
+            ).fetchone()
+            if existing is not None:
+                raise StateConflictError("recovery_id has already consumed its budget")
+            connection.execute(
+                """INSERT INTO recovery_controls(
+                   recovery_id, routine_date, old_run_id, expected_head_sha, revision,
+                   status, owner_id, lease_expires_at, budget_consumed, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'running', ?, ?, 1, ?, ?)""",
+                (recovery_id, day, old_run_id, expected_head_sha, revision, owner_id, expires, timestamp, timestamp),
+            )
+
+    def complete_recovery_control(self, recovery_id: str, *, owner_id: str, now: datetime | None = None) -> None:
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            result = connection.execute(
+                """UPDATE recovery_controls
+                   SET status = 'ready', owner_id = NULL, lease_expires_at = NULL, updated_at = ?
+                   WHERE recovery_id = ? AND status = 'running' AND owner_id = ?""",
+                (timestamp, recovery_id, owner_id),
+            )
+            if result.rowcount != 1:
+                raise StateConflictError("recovery lease is missing or expired")
+
+    def assert_recovery_control(
+        self,
+        recovery_id: str,
+        *,
+        expected_head_sha: str,
+        revision: int,
+    ) -> dict[str, Any]:
+        self.initialize()
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM recovery_controls WHERE recovery_id = ?", (recovery_id,)
+            ).fetchone()
+        if row is None:
+            raise StateConflictError("recovery control is not registered")
+        if str(row["expected_head_sha"]) != expected_head_sha or int(row["revision"]) != revision:
+            raise StateConflictError("recovery control fence does not match")
+        if str(row["status"]) not in {"running", "ready", "posting_allowed"}:
+            raise StateConflictError("recovery control is not usable")
+        return dict(row)
 
     def backup_to(self, destination: Path | str) -> Path:
         target = Path(destination)

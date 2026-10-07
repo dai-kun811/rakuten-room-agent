@@ -25,6 +25,8 @@ def build_manifest_v2(
     revision: int,
     generated_at: datetime,
     supersedes_revision: int | None = None,
+    recovery_id: str | None = None,
+    generation_channel: str | None = None,
 ) -> dict[str, Any]:
     """Convert the existing generation report into the immutable v2 contract.
 
@@ -71,6 +73,10 @@ def build_manifest_v2(
         "generated_at": generated_at.isoformat(),
         "slots": slots,
     }
+    if recovery_id is not None:
+        payload["recovery_id"] = recovery_id
+    if generation_channel is not None:
+        payload["generation_channel"] = generation_channel
     validate_manifest_v2(payload)
     return payload
 
@@ -84,6 +90,8 @@ def write_manifest_v2(
     revision: int,
     generated_at: datetime,
     supersedes_revision: int | None = None,
+    recovery_id: str | None = None,
+    generation_channel: str | None = None,
 ) -> Path:
     payload = build_manifest_v2(
         generation_report,
@@ -92,6 +100,8 @@ def write_manifest_v2(
         revision=revision,
         generated_at=generated_at,
         supersedes_revision=supersedes_revision,
+        recovery_id=recovery_id,
+        generation_channel=generation_channel,
     )
     report_dir.mkdir(parents=True, exist_ok=True)
     path = report_dir / f"{MANIFEST_BASENAME}.json"

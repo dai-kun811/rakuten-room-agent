@@ -344,6 +344,16 @@ def validate_manifest_v2(payload: Mapping[str, Any]) -> None:
         raise ContractError("head_sha must be a 7-40 character hexadecimal git SHA")
     generated_at = _required_text(payload, "generated_at")
     _parse_aware_datetime(generated_at, "generated_at")
+    recovery_id = payload.get("recovery_id")
+    generation_channel = payload.get("generation_channel")
+    if recovery_id is not None:
+        recovery_id = _required_text(payload, "recovery_id")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{7,79}", recovery_id):
+            raise ContractError("recovery_id has an invalid format")
+        if generation_channel != "local_fenced_recovery":
+            raise ContractError("recovery manifest requires local_fenced_recovery channel")
+    elif generation_channel is not None:
+        raise ContractError("generation_channel requires recovery_id")
     slots = payload.get("slots")
     if not isinstance(slots, Mapping) or set(slots) != set(POST_SLOTS):
         raise ContractError("manifest slots must contain exactly morning, noon, and evening")
