@@ -92,6 +92,7 @@ def generation_fence(
             now=now,
         )
     else:
+        recovery_id = str(existing["recovery_id"])
         head = str(existing["expected_head_sha"])
         revision = int(existing["revision"])
         owner = str(existing.get("owner_id") or f"phase8-{day}")

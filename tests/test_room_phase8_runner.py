@@ -16,6 +16,7 @@ from room_phase8_runner import (
     GenerationFence,
     audit_day,
     dispatch_generation_once,
+    generation_fence,
     next_eligible_slot,
 )
 from room_state_store import RoomStateStore
@@ -58,6 +59,24 @@ def phase8_manifest() -> dict:
 
 
 class RoomPhase8RunnerTests(unittest.TestCase):
+    def test_generation_fence_uses_latest_replacement_identity_and_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            store = RoomStateStore(Path(temp) / "operations.db")
+            store.reserve_recovery_control(
+                recovery_id="production-20261009", routine_date="2026-10-09",
+                old_run_id="37579267266", expected_head_sha="a" * 40,
+                revision=300, owner_id="base", now=NOW,
+            )
+            store.reserve_recovery_control(
+                recovery_id="production-20261009-quality1", routine_date="2026-10-09",
+                old_run_id="37579267266", expected_head_sha="b" * 40,
+                revision=301, owner_id="replacement", now=NOW,
+            )
+            fence = generation_fence(store, NOW)
+            self.assertEqual(fence.recovery_id, "production-20261009-quality1")
+            self.assertEqual(fence.revision, 301)
+            self.assertEqual(fence.head_sha, "b" * 40)
+
     def test_dispatch_is_durable_and_happens_only_once(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
