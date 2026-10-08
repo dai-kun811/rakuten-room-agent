@@ -33,6 +33,7 @@
 - 全362テスト、`git diff --check`、秘密情報差分scan、origin divergence 0/0に合格。登録前DBは`.local/room-worker/rollback/phase8-pre-enable-20261009.db`、登録タスクXMLは`.local/room-worker/rollback/RakutenROOMOrchestrator-phase8.xml`へ退避。
 - 初回実運用は2026-10-09 07:00 JST。Phase 8の完了には最低7日連続で二重投稿0、誤slot0、false POSTED 0、incident欠落0、20:30監査一致、旧タスク未使用、通常経路のCodex復旧0が必要。完了まではPhase 9へ進まない。
 - heartbeat `room-phase-7-timed-continuation`は`ROOM Phase 8 observation`へ改名し、毎日20:45 JSTに上記証跡だけを差分確認する。正常時に完了済みテストや解析を繰り返さない。
+- ユーザーの7日観測継続指示を反映し、heartbeatを`ROOM Phase 8 seven-day observation`へ更新。日次正本は`docs/ROOM_PHASE8_OBSERVATIONS.md`。当日未経過の結果は推測せずpendingとし、20:45に当日差分だけを記録する。7日ゲート通過前のPhase 9開始は禁止。
 
 ## 2026-10-08 Phase 7 canary 現在位置
 
