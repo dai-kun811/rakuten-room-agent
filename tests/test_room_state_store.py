@@ -536,6 +536,43 @@ class RoomStateStoreTests(unittest.TestCase):
         self.assertEqual(plan.human_review_slots, ("2026-10-05:noon",))
         self.assertEqual(plan.missing_today_slots, POST_SLOTS)
 
+    def test_recurrent_incidents_can_both_resolve_without_losing_history(self) -> None:
+        first = self.store.create_incident(
+            "2026-10-08", reason=ReasonCode.FAILED_PRE_SUBMIT,
+            slot="morning", component="orchestrator", last_safe_state="ready",
+            next_action="recover", now=NOW,
+        )
+        self.store.transition_incident(
+            first, expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.AUTO_RECOVERING,
+            next_action="retry", now=NOW,
+        )
+        self.store.transition_incident(
+            first, expected_status=IncidentStatus.AUTO_RECOVERING,
+            target_status=IncidentStatus.RESOLVED,
+            next_action="resolved first", now=NOW,
+        )
+        second = self.store.create_incident(
+            "2026-10-08", reason=ReasonCode.FAILED_PRE_SUBMIT,
+            slot="morning", component="orchestrator", last_safe_state="ready",
+            next_action="recover again", now=NOW,
+        )
+        self.store.transition_incident(
+            second, expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.AUTO_RECOVERING,
+            next_action="retry again", now=NOW,
+        )
+        self.store.transition_incident(
+            second, expected_status=IncidentStatus.AUTO_RECOVERING,
+            target_status=IncidentStatus.RESOLVED,
+            next_action="resolved second", now=NOW,
+        )
+        first_row = self.store.get_incident(first)
+        second_row = self.store.get_incident(second)
+        self.assertEqual(first_row["status"], IncidentStatus.RESOLVED.value)
+        self.assertEqual(second_row["status"], IncidentStatus.RESOLVED.value)
+        self.assertNotEqual(first_row["fingerprint"], second_row["fingerprint"])
+
     def test_manifest_revision_updates_only_safe_slots(self) -> None:
         def manifest(revision: int, suffix: str) -> dict:
             slots = {}

@@ -771,7 +771,7 @@ class RoomStateStore:
         timestamp = _timestamp(now)
         with self.transaction() as connection:
             row = connection.execute(
-                "SELECT routine_date, status FROM incidents WHERE incident_id = ?",
+                "SELECT * FROM incidents WHERE incident_id = ?",
                 (incident_id,),
             ).fetchone()
             if row is None or row["status"] != expected_status.value:
@@ -786,12 +786,18 @@ class RoomStateStore:
                 ).fetchone()
                 if not _lease_is_owned(lease, lease_owner, timestamp):
                     raise StateConflictError("incident lease is missing or expired")
-            connection.execute(
+            terminal_fingerprint = (
+                self._terminal_incident_fingerprint(connection, row)
+                if target_status is IncidentStatus.RESOLVED
+                else str(row["fingerprint"])
+            )
+            updated = connection.execute(
                 """
-                UPDATE incidents SET status = ?, next_action = ?, updated_at = ?
+                UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ?
                 WHERE incident_id = ? AND status = ?
                 """,
                 (
+                    terminal_fingerprint,
                     target_status.value,
                     next_action,
                     timestamp,
@@ -799,6 +805,8 @@ class RoomStateStore:
                     expected_status.value,
                 ),
             )
+            if updated.rowcount != 1:
+                raise StateConflictError("incident compare-and-swap failed")
             self._append_event(
                 connection,
                 routine_date=row["routine_date"],
@@ -806,7 +814,8 @@ class RoomStateStore:
                 aggregate_key=incident_id,
                 from_status=expected_status.value,
                 to_status=target_status.value,
-                payload={"next_action": next_action},
+                payload={"next_action": next_action,
+                         "root_cause_fingerprint": str(row["fingerprint"])},
                 timestamp=timestamp,
             )
 
