@@ -79,6 +79,25 @@ UNSUPPORTED_NURSING_DEVICE_TERMS = [
     "搾乳ポンプ",
 ]
 
+# Carrier listings commonly mention that their storage pocket can hold wipes
+# or diapers.  Those are accessories carried by the product, not the product
+# identity.  Until carrier-specific attributes and copy exist, keep these
+# listings out of wipes/diaper automation instead of treating pocket contents
+# (or a 20 kg load rating) as consumable quantities.
+UNSUPPORTED_BABY_CARRIER_TERMS = [
+    "ヒップシート",
+    "hipseat",
+    "hip seat",
+    "抱っこ紐",
+    "抱っこひも",
+    "だっこ紐",
+    "だっこひも",
+    "ベビーキャリア",
+    "ベビーキャリー",
+    "baby carrier",
+    "スリング",
+]
+
 BABY_BEDDING_BASE_PATTERN = r"(?:抱っこ布団|ねんねクッション|ベビー布団)"
 BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
     rf"(?:"
@@ -175,6 +194,8 @@ def classify_room_product_type(product: Product) -> str:
     # this medical-adjacent device. Keep the whole device class out of
     # automatic posting until it has dedicated attributes and copy rules.
     if contains_any(text, UNSUPPORTED_NURSING_DEVICE_TERMS):
+        return "unknown"
+    if contains_any(name_text, UNSUPPORTED_BABY_CARRIER_TERMS):
         return "unknown"
     # Replacement covers are accessories, not the bedding body assumed by
     # the automatic copy.  Keep an actual futon/cushion sold with a cover

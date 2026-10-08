@@ -293,6 +293,39 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "formula")
 
+    def test_carrier_with_wipes_storage_is_not_classified_as_wipes(self) -> None:
+        for index, carrier_name in enumerate(
+            (
+                "ヒップシート",
+                "抱っこひも",
+                "だっこ紐",
+                "ベビーキャリア",
+                "ベビーキャリー",
+                "BABY CARRIER",
+                "HIP SEAT",
+                "スリング",
+            )
+        ):
+            with self.subTest(carrier_name=carrier_name):
+                product = replace(
+                    product_for("wipes"),
+                    name=(
+                        f"{carrier_name} コンパクト おむつ おしりふき "
+                        "収納ポケット 耐荷重20kg"
+                    ),
+                    caption=(
+                        "腰が座ってから使う抱っこ用品。3つのポケットに"
+                        "おしりふきやおむつを収納できます。耐荷重20kgまで。"
+                    ),
+                    catchcopy=f"{carrier_name} 収納ポケット 20kg",
+                    url=f"https://example.com/carrier/{index}",
+                )
+
+                self.assertEqual(classify_product_type(product), "unknown")
+
+        self.assertEqual(classify_product_type(product_for("wipes")), "wipes")
+        self.assertEqual(classify_product_type(product_for("diaper")), "diaper")
+
     def test_formula_refill_bags_never_use_can_wording(self) -> None:
         name = "森永 E赤ちゃん エコらくパック はじめてセット 800g（400g×2袋） 粉ミルク"
         for index in range(12):
