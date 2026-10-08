@@ -787,8 +787,12 @@ class RoomStateStore:
                 if not _lease_is_owned(lease, lease_owner, timestamp):
                     raise StateConflictError("incident lease is missing or expired")
             terminal_fingerprint = (
-                self._terminal_incident_fingerprint(connection, row)
-                if target_status is IncidentStatus.RESOLVED
+                self._terminal_incident_fingerprint(connection, row, target_status)
+                if target_status in {
+                    IncidentStatus.RESOLVED,
+                    IncidentStatus.NEEDS_HUMAN,
+                    IncidentStatus.BUDGET_EXHAUSTED,
+                }
                 else str(row["fingerprint"])
             )
             updated = connection.execute(
@@ -814,8 +818,10 @@ class RoomStateStore:
                 aggregate_key=incident_id,
                 from_status=expected_status.value,
                 to_status=target_status.value,
-                payload={"next_action": next_action,
-                         "root_cause_fingerprint": str(row["fingerprint"])},
+                payload={
+                    "next_action": next_action,
+                    "root_cause_fingerprint": self._root_cause_incident_fingerprint(row),
+                },
                 timestamp=timestamp,
             )
 
@@ -877,13 +883,15 @@ class RoomStateStore:
             if updated_attempt.rowcount != 1 or updated_slot.rowcount != 1:
                 raise StateConflictError("human post resolution compare-and-swap failed")
             terminal_fingerprint = self._terminal_incident_fingerprint(connection, incident)
-            connection.execute(
+            resolved_incident = connection.execute(
                 """UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ?
                    WHERE incident_id = ? AND status = ?""",
                 (terminal_fingerprint, IncidentStatus.RESOLVED.value,
                  "authenticated ROOM confirmed post; no repost", timestamp,
                  incident["incident_id"], IncidentStatus.NEEDS_HUMAN.value),
             )
+            if resolved_incident.rowcount != 1:
+                raise StateConflictError("authenticated post incident resolution failed")
             self._append_event(
                 connection, routine_date=day, aggregate_type="slot", aggregate_key=f"{day}:{slot}",
                 from_status=SlotStatus.UNCERTAIN.value, to_status=SlotStatus.POSTED.value,
@@ -895,7 +903,8 @@ class RoomStateStore:
                 connection, routine_date=day, aggregate_type="incident", aggregate_key=str(incident["incident_id"]),
                 from_status=IncidentStatus.NEEDS_HUMAN.value, to_status=IncidentStatus.RESOLVED.value,
                 payload={"event": "authenticated_room_confirmed_post", "evidence_source": source,
-                         "root_cause_fingerprint": str(incident["fingerprint"]), "reposted": False},
+                         "root_cause_fingerprint": self._root_cause_incident_fingerprint(incident),
+                         "reposted": False},
                 timestamp=timestamp,
             )
             updated = connection.execute(
@@ -1015,7 +1024,7 @@ class RoomStateStore:
                 from_status=IncidentStatus.NEEDS_HUMAN.value,
                 to_status=IncidentStatus.RESOLVED.value,
                 payload={"event": "authenticated_room_absence", "evidence_source": source,
-                         "root_cause_fingerprint": str(incident["fingerprint"]),
+                         "root_cause_fingerprint": self._root_cause_incident_fingerprint(incident),
                          "retry_authorized": True}, timestamp=timestamp,
             )
             updated = connection.execute(
@@ -1026,7 +1035,9 @@ class RoomStateStore:
 
     @staticmethod
     def _terminal_incident_fingerprint(
-        connection: sqlite3.Connection, incident: sqlite3.Row
+        connection: sqlite3.Connection,
+        incident: sqlite3.Row,
+        target_status: IncidentStatus = IncidentStatus.RESOLVED,
     ) -> str:
         """Keep recurrent resolved incidents without dropping audit history.
 
@@ -1035,17 +1046,26 @@ class RoomStateStore:
         cause remains in the event payload and this row receives a deterministic
         terminal-only identity.  No incident row is deleted or overwritten.
         """
-        fingerprint = str(incident["fingerprint"])
+        fingerprint = RoomStateStore._root_cause_incident_fingerprint(incident)
         conflict = connection.execute(
             """SELECT 1 FROM incidents WHERE fingerprint = ? AND status = ?
                AND incident_id <> ? LIMIT 1""",
-            (fingerprint, IncidentStatus.RESOLVED.value, incident["incident_id"]),
+            (fingerprint, target_status.value, incident["incident_id"]),
         ).fetchone()
         if conflict is None:
             return fingerprint
         return hashlib.sha256(
-            f"{fingerprint}\nresolved-occurrence\n{incident['incident_id']}".encode("utf-8")
+            f"{fingerprint}\n{target_status.value}-occurrence\n{incident['incident_id']}".encode("utf-8")
         ).hexdigest()
+
+    @staticmethod
+    def _root_cause_incident_fingerprint(incident: Mapping[str, Any]) -> str:
+        return incident_fingerprint(
+            ReasonCode(str(incident["reason_code"])),
+            str(incident["routine_date"]),
+            slot=str(incident["slot"]),
+            component=str(incident["component"]),
+        )
 
     def get_incident(self, incident_id: str) -> dict[str, Any] | None:
         with closing(self.connect()) as connection:
@@ -1158,7 +1178,7 @@ class RoomStateStore:
         timestamp = _timestamp(now)
         with self.transaction() as connection:
             row = connection.execute(
-                "SELECT routine_date, status, attempts_json FROM incidents WHERE incident_id = ?",
+                "SELECT * FROM incidents WHERE incident_id = ?",
                 (incident_id,),
             ).fetchone()
             if row is None:
@@ -1172,9 +1192,13 @@ class RoomStateStore:
                     IncidentStatus.BUDGET_EXHAUSTED.value,
                 }:
                     validate_incident_transition(row["status"], IncidentStatus.BUDGET_EXHAUSTED)
+                    terminal_fingerprint = self._terminal_incident_fingerprint(
+                        connection, row, IncidentStatus.BUDGET_EXHAUSTED
+                    )
                     connection.execute(
-                        "UPDATE incidents SET status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
-                        (IncidentStatus.BUDGET_EXHAUSTED.value, "stop automatic retries", timestamp, incident_id),
+                        "UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
+                        (terminal_fingerprint, IncidentStatus.BUDGET_EXHAUSTED.value,
+                         "stop automatic retries", timestamp, incident_id),
                     )
                     self._append_event(
                         connection,
@@ -1183,7 +1207,8 @@ class RoomStateStore:
                         aggregate_key=incident_id,
                         from_status=str(row["status"]),
                         to_status=IncidentStatus.BUDGET_EXHAUSTED.value,
-                        payload={"budget_key": budget_key, "limit": limit},
+                        payload={"budget_key": budget_key, "limit": limit,
+                                 "root_cause_fingerprint": self._root_cause_incident_fingerprint(row)},
                         timestamp=timestamp,
                     )
                 return RetryReservation(incident_id, budget_key, current, limit, True)
@@ -1306,16 +1331,20 @@ class RoomStateStore:
                 elif status not in {SlotStatus.POSTED.value, SlotStatus.EXPIRED_UNPOSTED.value}:
                     held += 1
             incidents = connection.execute(
-                "SELECT incident_id, routine_date, status FROM incidents WHERE routine_date < ? AND status IN ('open','auto_recovering','codex_queued','codex_working','validating')",
+                "SELECT * FROM incidents WHERE routine_date < ? AND status IN ('open','auto_recovering','codex_queued','codex_working','validating')",
                 (cutoff,),
             ).fetchall()
             for row in incidents:
                 validate_incident_transition(row["status"], IncidentStatus.NEEDS_HUMAN)
-                connection.execute(
-                    "UPDATE incidents SET status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
-                    (IncidentStatus.NEEDS_HUMAN.value, "manual review after routine-day boundary", timestamp, row["incident_id"]),
+                terminal_fingerprint = self._terminal_incident_fingerprint(
+                    connection, row, IncidentStatus.NEEDS_HUMAN
                 )
-                self._append_event(connection, routine_date=str(row["routine_date"]), aggregate_type="incident", aggregate_key=str(row["incident_id"]), from_status=str(row["status"]), to_status=IncidentStatus.NEEDS_HUMAN.value, payload={"boundary": cutoff}, timestamp=timestamp)
+                connection.execute(
+                    "UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ? WHERE incident_id = ?",
+                    (terminal_fingerprint, IncidentStatus.NEEDS_HUMAN.value,
+                     "manual review after routine-day boundary", timestamp, row["incident_id"]),
+                )
+                self._append_event(connection, routine_date=str(row["routine_date"]), aggregate_type="incident", aggregate_key=str(row["incident_id"]), from_status=str(row["status"]), to_status=IncidentStatus.NEEDS_HUMAN.value, payload={"boundary": cutoff, "root_cause_fingerprint": self._root_cause_incident_fingerprint(row)}, timestamp=timestamp)
         return {"expired_slots": expired, "held_slots": held, "expired_incidents": len(incidents)}
 
     def build_catch_up_plan(self, today: date | str) -> CatchUpPlan:
@@ -1500,7 +1529,7 @@ class RoomStateStore:
             ).fetchall()
             incidents = connection.execute(
                 """
-                SELECT incident_id, fingerprint, slot, component, reason_code,
+                SELECT incident_id, fingerprint, routine_date, slot, component, reason_code,
                        route, status, last_safe_state, manifest_revision,
                        attempts_json, next_action, created_at, updated_at
                 FROM incidents WHERE routine_date = ? ORDER BY created_at
@@ -1523,7 +1552,13 @@ class RoomStateStore:
                 }
                 for row in slots
             },
-            "incidents": [dict(row) for row in incidents],
+            "incidents": [
+                {
+                    **dict(row),
+                    "root_cause_fingerprint": self._root_cause_incident_fingerprint(row),
+                }
+                for row in incidents
+            ],
         }
 
     @staticmethod

@@ -573,6 +573,39 @@ class RoomStateStoreTests(unittest.TestCase):
         self.assertEqual(second_row["status"], IncidentStatus.RESOLVED.value)
         self.assertNotEqual(first_row["fingerprint"], second_row["fingerprint"])
 
+    def test_recurrent_terminal_incidents_keep_root_cause_in_snapshot(self) -> None:
+        root_fingerprints = {}
+        for target in (IncidentStatus.NEEDS_HUMAN, IncidentStatus.BUDGET_EXHAUSTED):
+            ids = []
+            for occurrence in range(2):
+                incident_id = self.store.create_incident(
+                    "2026-10-08",
+                    reason=ReasonCode.FAILED_PRE_SUBMIT,
+                    slot="noon",
+                    component=target.value,
+                    last_safe_state="ready",
+                    next_action=f"occurrence {occurrence}",
+                    now=NOW,
+                )
+                self.store.transition_incident(
+                    incident_id,
+                    expected_status=IncidentStatus.OPEN,
+                    target_status=target,
+                    next_action="terminal",
+                    now=NOW,
+                )
+                ids.append(incident_id)
+            rows = [self.store.get_incident(incident_id) for incident_id in ids]
+            self.assertEqual({row["status"] for row in rows}, {target.value})
+            self.assertNotEqual(rows[0]["fingerprint"], rows[1]["fingerprint"])
+            root_fingerprints[target.value] = {
+                item["root_cause_fingerprint"]
+                for item in self.store.export_snapshot("2026-10-08")["incidents"]
+                if item["component"] == target.value
+            }
+        self.assertEqual(len(root_fingerprints[IncidentStatus.NEEDS_HUMAN.value]), 1)
+        self.assertEqual(len(root_fingerprints[IncidentStatus.BUDGET_EXHAUSTED.value]), 1)
+
     def test_manifest_revision_updates_only_safe_slots(self) -> None:
         def manifest(revision: int, suffix: str) -> dict:
             slots = {}
