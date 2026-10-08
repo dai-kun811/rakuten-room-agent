@@ -132,3 +132,12 @@ At that point Phase 7 stopped at the human-safety gate; automatic reposting rema
 - Morning is now `POSTED` in SQLite (revision 297, URL `https://item.rakuten.co.jp/maryplus/babyswaddle`), one compatible `posted` ledger row exists, and the post attempt is `posted`. The earlier pre-submit incident is resolved; the stuck-run incidents remain retained and unresolved where appropriate.
 - Noon and evening remain `READY`. At 22:40 JST the 22:30 posting window is closed, so no late canary or gate bypass was attempted. Phase 7 remains incomplete and Phase 8 is not started.
 - Full regression after the change: 350 tests passed.
+
+## 2026-10-08 noon canary
+
+- Revision 299 noon was executed only after the 12:00 JST gate. The first invocation used system Python without Playwright and failed before submit; `submit_started=0` was verified and the attempt was preserved as `failed_pre_submit_reclaimed`.
+- The one configured pre-submit retry budget was consumed. The retry used the verified project `.venv`, reached submit, and returned `UNCERTAIN`.
+- Authenticated ROOM reconciliation showed the exact full comment and all five hashtags at the newest position, profile count 228 to 229, and an image hosted under `shop.r10s.jp/bebechambre`, matching the manifest shop/item. No repost was performed.
+- SQLite noon slot and submitted attempt are `POSTED`; both noon incidents are `RESOLVED`; the compatibility ledger contains one noon posted row. The preserved pre-submit attempt remains immutable audit evidence.
+- A same-slot apply rerun returned `POSTED` with `attempt_id=null`. Morning and noon are therefore duplicate-safe no-ops; evening remains `READY` until 19:00 JST.
+- Recurrent terminal incident handling was independently reviewed and strengthened without a schema migration. Root-cause fingerprints remain visible in events/snapshots while terminal row identities avoid legacy uniqueness collisions. Full regression: 356 tests passed.
