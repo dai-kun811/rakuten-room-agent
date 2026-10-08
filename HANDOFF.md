@@ -21,11 +21,11 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-08 12:13 JST
+最終更新: 2026-10-08 19:07 JST
 
 ## 2026-10-08 Phase 7 canary 現在位置
 
-- revision 299 / recovery `recovery-20261008-02` の morning / noon は `POSTED`。URL は morning `https://item.rakuten.co.jp/plusiine/okurumi04`、noon `https://item.rakuten.co.jp/bebechambre/951215`。evening は revision 299 の `READY` を維持し、19:00 JST前のため未実行。
+- revision 299 / recovery `recovery-20261008-02` の morning / noon / evening は実ROOM・DB・旧ledgerで `POSTED`。URL は morning `https://item.rakuten.co.jp/plusiine/okurumi04`、noon `https://item.rakuten.co.jp/bebechambre/951215`、evening `https://item.rakuten.co.jp/calmisence/hipseatse`。
 - 初回morning attempt `2026-10-08-morning-cfd9f98a1ae2` は `UNCERTAIN` だったが、認証済みROOMの最新は前日maryplus投稿、商品数227、今回の完全一致本文なし（読み込み済み117カード）だったため未投稿と確定。本文正規化hashも expected `edef99cb...d30f` / latest `4108288b...342a5` で不一致。
 - 未投稿確定時だけ1回の再送を許可し、元attemptを `confirmed_not_posted` のまま保持する非破壊復旧を実装。forced clickを廃止し、完全な本文+hashtagsで実ROOM確認するよう修正。commit `1f13f48`。
 - 同じroot-causeの解決済みincidentが再発時の解決を妨げる一意制約問題を、行削除/schema変更なしで終端識別子のみ分離して修正。commit `6d995e2`。
@@ -35,8 +35,11 @@
 - noon初回はsystem PythonにPlaywrightがないため送信前失敗。`submit_started=0`を確認し、監査attemptを`failed_pre_submit_reclaimed`で保持、既定のpre-submit retry budget 1回だけを消費して正しい`.venv`で再実行した。
 - noon再実行は送信後`UNCERTAIN`になったが、認証済みROOMで完全一致本文+5 hashtags、商品数228→229、`shop.r10s.jp/bebechambre`の商品画像を確認。再投稿せずslot/attemptを`POSTED`、post-result/pre-submit incidentsを`RESOLVED`、旧ledgerへnoon 1行を同期した。同一noon再実行も`attempt_id=null`のno-op。
 - recurrent incidentの共通遷移と`NEEDS_HUMAN`/`BUDGET_EXHAUSTED`再発、root-cause snapshot可観測性を修正。独立安全レビュー合格、全356テスト合格。commits `3201f18`, `2b9fdfe`。
-- 現在DBは morning/noon=`POSTED`、evening=`READY`、noon attemptsは送信前失敗1件を保持＋posted 1件、noon incidentsは2件ともresolved。旧ledgerの当日postedはmorning/noon各1行。実ROOM商品数229。旧Windowsタスクと自動スケジュールは無効のまま。
-- 次は2026-10-08 19:00 JST以降、同じrevision 299のeveningだけを実行し、DB / attempt / ledger / 認証済みROOM / incidentを照合する。morning/noonは再送しない。
+- evening送信後は`UNCERTAIN`だったが、認証済みROOMで完全一致本文+5 hashtags、商品数229→230、`shop.r10s.jp/calmisence/.../hip`画像を確認。再投稿せずslot/attemptを`POSTED`、post-result incidentを`RESOLVED`、旧ledgerへ1行同期した。同一evening再実行も`attempt_id=null`のno-op。
+- evening候補は実商品がヒップシートなのに、商品名中の「おしりふき収納ポケット」と耐荷重`20kg`をおしりふき本体・数量と誤認し、公開本文を「20kg入りのおしりふき」と生成していた。投稿成否と商品画像は確定しているが、投稿品質は不合格。
+- carrier語を商品本体の強いidentityとして分類前に`unknown`へ落とす一般修正を追加。日本語・英語8表記と通常wipes/diaper非回帰をテストし、全357テスト合格。独立安全レビューも合格。commit `2e2322b`。
+- `2026-10-08-copy_validation_regression-61895840`を`NEEDS_HUMAN`で記録。公開済み誤本文の削除・編集・再投稿は破壊的または二重投稿判断を伴うため自動実行しない。Phase 7は品質ゲート未通過、Phase 8以降は未着手。旧Windowsタスクと自動スケジュールは無効のまま。
+- 次の一手は、公開済みevening投稿を「削除する」「ROOMで編集できる場合は本文を訂正する」「誤投稿として残す」のどれにするかユーザー判断。再投稿はしない。判断後に実ROOM、DB、attempt、ledger、incidentを再整合し、Phase 7完了判定を行う。
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 

@@ -141,3 +141,11 @@ At that point Phase 7 stopped at the human-safety gate; automatic reposting rema
 - SQLite noon slot and submitted attempt are `POSTED`; both noon incidents are `RESOLVED`; the compatibility ledger contains one noon posted row. The preserved pre-submit attempt remains immutable audit evidence.
 - A same-slot apply rerun returned `POSTED` with `attempt_id=null`. Morning and noon are therefore duplicate-safe no-ops; evening remains `READY` until 19:00 JST.
 - Recurrent terminal incident handling was independently reviewed and strengthened without a schema migration. Root-cause fingerprints remain visible in events/snapshots while terminal row identities avoid legacy uniqueness collisions. Full regression: 356 tests passed.
+
+## 2026-10-08 evening canary and quality stop
+
+- Revision 299 evening was executed only after 19:00 JST. It reached submit and returned `UNCERTAIN`; authenticated ROOM then showed the exact full comment and five hashtags, profile count 229 to 230, and the matching `calmisence/.../hip` image. It was reconciled to `POSTED` without another send, synced once to the compatibility ledger, and a same-slot rerun was a no-op.
+- The authenticated display exposed a content failure that the manifest quality score missed: the product is a hip seat, but `おしりふき 収納ポケット` and the `20kg` load rating caused wipes classification and the public phrase `20kg入りのおしりふき`.
+- The root classification path now sends hip-seat/baby-carrier/sling terms, including Japanese and English variants, to `unknown` until carrier-specific attributes and copy exist. Eight carrier variants and normal wipes/diaper non-regression are covered; all 357 tests pass and an independent safety review passed.
+- The actual public post remains present and factually mismatched. DB, submitted attempt, legacy ledger, and ROOM agree that it was posted, while incident `2026-10-08-copy_validation_regression-61895840` remains `NEEDS_HUMAN` for the quality failure.
+- Automatic delete, edit, or corrective repost is prohibited because it is destructive or can create a duplicate. Phase 7 therefore remains incomplete and Phase 8 has not started.
