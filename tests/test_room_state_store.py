@@ -28,6 +28,25 @@ NOW = datetime(2026, 10, 6, 7, 0, tzinfo=timezone.utc)
 
 
 class RoomStateStoreTests(unittest.TestCase):
+    def test_manifest_revision_and_posted_history_include_recovery_fences(self) -> None:
+        self.store.reserve_recovery_control(
+            recovery_id="production-20261009", routine_date="2026-10-09",
+            old_run_id="37579267266", expected_head_sha="a" * 40,
+            revision=300, owner_id="phase8", now=NOW,
+        )
+        self.assertEqual(self.store.next_manifest_revision(), 301)
+        self.store.create_slot(
+            "2026-10-08", "morning", status=SlotStatus.POSTED,
+            normalized_url="https://item.rakuten.co.jp/shop/already-posted", now=NOW,
+        )
+        self.assertEqual(
+            self.store.posted_history_urls(),
+            ("https://item.rakuten.co.jp/shop/already-posted",),
+        )
+        self.assertEqual(
+            self.store.get_recovery_control("production-20261009")["revision"], 300
+        )
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)

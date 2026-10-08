@@ -375,6 +375,46 @@ class RoomStateStore:
             raise StateConflictError("recovery control is not usable")
         return dict(row)
 
+    def get_recovery_control(self, recovery_id: str) -> dict[str, Any] | None:
+        """Return one generation fence without weakening its validation rules."""
+        self.initialize()
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM recovery_controls WHERE recovery_id = ?", (recovery_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def next_manifest_revision(self) -> int:
+        """Allocate the next monotonic revision candidate.
+
+        The recovery row is included because a dispatched generation may not
+        have produced an accepted manifest yet.  Reservation remains protected
+        by ``BEGIN IMMEDIATE`` in ``reserve_recovery_control``.
+        """
+        self.initialize()
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                """SELECT MAX(value) AS revision FROM (
+                       SELECT revision AS value FROM manifests
+                       UNION ALL
+                       SELECT revision AS value FROM recovery_controls
+                   )"""
+            ).fetchone()
+        latest = row["revision"] if row is not None else None
+        return (int(latest) if latest is not None else 0) + 1
+
+    def posted_history_urls(self) -> tuple[str, ...]:
+        """Return canonical POSTED URLs used to fence candidate generation."""
+        self.initialize()
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                """SELECT DISTINCT normalized_url FROM slots
+                   WHERE status = ? AND normalized_url <> ''
+                   ORDER BY normalized_url""",
+                (SlotStatus.POSTED.value,),
+            ).fetchall()
+        return tuple(str(row["normalized_url"]) for row in rows)
+
     def backup_to(self, destination: Path | str) -> Path:
         target = Path(destination)
         target.parent.mkdir(parents=True, exist_ok=True)
