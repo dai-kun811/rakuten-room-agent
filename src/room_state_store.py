@@ -301,6 +301,12 @@ class RoomStateStore:
         expires = _timestamp(base + timedelta(seconds=lease_seconds))
         day = _date_text(routine_date)
         with self.transaction() as connection:
+            consumed = connection.execute(
+                "SELECT COUNT(*) AS count FROM recovery_controls WHERE routine_date = ?",
+                (day,),
+            ).fetchone()["count"]
+            if int(consumed) >= DEFAULT_RETRY_BUDGET.actions_recovery_runs:
+                raise RetryBudgetExhausted("daily generation recovery budget exhausted")
             existing = connection.execute(
                 "SELECT 1 FROM recovery_controls WHERE recovery_id = ?", (recovery_id,)
             ).fetchone()
@@ -381,6 +387,17 @@ class RoomStateStore:
         with closing(self.connect()) as connection:
             row = connection.execute(
                 "SELECT * FROM recovery_controls WHERE recovery_id = ?", (recovery_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def latest_recovery_control(self, routine_date: date | str) -> dict[str, Any] | None:
+        day = _date_text(routine_date)
+        self.initialize()
+        with closing(self.connect()) as connection:
+            row = connection.execute(
+                """SELECT * FROM recovery_controls WHERE routine_date = ?
+                   ORDER BY revision DESC, created_at DESC LIMIT 1""",
+                (day,),
             ).fetchone()
         return dict(row) if row is not None else None
 

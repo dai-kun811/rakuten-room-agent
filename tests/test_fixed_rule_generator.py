@@ -218,6 +218,41 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_flat_blanket_with_swaddle_seo_terms_is_not_wearable_swaddle(self) -> None:
+        name = "モスリン ブランケット おくるみ スワドル マルチクロス 120cm"
+        product = replace(product_for("swaddle"), name=name, catchcopy=name)
+        self.assertEqual(classify_product_type(product), "unknown")
+
+    def test_conflicting_gauze_layer_counts_require_review(self) -> None:
+        product = replace(
+            product_for("baby_sleep"),
+            name="6重ガーゼ スリーパー 新生児",
+            catchcopy="冬用スリーパー",
+            caption="表地フランネル 裏地は綿100%の2重ガーゼ",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 1)), context=GenerationContext()
+        )
+        self.assertEqual(generated.status, "needs_review")
+        self.assertIn(
+            "source_fact_conflict: ガーゼ層数の記載が商品名と説明で一致しない",
+            generated.quality_errors,
+        )
+
+    def test_swaddle_without_zipper_never_invents_zipper_title_or_copy(self) -> None:
+        product = replace(
+            product_for("swaddle"),
+            name="コットン スワドル おくるみ 新生児",
+            catchcopy="スワドル 素材 洗濯方法",
+            caption="コットン素材のおくるみ",
+        )
+        for seed in range(12):
+            varied = replace(product, url=f"https://example.com/swaddle/no-zipper-{seed}")
+            generated = FixedRulePostGenerator().generate(
+                score_product(varied, date(2026, 10, 1)), context=GenerationContext()
+            )
+            self.assertNotIn("ファスナー", generated.title + generated.body)
+
     def test_maternity_body_pillow_is_not_treated_as_dedicated_nursing_cushion(self) -> None:
         product = replace(
             product_for("nursing_support"),

@@ -71,10 +71,12 @@ def _remote_main_head(session: Any, headers: Mapping[str, str]) -> str:
     return str(response.json()["commit"]["sha"])
 
 
-def generation_fence(store: RoomStateStore, now: datetime) -> GenerationFence:
+def generation_fence(
+    store: RoomStateStore, now: datetime, replacement_id: str | None = None
+) -> GenerationFence:
     day = routine_date_jst(now).isoformat()
-    recovery_id = f"production-{day.replace('-', '')}"
-    existing = store.get_recovery_control(recovery_id)
+    recovery_id = replacement_id or f"production-{day.replace('-', '')}"
+    existing = store.get_recovery_control(recovery_id) if replacement_id else store.latest_recovery_control(day)
     if existing is None:
         head = _git_head()
         revision = store.next_manifest_revision()
@@ -299,13 +301,13 @@ def audit_day(store: RoomStateStore, ledger_path: Path, routine_date: str) -> di
     return {"routine_date": routine_date, "ok": not errors, "errors": errors}
 
 
-def run(*, now: datetime, apply: bool, session: Any) -> dict[str, Any]:
+def run(*, now: datetime, apply: bool, session: Any, replacement_id: str | None = None) -> dict[str, Any]:
     store = RoomStateStore(DATABASE_PATH)
     store.initialize()
     store.import_legacy_ledger(LEDGER_PATH, now=now)
     day = routine_date_jst(now).isoformat()
     store.expire_previous_days(day, now=now)
-    fence = generation_fence(store, now)
+    fence = generation_fence(store, now, replacement_id)
     headers = github_headers(github_token())
     dispatched = dispatch_generation_once(
         session, headers=headers, store=store, fence=fence, now=now
@@ -338,6 +340,7 @@ def run(*, now: datetime, apply: bool, session: Any) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Unified Phase 8 ROOM orchestrator")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--replacement-id", default="")
     args = parser.parse_args()
     STATE_ROOT.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
@@ -347,7 +350,10 @@ def main() -> int:
     try:
         import requests
         with requests.Session() as session:
-            result = run(now=datetime.now(tz=JST), apply=args.apply, session=session)
+            result = run(
+                now=datetime.now(tz=JST), apply=args.apply, session=session,
+                replacement_id=args.replacement_id or None,
+            )
         logging.info("Phase 8 result: %s", json.dumps(result, ensure_ascii=False))
         return 0 if result["status"] not in {"audit_failed", SlotStatus.UNCERTAIN.value} else 3
     except Exception as exc:

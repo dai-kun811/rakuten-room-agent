@@ -46,6 +46,20 @@ class RoomStateStoreTests(unittest.TestCase):
         self.assertEqual(
             self.store.get_recovery_control("production-20261009")["revision"], 300
         )
+        self.store.reserve_recovery_control(
+            recovery_id="production-20261009-quality1", routine_date="2026-10-09",
+            old_run_id="37579267266", expected_head_sha="b" * 40,
+            revision=301, owner_id="phase8-quality", now=NOW,
+        )
+        self.assertEqual(
+            self.store.latest_recovery_control("2026-10-09")["revision"], 301
+        )
+        with self.assertRaises(RetryBudgetExhausted):
+            self.store.reserve_recovery_control(
+                recovery_id="production-20261009-quality2", routine_date="2026-10-09",
+                old_run_id="37579267266", expected_head_sha="c" * 40,
+                revision=302, owner_id="phase8-quality2", now=NOW,
+            )
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()

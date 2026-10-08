@@ -916,6 +916,11 @@ def extract_attributes(product: Product) -> ProductAttributes:
     if product_type == "baby_care" and {"baby_lotion", "baby_cream"} & set(confirmed):
         confirmed.append("moisturizing")
     confirmed = list(dict.fromkeys(confirmed))
+    gauze_layers = set(
+        re.findall(r"([2-9２-９])\s*重\s*ガーゼ", product.text, flags=re.IGNORECASE)
+    )
+    if len(gauze_layers) > 1:
+        errors.append("source_fact_conflict: ガーゼ層数の記載が商品名と説明で一致しない")
     target_age_match = re.search(r"(\d+)\s*(?:歳|才)(?:\s*(?:から|以上|頃))?", text)
     target_age = f"{target_age_match.group(1)}歳" if target_age_match else ""
     quantities = list(
@@ -2919,22 +2924,23 @@ def product_specific_distinctive_copy(
             "素材表示と手入れ方法が分かり、日常の寝具準備で別の寝具を探し直す手間を減らせるアイテムです。",
         ]
     elif product_type == "swaddle":
-        titles = [f"{label}｜夜に着せる一枚に", f"{label}｜サイズと素材を確かめる", f"{label}｜ファスナー仕様を見る", f"{label}｜着せ方まで確認"]
+        has_zipper = "zipper" in features
+        titles = [f"{label}｜夜に着せる一枚に", f"{label}｜サイズと素材を確かめる", f"{label}｜着せ方まで確認", f"{label}｜洗濯方法まで確認"]
         pains = [
             "夜の着替えで使う一枚は、今の体格に合うサイズと素材か気になりますよね。",
-            "ファスナー付きの一枚を選ぶ時は、開閉方法と着せ方が家庭の支度に合うか気になりますよね。",
+            "開閉部分のある一枚を選ぶ時は、扱い方と着せ方が家庭の支度に合うか気になりますよね。" if has_zipper else "新生児期に使う布ものは、サイズだけでなく家庭の洗濯ペースにも合うか気になりますよね。",
             "寝る前に着せる一枚は、素材だけでなく商品記載の使用方法と注意事項も気になりますよね。",
             "毎晩使う布ものは、サイズ表と洗濯方法が家庭の手入れに合うか気になりますよね。",
         ]
         scenes = [
             f"{feature}なら、商品ページのサイズ表と着せ方から、夜の着替えに合う一枚か判断できます。",
-            f"{feature}なら、ファスナーの開閉方法と素材を確かめて、家族が扱えるか判断できます。",
+            f"{feature}なら、開閉方法と素材を確かめて、家族が扱えるか判断できます。" if has_zipper else f"{feature}なら、素材と洗濯方法を確かめて、家庭で手入れを続けられるか判断できます。",
             f"{feature}なら、メーカー記載の使用方法と注意事項を読んで、使う場面に合うか比べられます。",
             f"{feature}なら、サイズ・素材・洗濯方法を確認して、家庭で手入れを続けられるか判断できます。",
         ]
         closings = [
             "対象サイズ・素材・着せ方を先に確かめると、夜の着替えで一枚を選び直す時間を減らせる一枚です。",
-            "ファスナー仕様と洗濯方法を商品ページで確認でき、家族が扱い方で迷う時間を減らせる一枚です。",
+            "開閉仕様と洗濯方法を商品ページで確認でき、家族が扱い方で迷う時間を減らせる一枚です。" if has_zipper else "素材と洗濯方法を商品ページで確認でき、家庭の手入れに合わない一枚を選び直す時間を減らせるアイテムです。",
             "メーカー記載の使用方法と注意事項を読めるため、今の月齢で使う布ものを選び直す時間を減らせる一枚です。",
             "サイズ表と素材表示を照らし合わせ、家族も着せ方を共有できると、家庭の夜支度で迷う時間を減らせる一枚です。",
         ]

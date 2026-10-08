@@ -98,6 +98,12 @@ UNSUPPORTED_BABY_CARRIER_TERMS = [
     "スリング",
 ]
 
+# An "okurumi / swaddle" search result can actually be a flat blanket or
+# multi-cloth.  Wearable-swaddle copy (put on, zipper, size/fit) is unsafe for
+# those products.  Keep non-wearable cloths out until they have dedicated copy.
+NON_WEARABLE_SWADDLE_TERMS = ["ブランケット", "マルチクロス"]
+WEARABLE_SWADDLE_TERMS = ["ファスナー", "スリーパー", "モロー反射", "手が出せる", "足が出せる", "ねくるみ"]
+
 BABY_BEDDING_BASE_PATTERN = r"(?:抱っこ布団|ねんねクッション|ベビー布団)"
 BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
     rf"(?:"
@@ -196,6 +202,10 @@ def classify_room_product_type(product: Product) -> str:
     if contains_any(text, UNSUPPORTED_NURSING_DEVICE_TERMS):
         return "unknown"
     if contains_any(name_text, UNSUPPORTED_BABY_CARRIER_TERMS):
+        return "unknown"
+    if contains_any(name_text, NON_WEARABLE_SWADDLE_TERMS) and not contains_any(
+        name_text, WEARABLE_SWADDLE_TERMS
+    ):
         return "unknown"
     # Replacement covers are accessories, not the bedding body assumed by
     # the automatic copy.  Keep an actual futon/cushion sold with a cover
