@@ -2574,7 +2574,11 @@ def product_specific_distinctive_copy(
             "購入前に対象年齢・パーツの大きさ・手持ちブロックとの互換性を確認し、家庭で無理なく試せる組み立て遊びを増やせるおもちゃです。",
             f"対象年齢・パーツサイズ・{quantity_text}の内訳を確認すれば、親子で作りたい形を少しずつ増やせるおもちゃです。",
         ]
-    elif product_type == "baby_care" and len(baby_care_set_components(attributes)) >= 2 and "セット" in attributes.source_product_name:
+    elif (
+        product_type == "baby_care"
+        and is_baby_care_set(attributes.source_product_name)
+        and len(baby_care_set_components(attributes)) >= 2
+    ):
         care_components = baby_care_set_components(attributes)
         care_count = len(care_components)
         care_list = "、".join(care_components)

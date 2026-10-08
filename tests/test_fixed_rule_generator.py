@@ -1983,6 +1983,31 @@ class FixedRuleGeneratorTest(unittest.TestCase):
         self.assertEqual(generated.status, "ready", generated.quality_errors)
         self.assertIsNone(re.search(r"\d+品", f"{generated.title}{generated.body}"))
 
+    def test_baby_lotion_multipack_is_not_described_as_multi_step_care_set(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name=(
+                "【2個セット】ベビーミルクローション うるおいプラス "
+                "詰めかえ用2回分 500g×2個 0ヵ月〜 ベビーローション "
+                "スキンケア ボディケア 保湿"
+            ),
+            caption="赤ちゃんの肌に使う保湿ローションの詰めかえ用です。",
+            catchcopy="",
+            url="https://example.com/baby-care/lotion-refill-2",
+        )
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 10, 9)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertEqual(generated.attributes.short_product_label, "ベビー保湿剤")
+        combined = f"{generated.title}{generated.body}"
+        self.assertNotIn("髪・体・保湿", combined)
+        self.assertNotIn("洗う物", combined)
+        self.assertNotIn("セット内容の使う順番", combined)
+        self.assertTrue(any(term in combined for term in ["保湿", "ローション"]))
+
     def test_unsupported_title_scene_is_rejected(self) -> None:
         generated = generate("activity_cube")
         changed = replace(
