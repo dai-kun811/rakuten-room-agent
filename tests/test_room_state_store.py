@@ -525,6 +525,114 @@ class RoomStateStoreTests(unittest.TestCase):
                                        next_action="wait for Phase 6 authorization", now=NOW)
         self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.NEEDS_HUMAN.value)
 
+    def test_authenticated_post_edit_resolves_quality_incident_without_rewriting_send(self) -> None:
+        slot = self.store.create_slot(
+            "2026-10-08", "evening", status=SlotStatus.READY,
+            manifest_revision=299,
+            normalized_url="https://item.rakuten.co.jp/calmisence/hipseatse",
+            content_hash="a" * 64,
+            product_type="wipes",
+            now=NOW,
+        )
+        attempt = self.store.claim_post_attempt(
+            "2026-10-08", "evening", expected_version=slot.version, now=NOW
+        )
+        self.store.advance_post_attempt(
+            attempt.attempt_id,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.SUBMITTING,
+            target_attempt_status=SlotStatus.SUBMITTING.value,
+            submit_started=True,
+            now=NOW,
+        )
+        self.store.advance_post_attempt(
+            attempt.attempt_id,
+            expected_attempt_status=SlotStatus.SUBMITTING.value,
+            expected_slot_status=SlotStatus.SUBMITTING,
+            target_slot_status=SlotStatus.UNCERTAIN,
+            target_attempt_status=SlotStatus.UNCERTAIN.value,
+            submit_started=True,
+            now=NOW,
+        )
+        post_result_incident = self.store.create_incident(
+            "2026-10-08",
+            reason=ReasonCode.POST_RESULT_UNCERTAIN,
+            slot="evening",
+            component="orchestrator",
+            last_safe_state=SlotStatus.UNCERTAIN.value,
+            manifest_revision=299,
+            next_action="verify authenticated ROOM",
+            now=NOW,
+        )
+        self.store.transition_incident(
+            post_result_incident,
+            expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.NEEDS_HUMAN,
+            next_action="verify authenticated ROOM",
+            now=NOW,
+        )
+        self.store.resolve_uncertain_as_posted(
+            "2026-10-08",
+            "evening",
+            evidence_source="authenticated_room_detail",
+            evidence_note="original post is present; no repost",
+            now=NOW,
+        )
+        incident = self.store.create_incident(
+            "2026-10-08",
+            reason=ReasonCode.COPY_VALIDATION_REGRESSION,
+            slot="evening",
+            component="generator",
+            last_safe_state=SlotStatus.POSTED.value,
+            manifest_revision=299,
+            next_action="edit public post",
+            now=NOW,
+        )
+        self.store.transition_incident(
+            incident,
+            expected_status=IncidentStatus.OPEN,
+            target_status=IncidentStatus.NEEDS_HUMAN,
+            next_action="edit public post",
+            now=NOW,
+        )
+
+        corrected = "b" * 64
+        result = self.store.record_authenticated_post_edit(
+            "2026-10-08",
+            "evening",
+            incident_id=incident,
+            public_room_url="https://room.rakuten.co.jp/tora_papa/1700396196370481",
+            corrected_comment_hash=corrected,
+            evidence_source="authenticated_room_detail",
+            evidence_note="exact body, five tags, product link and image matched",
+            now=NOW,
+        )
+
+        self.assertEqual(result.status, SlotStatus.POSTED)
+        self.assertEqual(result.content_hash, "a" * 64)
+        preserved_attempt = self.store.get_post_attempt(attempt.attempt_id)
+        self.assertEqual(preserved_attempt["status"], SlotStatus.POSTED.value)
+        self.assertEqual(preserved_attempt["content_hash"], "a" * 64)
+        self.assertEqual(
+            self.store.get_incident(incident)["status"], IncidentStatus.RESOLVED.value
+        )
+        with closing(self.store.connect()) as connection:
+            event = connection.execute(
+                """SELECT payload_json FROM events
+                   WHERE aggregate_type = 'slot' AND aggregate_key = ?
+                   AND from_status = ? AND to_status = ?
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (
+                    "2026-10-08:evening",
+                    SlotStatus.POSTED.value,
+                    SlotStatus.POSTED.value,
+                ),
+            ).fetchone()
+        payload = json.loads(event["payload_json"])
+        self.assertEqual(payload["corrected_comment_hash"], corrected)
+        self.assertFalse(payload["reposted"])
+
     def test_previous_day_expire_and_catch_up_hold_uncertain(self) -> None:
         self.store.create_slot("2026-10-05", "morning", status=SlotStatus.READY, now=NOW)
         self.store.create_slot("2026-10-05", "noon", status=SlotStatus.UNCERTAIN, now=NOW)

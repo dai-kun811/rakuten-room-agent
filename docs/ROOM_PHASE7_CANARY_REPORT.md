@@ -149,3 +149,16 @@ At that point Phase 7 stopped at the human-safety gate; automatic reposting rema
 - The root classification path now sends hip-seat/baby-carrier/sling terms, including Japanese and English variants, to `unknown` until carrier-specific attributes and copy exist. Eight carrier variants and normal wipes/diaper non-regression are covered; all 357 tests pass and an independent safety review passed.
 - The actual public post remains present and factually mismatched. DB, submitted attempt, legacy ledger, and ROOM agree that it was posted, while incident `2026-10-08-copy_validation_regression-61895840` remains `NEEDS_HUMAN` for the quality failure.
 - Automatic delete, edit, or corrective repost is prohibited because it is destructive or can create a duplicate. Phase 7 therefore remains incomplete and Phase 8 has not started.
+
+## 2026-10-08 authenticated in-place correction and Phase 7 completion
+
+- After explicit action-time approval, the existing public ROOM post was edited in place. It was not deleted and no new post was created.
+- The unchanged ROOM post URL is `https://room.rakuten.co.jp/tora_papa/1700396196370481`; its Rakuten Market target remains `https://item.rakuten.co.jp/calmisence/hipseatse`, and the displayed images remain under `shop.r10s.jp/calmisence/.../hip`.
+- The public comment now describes a hip seat, states only grounded attributes (waist-sitting age through about 36 months, recommended load up to 20 kg, waist about 70-115 cm, slip-resistant seat and storage pockets), and uses the five matching tags `#ヒップシート #抱っこ紐 #子連れ外出 #収納ポケット #とらパパ厳選`.
+- The exact 231-character corrected comment has SHA-256 `6fef9cc046fdacfbeb8b03604e7dbfd17ee1b2b99959912e5541072e07cfe2ab`. The authenticated detail page showed the exact full comment, all tags, matching product title/link and matching images immediately after save.
+- A compensating `POSTED -> POSTED` audit event records the public edit and preserves the original manifest/post-attempt hashes as immutable send history. Incident `2026-10-08-copy_validation_regression-61895840` is `RESOLVED` with `reposted=false`.
+- Pre-reconciliation SQLite backup: `.local/room-worker/rollback/phase7-post-edit-pre-reconcile-20261008.db`. SQLite quick check is `ok`.
+- Morning, noon and evening are all revision 299 `POSTED`; each has exactly one final posted attempt and one compatibility-ledger posted row. Historical failed/confirmed-absent attempts remain immutable. There are no unresolved 2026-10-08 incidents and no duplicate ROOM submission occurred.
+- The new reconciliation path is atomic and refuses non-POSTED slots, non-POSTED attempts, mismatched incidents, invalid ROOM URLs and invalid hashes. Full regression: 358 tests passed; `git diff --check` passed.
+
+Phase 7 completion gate is satisfied. Phase 8 may start, but its seven-day production observation requirement remains unchanged and cannot be collapsed into this canary day.

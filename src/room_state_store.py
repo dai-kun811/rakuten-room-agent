@@ -825,6 +825,135 @@ class RoomStateStore:
                 timestamp=timestamp,
             )
 
+    def record_authenticated_post_edit(
+        self,
+        routine_date: date | str,
+        slot: str,
+        *,
+        incident_id: str,
+        public_room_url: str,
+        corrected_comment_hash: str,
+        evidence_source: str,
+        evidence_note: str,
+        now: datetime | None = None,
+    ) -> SlotRecord:
+        """Record an authenticated in-place edit without rewriting send history.
+
+        The manifest and post-attempt hashes describe what was originally sent
+        and therefore remain immutable.  The corrected public comment hash is
+        stored as a compensating audit event while the quality incident is
+        resolved atomically.  This prevents an edit from looking like a second
+        send or silently changing the accepted manifest revision.
+        """
+        day = _date_text(routine_date)
+        _validate_slot(slot)
+        room_url = public_room_url.strip()
+        comment_hash = corrected_comment_hash.strip().lower()
+        source = evidence_source.strip()
+        note = evidence_note.strip()
+        if not room_url.startswith("https://room.rakuten.co.jp/"):
+            raise StateStoreError("authenticated ROOM post URL is required")
+        if len(comment_hash) != 64 or any(
+            character not in "0123456789abcdef" for character in comment_hash
+        ):
+            raise StateStoreError("corrected comment hash must be lowercase sha256")
+        if not source or not note:
+            raise StateStoreError("authenticated edit evidence is required")
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?",
+                (day, slot),
+            ).fetchone()
+            attempt = connection.execute(
+                """SELECT * FROM post_attempts WHERE routine_date = ? AND slot = ?
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (day, slot),
+            ).fetchone()
+            incident = connection.execute(
+                "SELECT * FROM incidents WHERE incident_id = ?",
+                (incident_id,),
+            ).fetchone()
+            if row is None or row["status"] != SlotStatus.POSTED.value:
+                actual = "missing" if row is None else str(row["status"])
+                raise StateConflictError(
+                    f"post edit requires a posted slot: {day}:{slot} actual={actual}"
+                )
+            if (
+                attempt is None
+                or attempt["status"] != SlotStatus.POSTED.value
+                or not int(attempt["submit_started"])
+            ):
+                raise StateConflictError("post edit requires one submitted posted attempt")
+            if (
+                incident is None
+                or incident["routine_date"] != day
+                or incident["slot"] != slot
+                or incident["reason_code"] != ReasonCode.COPY_VALIDATION_REGRESSION.value
+                or incident["status"] != IncidentStatus.NEEDS_HUMAN.value
+            ):
+                raise StateConflictError("matching copy-validation incident is not resolvable")
+            terminal_fingerprint = self._terminal_incident_fingerprint(
+                connection, incident, IncidentStatus.RESOLVED
+            )
+            resolved = connection.execute(
+                """UPDATE incidents SET fingerprint = ?, status = ?, next_action = ?, updated_at = ?
+                   WHERE incident_id = ? AND status = ?""",
+                (
+                    terminal_fingerprint,
+                    IncidentStatus.RESOLVED.value,
+                    "authenticated ROOM edit verified; no repost",
+                    timestamp,
+                    incident_id,
+                    IncidentStatus.NEEDS_HUMAN.value,
+                ),
+            )
+            if resolved.rowcount != 1:
+                raise StateConflictError("authenticated post-edit incident resolution failed")
+            payload = {
+                "event": "authenticated_room_post_edited",
+                "attempt_id": str(attempt["attempt_id"]),
+                "manifest_revision": row["manifest_revision"],
+                "original_content_hash": str(row["content_hash"]),
+                "corrected_comment_hash": comment_hash,
+                "public_room_url": room_url,
+                "evidence_source": source,
+                "evidence_note": note,
+                "reposted": False,
+            }
+            self._append_event(
+                connection,
+                routine_date=day,
+                aggregate_type="slot",
+                aggregate_key=f"{day}:{slot}",
+                from_status=SlotStatus.POSTED.value,
+                to_status=SlotStatus.POSTED.value,
+                payload=payload,
+                timestamp=timestamp,
+            )
+            self._append_event(
+                connection,
+                routine_date=day,
+                aggregate_type="incident",
+                aggregate_key=incident_id,
+                from_status=IncidentStatus.NEEDS_HUMAN.value,
+                to_status=IncidentStatus.RESOLVED.value,
+                payload={
+                    "event": "authenticated_room_post_edit_verified",
+                    "corrected_comment_hash": comment_hash,
+                    "public_room_url": room_url,
+                    "root_cause_fingerprint": self._root_cause_incident_fingerprint(incident),
+                    "reposted": False,
+                },
+                timestamp=timestamp,
+            )
+            updated = connection.execute(
+                "SELECT * FROM slots WHERE routine_date = ? AND slot = ?",
+                (day, slot),
+            ).fetchone()
+        assert updated is not None
+        return _slot_record(updated)
+
     def resolve_uncertain_as_posted(
         self,
         routine_date: date | str,

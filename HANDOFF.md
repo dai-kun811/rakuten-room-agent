@@ -21,7 +21,7 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-08 19:07 JST
+最終更新: 2026-10-09 00:02 JST
 
 ## 2026-10-08 Phase 7 canary 現在位置
 
@@ -38,8 +38,10 @@
 - evening送信後は`UNCERTAIN`だったが、認証済みROOMで完全一致本文+5 hashtags、商品数229→230、`shop.r10s.jp/calmisence/.../hip`画像を確認。再投稿せずslot/attemptを`POSTED`、post-result incidentを`RESOLVED`、旧ledgerへ1行同期した。同一evening再実行も`attempt_id=null`のno-op。
 - evening候補は実商品がヒップシートなのに、商品名中の「おしりふき収納ポケット」と耐荷重`20kg`をおしりふき本体・数量と誤認し、公開本文を「20kg入りのおしりふき」と生成していた。投稿成否と商品画像は確定しているが、投稿品質は不合格。
 - carrier語を商品本体の強いidentityとして分類前に`unknown`へ落とす一般修正を追加。日本語・英語8表記と通常wipes/diaper非回帰をテストし、全357テスト合格。独立安全レビューも合格。commit `2e2322b`。
-- `2026-10-08-copy_validation_regression-61895840`を`NEEDS_HUMAN`で記録。公開済み誤本文の削除・編集・再投稿は破壊的または二重投稿判断を伴うため自動実行しない。Phase 7は品質ゲート未通過、Phase 8以降は未着手。旧Windowsタスクと自動スケジュールは無効のまま。
-- 次の一手は、公開済みevening投稿を「削除する」「ROOMで編集できる場合は本文を訂正する」「誤投稿として残す」のどれにするかユーザー判断。再投稿はしない。判断後に実ROOM、DB、attempt、ledger、incidentを再整合し、Phase 7完了判定を行う。
+- ユーザーのaction-time承認後、既存evening投稿`https://room.rakuten.co.jp/tora_papa/1700396196370481`を削除・再投稿せず、その場で正しいヒップシート本文と5タグへ編集した。市場URL`calmisence/hipseatse`、`calmisence/.../hip`画像、231文字本文、5タグの完全一致を認証済みROOMで確認した。
+- 原manifest/attempt hashを送信履歴として保持しつつ、修正文SHA-256と公開URLを`POSTED -> POSTED`補償eventへ保存する原子的な編集記録を追加。incident `2026-10-08-copy_validation_regression-61895840`は`RESOLVED`、`reposted=false`。事前DBバックアップは`.local/room-worker/rollback/phase7-post-edit-pre-reconcile-20261008.db`。
+- SQLite quick check正常、revision 299のmorning/noon/eveningは全て`POSTED`、互換ledgerは各slot 1行、当日未解決incident 0、実ROOMとのURL/本文/画像/タグ不一致0。全358テストと`git diff --check`が合格。Phase 7完了条件を満たした。
+- Phase 8は次運用日から新Orchestrator全面移行へ進める。ただし完了条件は7日以上の本番観測であり、旧AutoPoster・GenerationGuard・PostGuardは削除せず無効のまま保持する。正常日のCodex起動0、二重投稿0、20:30監査一致を観測するまでPhase 9へ進めない。
 
 ## 次回セッションで最初にやること（セッション終了時に必ず書き換える）
 
