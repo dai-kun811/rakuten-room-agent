@@ -21,7 +21,18 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-09 00:02 JST
+最終更新: 2026-10-09 00:09 JST
+
+## 2026-10-09 Phase 8 Orchestrator 全面移行（観測中）
+
+- Phase 7はrevision 299の3枠POSTED、公開evening本文是正、DB/attempt/incident/旧ledger/実ROOM整合まで完了済み。同一枠の再投稿は禁止。
+- 固定HEAD・日次recovery ID・単調revision・過去POSTED URLを使う`src/room_phase8_runner.py`を実装し、commit `144f378`を移行branchとmainへfast-forward pushした。
+- 通常生成は停止中の`daily.yml`を再有効化せず、workflow_dispatch専用`room-fenced-recovery.yml`だけを使う。旧queued run `37579267266`はAPI上queuedだが、`daily.yml=disabled_manually`のままで生成所有権を持てない。
+- 新Windowsタスク`RakutenROOMOrchestrator`を1件だけ有効化。07:00生成、08:00/08:20、12:00/12:20、19:00/19:20、20:30監査。`IgnoreNew`、45分上限、`StartWhenAvailable=true`。旧`DailyEngagement`/`GenerationGuard`/`AutoPoster`/`PostGuard`は全てDisabledのまま。
+- 1起動でROOM送信は最大1枠。POSTEDはno-op。未解決CLAIMED/SUBMITTING/SUBMITTED_UNCONFIRMED/UNCERTAINは後続枠をfail-closed。20:30以降は投稿せずDB・latest attempt・旧ledger・incident監査のみ。
+- 全362テスト、`git diff --check`、秘密情報差分scan、origin divergence 0/0に合格。登録前DBは`.local/room-worker/rollback/phase8-pre-enable-20261009.db`、登録タスクXMLは`.local/room-worker/rollback/RakutenROOMOrchestrator-phase8.xml`へ退避。
+- 初回実運用は2026-10-09 07:00 JST。Phase 8の完了には最低7日連続で二重投稿0、誤slot0、false POSTED 0、incident欠落0、20:30監査一致、旧タスク未使用、通常経路のCodex復旧0が必要。完了まではPhase 9へ進まない。
+- heartbeat `room-phase-7-timed-continuation`は`ROOM Phase 8 observation`へ改名し、毎日20:45 JSTに上記証跡だけを差分確認する。正常時に完了済みテストや解析を繰り返さない。
 
 ## 2026-10-08 Phase 7 canary 現在位置
 
