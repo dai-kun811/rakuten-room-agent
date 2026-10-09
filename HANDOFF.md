@@ -33,7 +33,7 @@
 - revision 301のeveningは実商品がベビーミルクローション詰め替え2個パックなのに、`2個セット`と複合語`ベビーミルクローション`を複数工程ケアセットと誤認し、髪・体・保湿のセット本文を生成したため品質不合格。事前バックアップ`.local/room-worker/rollback/phase8-20261009-evening-quality-block.db`後にeveningを`BLOCKED`、incident `2026-10-09-copy_validation_regression-50c0faa1`を`BUDGET_EXHAUSTED`へ遷移し、19:00投稿をfail-closedした。
 - 原因修正ではケアセット専用テンプレートを「商品名に洗浄用品と保湿用品が両方明示された場合だけ」に限定。実商品の同一source evidence再生成は保湿ローション本文へ修正され、ケアセット非回帰を含む全367テスト、diff checkに合格。commit `1980cd6`を移行branch/mainへ通常push済み。
 - Day 1はevening未投稿となるためPhase 8のqualifying dayには数えない。品質基準やgeneration budgetを迂回せず、noonを予定どおり検証し、20:30監査/20:45 heartbeatで当日証跡を閉じる。翌日境界でblocked eveningとincidentを設計どおりexpireし、修正済みHEADから新しいroutine dateを開始する。Phase 9は禁止のまま。
-- 20:30 auditはnoon/evening未達とopen incidentを検出し、noon確定後の再監査ではevening blockだけが残った。終端`BUDGET_EXHAUSTED` incidentを後続正常日のaudit失敗にしないよう、`audit_day`のactive incident判定を修正し、NEEDS_HUMAN/in-flightは引き続きfail-closedとするfocused回帰・全368テストに合格。commit/push前の差分監査中。
+- 20:30 auditはnoon/evening未達とopen incidentを検出し、noon確定後の再監査ではevening blockだけが残った。終端`BUDGET_EXHAUSTED` incidentを後続正常日のaudit失敗にしないよう、`audit_day`のactive incident判定を修正し、NEEDS_HUMAN/in-flightは引き続きfail-closedとするfocused回帰・全368テストに合格。commit `b478cd2`を移行branch/mainへ通常push済み。
 
 - Phase 7はrevision 299の3枠POSTED、公開evening本文是正、DB/attempt/incident/旧ledger/実ROOM整合まで完了済み。同一枠の再投稿は禁止。
 - 固定HEAD・日次recovery ID・単調revision・過去POSTED URLを使う`src/room_phase8_runner.py`を実装し、commit `144f378`を移行branchとmainへfast-forward pushした。
