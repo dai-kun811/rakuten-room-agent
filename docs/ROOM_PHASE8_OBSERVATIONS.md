@@ -7,7 +7,7 @@
 - A day counts toward the seven-day gate only when all three slots have conclusive evidence and every gate column is `0` or `OK`.
 - `UNCERTAIN` is never cleared from scheduler evidence alone. Correlate the authenticated ROOM before resolving it, and never resend unless absence and duplicate safety are technically proven.
 - Keep `RakutenROOMOrchestrator` as the only enabled posting owner. Keep the four legacy Windows tasks and `daily.yml` disabled.
-- Phase 9 remains blocked until seven distinct qualifying routine dates exist.
+- Phase 9 remains blocked until at least seven distinct qualifying routine dates exist; the dates may be consecutive or cumulative, but every counted date must satisfy all gates simultaneously.
 
 ## Daily gate ledger
 
@@ -31,5 +31,5 @@
 ## Seven-day completion summary
 
 - Qualifying dates: 0 / 7
-- Phase 8 status: `OBSERVING`
+- Phase 8 status: `OBSERVING` (Day 1 retained as non-qualifying evidence)
 - Phase 9 authorization: `BLOCKED_UNTIL_GATE_PASSES`

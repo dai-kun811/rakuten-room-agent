@@ -41,7 +41,7 @@
 - 新Windowsタスク`RakutenROOMOrchestrator`を1件だけ有効化。07:00生成、08:00/08:20、12:00/12:20、19:00/19:20、20:30監査。`IgnoreNew`、45分上限、`StartWhenAvailable=true`。旧`DailyEngagement`/`GenerationGuard`/`AutoPoster`/`PostGuard`は全てDisabledのまま。
 - 1起動でROOM送信は最大1枠。POSTEDはno-op。未解決CLAIMED/SUBMITTING/SUBMITTED_UNCONFIRMED/UNCERTAINは後続枠をfail-closed。20:30以降は投稿せずDB・latest attempt・旧ledger・incident監査のみ。
 - 全362テスト、`git diff --check`、秘密情報差分scan、origin divergence 0/0に合格。登録前DBは`.local/room-worker/rollback/phase8-pre-enable-20261009.db`、登録タスクXMLは`.local/room-worker/rollback/RakutenROOMOrchestrator-phase8.xml`へ退避。
-- 初回実運用は2026-10-09 07:00 JST。Phase 8の完了には最低7日連続で二重投稿0、誤slot0、false POSTED 0、incident欠落0、20:30監査一致、旧タスク未使用、通常経路のCodex復旧0が必要。完了まではPhase 9へ進まない。
+- 初回実運用は2026-10-09 07:00 JST。Phase 8の完了には、連続または累計で最低7日分、各日について二重投稿0、誤slot0、false POSTED 0、重大なUNCERTAINなし、品質事故0、DB/attempt/ledger/実ROOM不整合0、重大incident未解決0、監視不一致0、旧タスク未使用、通常経路のCodex復旧最小を満たす必要がある。完了まではPhase 9へ進まない。
 - heartbeat `room-phase-7-timed-continuation`は`ROOM Phase 8 observation`へ改名し、毎日20:45 JSTに上記証跡だけを差分確認する。正常時に完了済みテストや解析を繰り返さない。
 - ユーザーの7日観測継続指示を反映し、heartbeatを`ROOM Phase 8 seven-day observation`へ更新。日次正本は`docs/ROOM_PHASE8_OBSERVATIONS.md`。当日未経過の結果は推測せずpendingとし、20:45に当日差分だけを記録する。7日ゲート通過前のPhase 9開始は禁止。
 
