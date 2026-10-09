@@ -293,9 +293,14 @@ def audit_day(store: RoomStateStore, ledger_path: Path, routine_date: str) -> di
             ).fetchone()
             if attempt is None or attempt["status"] != SlotStatus.POSTED.value or not int(attempt["submit_started"]):
                 errors.append(f"{slot}:attempt_mismatch")
+    # ``budget_exhausted`` is a terminal audit record, not an active
+    # incident.  It must remain in the snapshot for accountability but must
+    # not poison later healthy-day audits after the bounded recovery budget
+    # was deliberately consumed.  NEEDS_HUMAN and all in-flight states still
+    # fail closed.
     open_incidents = [
         value for value in snapshot["incidents"]
-        if value["status"] not in {"resolved"}
+        if value["status"] not in {"resolved", "budget_exhausted"}
     ]
     if open_incidents:
         errors.append("open_incidents")

@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from room_operation_contract import POST_SLOTS, SlotStatus
+from room_operation_contract import IncidentStatus, POST_SLOTS, ReasonCode, SlotStatus
 from room_orchestrator_worker import execute
 from room_phase8_runner import (
     GenerationFence,
@@ -159,6 +159,32 @@ class RoomPhase8RunnerTests(unittest.TestCase):
                     "normalized_url": "https://item.rakuten.co.jp/shop/wrong",
                 }) + "\n")
             self.assertFalse(audit_day(store, ledger, "2026-10-09")["ok"])
+
+    def test_terminal_budget_exhausted_incident_does_not_fail_later_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = RoomStateStore(root / "operations.db")
+            ledger = root / "ledger.jsonl"
+            value = phase8_manifest()
+            evening = datetime(2026, 10, 9, 10, 5, tzinfo=timezone.utc)
+            for slot in POST_SLOTS:
+                result = execute(
+                    manifest=value, slot=slot, active_slots=set(POST_SLOTS), now=evening,
+                    apply=True, store=store, gateway=Gateway(), legacy_ledger_path=ledger,
+                )
+                self.assertEqual(result["status"], SlotStatus.POSTED.value)
+            incident = store.create_incident(
+                "2026-10-09", reason=ReasonCode.COPY_VALIDATION_REGRESSION,
+                last_safe_state=SlotStatus.BLOCKED.value,
+                next_action="bounded budget exhausted", slot="evening",
+                manifest_revision=300, now=NOW,
+            )
+            store.transition_incident(
+                incident, expected_status=IncidentStatus.OPEN,
+                target_status=IncidentStatus.BUDGET_EXHAUSTED,
+                next_action="terminal audit record", now=NOW,
+            )
+            self.assertTrue(audit_day(store, ledger, "2026-10-09")["ok"])
 
 
 if __name__ == "__main__":

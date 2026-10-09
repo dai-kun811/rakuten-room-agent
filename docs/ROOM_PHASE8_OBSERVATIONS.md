@@ -13,7 +13,7 @@
 
 | JST routine date | Slots / ROOM | Duplicate | Wrong slot | False POSTED | UNCERTAIN | DB-attempt-ledger-ROOM | Fence | Retry / incident | 20:30 vs 20:45 | Copy quality | Normal-path Codex recovery | Qualifies |
 |---|---|---:|---:|---:|---:|---|---|---|---|---|---|---|
-| 2026-10-09 | pending | — | — | — | — | pending | pending | pending | pending | pending | pending | No |
+| 2026-10-09 | morning POSTED; noon POSTED; evening BLOCKED | 0 | 0 | 0 | 1 resolved | morning/noon aligned; evening intentionally blocked | OK | 2/2 generation budget; terminal copy incident | 20:30 failed, 20:47 rechecked | 1 pre-post defect blocked | 2 bounded generation runs; one recovery | No |
 
 ## Evidence notes
 
@@ -23,9 +23,10 @@
 - Expected first run: fenced generation at 07:00 JST; posting gates at 08:00, 12:00, and 19:00; local audit at 20:30; heartbeat correlation at 20:45.
 - Base run `37850610183` / revision 300 succeeded. Morning was reconciled from `UNCERTAIN` to `POSTED` only after authenticated ROOM showed the exact full comment, five tags, product image, and profile count change; it was not resent.
 - The revision 300 copy audit found two pre-post defects. General classification/evidence fixes passed regression, then the final allowed daily generation budget produced run `37858210514` / revision 301. Morning remained immutable at revision 300; noon/evening alone moved to revision 301.
-- Revision 301 noon is a fact-matched three-layer gauze sleeper and remains eligible for its 12:00 gate. Revision 301 evening misread a two-pack lotion refill as a multi-step wash-and-moisturize set. It was blocked before any attempt and incident `2026-10-09-copy_validation_regression-50c0faa1` records the exhausted 2/2 generation budget.
+- Revision 301 noon initially returned `UNCERTAIN` after submit. The authenticated ROOM showed the exact full manifest body and five tags, profile count 232, and the `housei-baby` product image; DB URL/content hash and submit-started attempt matched. It was reconciled to `POSTED` without repost, and the compatibility ledger was synced once.
+- Revision 301 evening misread a two-pack lotion refill as a multi-step wash-and-moisturize set. It was blocked before any attempt and incident `2026-10-09-copy_validation_regression-50c0faa1` records the exhausted 2/2 generation budget.
 - Root cause was fixed generally in commit `1980cd6`; same-source regeneration now produces lotion-specific copy, and all 367 tests pass. No third generation, local manifest rewrite, quality relaxation, or evening post is permitted today.
-- This date cannot qualify because a copy-quality defect required Codex recovery and evening is intentionally blocked. Noon, the 20:30 audit, and the 20:45 correlation are still pending and must be recorded without inferring future results.
+- The 20:30 audit correctly detected noon unresolved and evening not posted. After authenticated noon reconciliation, the remaining failure is only the intentional evening block. A focused audit fix now treats terminal `BUDGET_EXHAUSTED` as historical evidence while continuing to fail on `NEEDS_HUMAN` and in-flight incidents; the date still cannot qualify because evening is not posted and copy quality required recovery.
 
 ## Seven-day completion summary
 
