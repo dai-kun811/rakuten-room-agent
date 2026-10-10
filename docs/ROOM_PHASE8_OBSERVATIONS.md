@@ -14,6 +14,7 @@
 | JST routine date | Slots / ROOM | Duplicate | Wrong slot | False POSTED | UNCERTAIN | DB-attempt-ledger-ROOM | Fence | Retry / incident | 20:30 vs 20:45 | Copy quality | Normal-path Codex recovery | Qualifies |
 |---|---|---:|---:|---:|---:|---|---|---|---|---|---|---|
 | 2026-10-09 | morning POSTED; noon POSTED; evening BLOCKED | 0 | 0 | 0 | 1 resolved | morning/noon aligned; evening intentionally blocked | OK | 2/2 generation budget; terminal copy incident | 20:30 failed, 20:47 rechecked | 1 pre-post defect blocked | 2 bounded generation runs; one recovery | No |
+| 2026-10-10 | morning POSTED; noon READY (window missed); evening READY (ordered canary stopped) | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 302 / production-20261010 / fenced HEAD) | 20:30 failed closed on unresolved morning; 20:49 reconciled; no post after audit cutoff | 3 generated copies passed manifest quality checks | 1 bounded generation run; no Codex recovery | No |
 
 ## Evidence notes
 
@@ -27,6 +28,13 @@
 - Revision 301 evening misread a two-pack lotion refill as a multi-step wash-and-moisturize set. It was blocked before any attempt and incident `2026-10-09-copy_validation_regression-50c0faa1` records the exhausted 2/2 generation budget.
 - Root cause was fixed generally in commit `1980cd6`; same-source regeneration now produces lotion-specific copy. The follow-up audit-terminal-state fix is commit `b478cd2`; all 368 tests pass. No third generation, local manifest rewrite, quality relaxation, or evening post is permitted today.
 - The 20:30 audit correctly detected noon unresolved and evening not posted. After authenticated noon reconciliation, the remaining failure is only the intentional evening block. A focused audit fix now treats terminal `BUDGET_EXHAUSTED` as historical evidence while continuing to fail on `NEEDS_HUMAN` and in-flight incidents; the date still cannot qualify because evening is not posted and copy quality required recovery.
+
+### 2026-10-10
+
+- Fenced generation run `37996742815` produced revision 302 under recovery `production-20261010` and the accepted HEAD fence. All three manifest candidates were `ready` with quality status `passed` (scores 93/85/95); no replacement generation was used.
+- The 08:01 morning submission was `UNCERTAIN` with `submit_started=1`. At 20:49 JST, authenticated ROOM `tora_papa/items` showed the exact full morning comment and five hashtags, the `kyarahouse/7175562` item identity/image, and profile collect count 233. It was reconciled to `POSTED` without repost; the attempt and post-result incident were resolved and the compatibility ledger received one idempotent `posted` row (the prior `reserved` row remains audit history).
+- Noon and evening had no attempts; noon missed its window and the ordered canary was not resumed after the 20:30 audit cutoff. No late posting or catch-up was performed. This date is non-qualifying; the slots will be expired at the normal JST cutoff/boundary without reuse.
+- SQLite quick check was `ok`; no duplicate, wrong-slot, false-POSTED, or DB/attempt/ledger/ROOM inconsistency was observed after reconciliation. The 20:30 audit failure was the expected fail-closed response to the unresolved morning result and missed later slots.
 
 ## Seven-day completion summary
 

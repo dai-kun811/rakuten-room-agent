@@ -21,7 +21,14 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-09 20:52 JST
+最終更新: 2026-10-10 20:50 JST
+
+## 2026-10-10 Phase 8 Day 2 observation
+
+- Fenced generation `37996742815` / recovery `production-20261010` / manifest revision `302` completed under the accepted HEAD fence. All three generated texts passed manifest quality checks (scores 93/85/95); no regeneration was used.
+- Morning initially became `UNCERTAIN` after submission (`submit_started=1`). Authenticated ROOM `tora_papa/items` showed the exact full comment and five hashtags, matching `kyarahouse/7175562` product identity/image, and profile collect count 233. It was atomically reconciled to `POSTED` at 20:49 JST with no repost; DB, attempt, resolved incident, and compatibility ledger agree. Backup: `.local/room-worker/rollback/phase8-20261010-morning-pre-reconcile.db`.
+- Noon missed its window and evening had no attempt because the ordered canary was not resumed after the 20:30 audit cutoff. No late posting or catch-up was performed; expire both at the normal JST cutoff/boundary and do not reuse them. Day 2 is non-qualifying.
+- SQLite quick check is `ok`; no duplicate, wrong-slot, false-POSTED, fence, or ledger inconsistency remains. Phase 9 stays blocked; continue Phase 8 daily observation and only inspect new evidence.
 
 ## 2026-10-09 Phase 8 Orchestrator 全面移行（観測中）
 
