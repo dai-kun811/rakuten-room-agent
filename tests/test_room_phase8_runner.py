@@ -108,6 +108,30 @@ class RoomPhase8RunnerTests(unittest.TestCase):
             self.assertIn("shop/old", inputs["posted_history_urls"])
             self.assertEqual(json.loads(fence.control_path.read_text())["status"], "dispatched")
 
+    def test_pre_dispatch_head_rebind_is_bounded_and_keeps_single_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = RoomStateStore(root / "operations.db")
+            store.reserve_recovery_control(
+                recovery_id="production-20261011", routine_date="2026-10-11",
+                old_run_id="37579267266", expected_head_sha="b" * 40,
+                revision=303, owner_id="phase8-2026-10-11", now=NOW,
+            )
+            fence = GenerationFence(
+                "production-20261011", "2026-10-11", "b" * 40, 303,
+                "phase8-2026-10-11", root / "recovery",
+            )
+            session = Session()
+            with patch("room_phase8_runner._git_head", return_value="a" * 40):
+                self.assertTrue(dispatch_generation_once(
+                    session, headers={}, store=store, fence=fence, now=NOW
+                ))
+            self.assertEqual(fence.head_sha, "a" * 40)
+            control = store.get_recovery_control("production-20261011")
+            self.assertEqual(control["expected_head_sha"], "a" * 40)
+            self.assertEqual(control["budget_consumed"], 1)
+            self.assertEqual(session.posts[0][1]["inputs"]["expected_head_sha"], "a" * 40)
+
     def test_earliest_due_slot_only_and_uncertain_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             store = RoomStateStore(Path(temp) / "operations.db")

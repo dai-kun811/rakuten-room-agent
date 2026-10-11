@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-10 20:50 JST
+最終更新: 2026-10-11 20:50 JST
+
+## 2026-10-11 Phase 8 Day 3 observation
+
+- The Orchestrator stopped before generation because recovery `production-20261011` revision 303 was reserved against the prior local HEAD while `origin/main` was still one observation commit behind. No Actions dispatch, artifact generation, slot creation, browser action, or ROOM write occurred.
+- Root cause was a pre-dispatch Git fence timing race. `origin/main` was fast-forwarded normally to the reviewed observation commit; `dispatch_generation_once` now rebinds only a pre-dispatch lease when local and remote HEAD are identical and no dispatch intent exists. It never rebinds after an external side effect or when local/remote diverge. Focused 35 tests and full 369 tests passed.
+- Day 3 is non-qualifying. No late generation/posting or budget extension was used. `RakutenROOMOrchestrator` remains the sole enabled owner; all four legacy tasks remain disabled. Next routine date must start with a fresh fenced recovery control.
 
 ## 2026-10-10 Phase 8 Day 2 observation
 

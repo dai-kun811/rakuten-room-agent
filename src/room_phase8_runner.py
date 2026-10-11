@@ -29,7 +29,7 @@ OLD_FENCED_RUN_ID = "37579267266"
 AUDIT_TIME = time(20, 30)
 
 
-@dataclass(frozen=True)
+@dataclass
 class GenerationFence:
     recovery_id: str
     routine_date: str
@@ -119,6 +119,24 @@ def dispatch_generation_once(
         return False
     local_head = _git_head()
     remote_head = _remote_main_head(session, headers)
+    if local_head != fence.head_sha or remote_head != fence.head_sha:
+        # A pre-dispatch lease may have been reserved just before a normal
+        # fast-forward. Rebind only while local/main agree and no dispatch
+        # intent exists; never rebind after an external side effect begins.
+        if (
+            not fence.control_path.exists()
+            and local_head == remote_head
+            and local_head != fence.head_sha
+        ):
+            store.rebind_preflight_recovery_control(
+                fence.recovery_id,
+                owner_id=fence.owner_id,
+                expected_head_sha=local_head,
+                now=now,
+            )
+            fence.head_sha = local_head
+        else:
+            raise RuntimeError("local HEAD, recovery fence, and origin/main are not identical")
     if local_head != fence.head_sha or remote_head != fence.head_sha:
         raise RuntimeError("local HEAD, recovery fence, and origin/main are not identical")
     _atomic_json(

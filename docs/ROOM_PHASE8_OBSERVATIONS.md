@@ -15,6 +15,7 @@
 |---|---|---:|---:|---:|---:|---|---|---|---|---|---|---|
 | 2026-10-09 | morning POSTED; noon POSTED; evening BLOCKED | 0 | 0 | 0 | 1 resolved | morning/noon aligned; evening intentionally blocked | OK | 2/2 generation budget; terminal copy incident | 20:30 failed, 20:47 rechecked | 1 pre-post defect blocked | 2 bounded generation runs; one recovery | No |
 | 2026-10-10 | morning POSTED; noon READY (window missed); evening READY (ordered canary stopped) | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 302 / production-20261010 / fenced HEAD) | 20:30 failed closed on unresolved morning; 20:49 reconciled; no post after audit cutoff | 3 generated copies passed manifest quality checks | 1 bounded generation run; no Codex recovery | No |
+| 2026-10-11 | no manifest; no slots created; no ROOM posts | 0 | 0 | 0 | 0 | no slot/attempt/ledger state for this date | pre-dispatch fence mismatch detected; no external generation run | 20:30 stopped safely; no late recovery | N/A (generation blocked before artifact) | 0 (no Codex recovery) | No |
 
 ## Evidence notes
 
@@ -35,6 +36,12 @@
 - The 08:01 morning submission was `UNCERTAIN` with `submit_started=1`. At 20:49 JST, authenticated ROOM `tora_papa/items` showed the exact full morning comment and five hashtags, the `kyarahouse/7175562` item identity/image, and profile collect count 233. It was reconciled to `POSTED` without repost; the attempt and post-result incident were resolved and the compatibility ledger received one idempotent `posted` row (the prior `reserved` row remains audit history).
 - Noon and evening had no attempts; noon missed its window and the ordered canary was not resumed after the 20:30 audit cutoff. No late posting or catch-up was performed. This date is non-qualifying; the slots will be expired at the normal JST cutoff/boundary without reuse.
 - SQLite quick check was `ok`; no duplicate, wrong-slot, false-POSTED, or DB/attempt/ledger/ROOM inconsistency was observed after reconciliation. The 20:30 audit failure was the expected fail-closed response to the unresolved morning result and missed later slots.
+
+### 2026-10-11
+
+- The Orchestrator stopped before generation because the pre-dispatch recovery lease (`production-20261011`, revision 303) was reserved against the prior local HEAD while `origin/main` had not yet received the observation commit. No Actions dispatch, artifact generation, slot creation, browser action, or ROOM write occurred.
+- The divergence was resolved by a normal fast-forward of `origin/main` to the already-reviewed observation commit. A bounded pre-dispatch fence rebind was added: it is allowed only when local and remote HEAD are identical and no dispatch intent exists; it cannot rebind after an external side effect or when local/remote diverge. Focused 35 tests and the full 369-test suite passed; no generation budget was added.
+- Windows ownership remained correct: `RakutenROOMOrchestrator` is the only enabled task; the four legacy tasks remain disabled. Day 3 is non-qualifying and no late generation/posting was attempted. The next routine date starts normally from a fresh fence.
 
 ## Seven-day completion summary
 
