@@ -16,6 +16,7 @@
 | 2026-10-09 | morning POSTED; noon POSTED; evening BLOCKED | 0 | 0 | 0 | 1 resolved | morning/noon aligned; evening intentionally blocked | OK | 2/2 generation budget; terminal copy incident | 20:30 failed, 20:47 rechecked | 1 pre-post defect blocked | 2 bounded generation runs; one recovery | No |
 | 2026-10-10 | morning POSTED; noon READY (window missed); evening READY (ordered canary stopped) | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 302 / production-20261010 / fenced HEAD) | 20:30 failed closed on unresolved morning; 20:49 reconciled; no post after audit cutoff | 3 generated copies passed manifest quality checks | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-11 | no manifest; no slots created; no ROOM posts | 0 | 0 | 0 | 0 | no slot/attempt/ledger state for this date | pre-dispatch fence mismatch detected; no external generation run | 20:30 stopped safely; no late recovery | N/A (generation blocked before artifact) | 0 (no Codex recovery) | No |
+| 2026-10-12 | morning confirmed absent (no repost); noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM absence | morning attempt retained as confirmed_not_posted; ledger reserved only; no posted mismatch | OK (revision 304 / production-20261012 / fenced HEAD) | 20:30 failed closed; absence reconciled at 20:48; no late retry | 3 generated copies passed (85/85/93) | 1 bounded generation run; no Codex recovery | No |
 
 ## Evidence notes
 
@@ -42,6 +43,12 @@
 - The Orchestrator stopped before generation because the pre-dispatch recovery lease (`production-20261011`, revision 303) was reserved against the prior local HEAD while `origin/main` had not yet received the observation commit. No Actions dispatch, artifact generation, slot creation, browser action, or ROOM write occurred.
 - The divergence was resolved by a normal fast-forward of `origin/main` to the already-reviewed observation commit. A bounded pre-dispatch fence rebind was added: it is allowed only when local and remote HEAD are identical and no dispatch intent exists; it cannot rebind after an external side effect or when local/remote diverge. Focused 35 tests and the full 369-test suite passed; no generation budget was added.
 - Windows ownership remained correct: `RakutenROOMOrchestrator` is the only enabled task; the four legacy tasks remain disabled. Day 3 is non-qualifying and no late generation/posting was attempted. The next routine date starts normally from a fresh fence.
+
+### 2026-10-12
+
+- Fenced generation run `38178633455` / recovery `production-20261012` / revision `304` completed under HEAD `edf99122`. All three generated copies were `ready` and quality-passed (scores 93/85/85; no errors; maximum structure similarity 0.483).
+- Morning submission for `plusmart/4977693220182` became `UNCERTAIN`. Authenticated ROOM inspection found no matching URL/shop, no exact full comment or five hashtags, no matching product image, and no profile-count increase; the only similarly titled existing item had different content. The attempt was atomically marked `confirmed_not_posted`, the incident resolved, and exactly one bounded retry was authorized without reposting. The compatibility ledger contains only the reserved audit row.
+- Because the 20:30 audit cutoff had passed, no retry or noon/evening posting was performed. Noon and evening remain unattempted `READY` slots and will expire at the JST boundary without reuse. SQLite quick check was `ok`; no duplicate, wrong-slot, false-POSTED, or DB/attempt/ledger inconsistency was observed. Day 4 is non-qualifying.
 
 ## Seven-day completion summary
 

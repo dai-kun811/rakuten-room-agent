@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-11 20:50 JST
+最終更新: 2026-10-12 20:50 JST
+
+## 2026-10-12 Phase 8 Day 4 observation
+
+- Fenced generation `38178633455` / recovery `production-20261012` / revision `304` completed under HEAD `edf99122`. All three copy records passed quality validation (93/85/85; no errors; maximum structure similarity 0.483).
+- Morning `plusmart/4977693220182` became `UNCERTAIN`. Authenticated ROOM inspection found no matching URL/shop, exact comment/hashtags, or matching image, and no profile-count increase. The existing similarly titled item had different content. The original attempt remains immutable as `confirmed_not_posted`; the incident is resolved and one bounded retry is authorized. No repost was made.
+- The 20:30 cutoff had passed, so no retry or noon/evening post was attempted. Noon/evening remain `READY` without attempts and must expire at the JST boundary without reuse. SQLite quick check is `ok`; Day 4 is non-qualifying. Backup: `.local/room-worker/rollback/phase8-20261012-morning-absence-pre-reconcile.db`.
 
 ## 2026-10-11 Phase 8 Day 3 observation
 
