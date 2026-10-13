@@ -21,7 +21,14 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-12 20:50 JST
+最終更新: 2026-10-13 20:50 JST
+
+## 2026-10-13 Phase 8 Day 5 observation
+
+- Fenced generation `38314070069` / recovery `production-20261013` / revision `305` completed under HEAD `653895b2`; all three copy records passed quality validation (93/85/95; no errors; maximum similarity 0.517).
+- Morning `plusmart/4977693220182` again became `UNCERTAIN`. Authenticated ROOM evidence again proved absence, so the original attempt remains `confirmed_not_posted`, the incident is resolved, and no repost was made. Backup: `.local/room-worker/rollback/phase8-20261013-morning-absence-pre-reconcile.db`.
+- Root cause of repeated selection was fixed generally: confirmed-absence URLs now flow into `ROOM_BLOCKED_URLS` for later fenced generations. Same-day bounded retry semantics remain unchanged. Focused 55 tests and full 369 tests passed; no extra generation budget was used.
+- The 20:30 cutoff prevented retry and noon/evening posting. Those slots remain unattempted and will expire without reuse. Day 5 is non-qualifying; Phase 9 remains blocked.
 
 ## 2026-10-12 Phase 8 Day 4 observation
 

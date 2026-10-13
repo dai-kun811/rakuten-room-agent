@@ -156,6 +156,7 @@ def dispatch_generation_once(
         "manifest_revision": str(fence.revision),
         "old_run_id": OLD_FENCED_RUN_ID,
         "posted_history_urls": "\n".join(store.posted_history_urls()),
+        "blocked_urls": "\n".join(store.confirmed_absence_history_urls()),
     }
     response = session.post(
         f"{REPO_API}/actions/workflows/{WORKFLOW_FILE}/dispatches",

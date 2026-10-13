@@ -24,6 +24,11 @@ on:
         required: false
         default: ""
         type: string
+      blocked_urls:
+        description: "URLs proven absent after a submitted attempt; exclude on later routine dates"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -82,6 +87,7 @@ jobs:
           ROOM_MANIFEST_REVISION: ${{ inputs.manifest_revision }}
           ROOM_RECOVERY_OLD_RUN_ID: ${{ inputs.old_run_id }}
           ROOM_POSTED_HISTORY_URLS: ${{ inputs.posted_history_urls }}
+          ROOM_BLOCKED_URLS: ${{ inputs.blocked_urls }}
         run: python src/main.py
 
       - name: Upload fenced recovery artifact

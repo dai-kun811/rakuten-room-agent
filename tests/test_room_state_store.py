@@ -280,6 +280,10 @@ class RoomStateStoreTests(unittest.TestCase):
         old_attempt = self.store.get_post_attempt(first.attempt_id)
         self.assertEqual(old_attempt["status"], "confirmed_not_posted")
         self.assertEqual(old_attempt["submit_started"], 1)
+        self.assertEqual(
+            self.store.confirmed_absence_history_urls(),
+            ("https://item.rakuten.co.jp/shop/item",),
+        )
         self.assertEqual(self.store.get_incident(incident)["status"], IncidentStatus.RESOLVED.value)
         retry = self.store.claim_post_attempt(
             "2026-10-08", "morning", expected_version=ready.version, now=NOW

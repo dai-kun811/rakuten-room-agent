@@ -17,6 +17,7 @@
 | 2026-10-10 | morning POSTED; noon READY (window missed); evening READY (ordered canary stopped) | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 302 / production-20261010 / fenced HEAD) | 20:30 failed closed on unresolved morning; 20:49 reconciled; no post after audit cutoff | 3 generated copies passed manifest quality checks | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-11 | no manifest; no slots created; no ROOM posts | 0 | 0 | 0 | 0 | no slot/attempt/ledger state for this date | pre-dispatch fence mismatch detected; no external generation run | 20:30 stopped safely; no late recovery | N/A (generation blocked before artifact) | 0 (no Codex recovery) | No |
 | 2026-10-12 | morning confirmed absent (no repost); noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM absence | morning attempt retained as confirmed_not_posted; ledger reserved only; no posted mismatch | OK (revision 304 / production-20261012 / fenced HEAD) | 20:30 failed closed; absence reconciled at 20:48; no late retry | 3 generated copies passed (85/85/93) | 1 bounded generation run; no Codex recovery | No |
+| 2026-10-13 | morning confirmed absent (no repost); noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM absence | morning attempt retained as confirmed_not_posted; ledger reserved only; no posted mismatch | OK (revision 305 / production-20261013 / fenced HEAD) | 20:30 failed closed; absence reconciled at 20:47; no late retry | 3 generated copies passed (93/85/95) | 1 bounded generation run; no Codex recovery | No |
 
 ## Evidence notes
 
@@ -49,6 +50,13 @@
 - Fenced generation run `38178633455` / recovery `production-20261012` / revision `304` completed under HEAD `edf99122`. All three generated copies were `ready` and quality-passed (scores 93/85/85; no errors; maximum structure similarity 0.483).
 - Morning submission for `plusmart/4977693220182` became `UNCERTAIN`. Authenticated ROOM inspection found no matching URL/shop, no exact full comment or five hashtags, no matching product image, and no profile-count increase; the only similarly titled existing item had different content. The attempt was atomically marked `confirmed_not_posted`, the incident resolved, and exactly one bounded retry was authorized without reposting. The compatibility ledger contains only the reserved audit row.
 - Because the 20:30 audit cutoff had passed, no retry or noon/evening posting was performed. Noon and evening remain unattempted `READY` slots and will expire at the JST boundary without reuse. SQLite quick check was `ok`; no duplicate, wrong-slot, false-POSTED, or DB/attempt/ledger inconsistency was observed. Day 4 is non-qualifying.
+
+### 2026-10-13
+
+- Fenced generation run `38314070069` / recovery `production-20261013` / revision `305` completed under HEAD `653895b2`. All three generated copies were `ready` and quality-passed (scores 93/85/95; no errors; maximum structure similarity 0.517).
+- Morning again selected `plusmart/4977693220182` and became `UNCERTAIN`. Authenticated ROOM inspection again found no matching URL/shop, exact comment/hashtags, matching image, or profile-count increase; the existing similarly titled item differed. The attempt was reconciled to `confirmed_not_posted` without repost, with one bounded retry budget recorded.
+- The repeat selection exposed a general gap: confirmed-absence URLs were not excluded on later routine dates. The state store and fenced workflow now pass these URLs through `ROOM_BLOCKED_URLS`; they remain eligible only for the same-day bounded retry and are excluded from subsequent generation. Focused 55 tests and full 369 tests passed. No additional generation or late retry was used.
+- Noon/evening had no attempts and remained `READY`; no late posting occurred. SQLite quick check was `ok`; no duplicate, wrong-slot, false-POSTED, or DB/attempt/ledger inconsistency was observed. Day 5 is non-qualifying.
 
 ## Seven-day completion summary
 

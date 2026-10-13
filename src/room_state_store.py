@@ -432,6 +432,21 @@ class RoomStateStore:
             ).fetchall()
         return tuple(str(row["normalized_url"]) for row in rows)
 
+    def confirmed_absence_history_urls(self) -> tuple[str, ...]:
+        """Return URLs proven absent after a submitted attempt.
+
+        Such an item may receive its single same-day bounded retry, but must
+        not be selected again on a later routine date.
+        """
+        self.initialize()
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                """SELECT DISTINCT normalized_url FROM post_attempts
+                   WHERE status = 'confirmed_not_posted' AND normalized_url <> ''
+                   ORDER BY normalized_url"""
+            ).fetchall()
+        return tuple(str(row["normalized_url"]) for row in rows)
+
     def backup_to(self, destination: Path | str) -> Path:
         target = Path(destination)
         target.parent.mkdir(parents=True, exist_ok=True)

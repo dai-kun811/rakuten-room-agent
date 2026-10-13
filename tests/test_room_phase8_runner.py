@@ -106,6 +106,7 @@ class RoomPhase8RunnerTests(unittest.TestCase):
             inputs = session.posts[0][1]["inputs"]
             self.assertEqual(inputs["manifest_revision"], "300")
             self.assertIn("shop/old", inputs["posted_history_urls"])
+            self.assertEqual(inputs["blocked_urls"], "")
             self.assertEqual(json.loads(fence.control_path.read_text())["status"], "dispatched")
 
     def test_pre_dispatch_head_rebind_is_bounded_and_keeps_single_budget(self) -> None:
