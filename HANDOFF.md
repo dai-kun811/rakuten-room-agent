@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-13 20:50 JST
+最終更新: 2026-10-14 20:50 JST
+
+## 2026-10-14 Phase 8 Day 6 observation
+
+- Fenced generation `38483601160` / recovery `production-20261014` / revision `306` completed under HEAD `7aba84b8`; all three copy records passed quality validation (85/95/85; no errors). The prior `confirmed_not_posted` plusmart URL was excluded from this real generation, confirming the general blocked-URL fix is active.
+- Morning `petitbelly/bcspk` became `UNCERTAIN`. Authenticated ROOM showed the exact URL, matching image identity, and exact generated comment plus five hashtags. It was reconciled to `POSTED` without repost at 20:46 JST. DB, post attempt, resolved incident, compatibility ledger, and ROOM agree; backup `.local/room-worker/rollback/phase8-20261014-morning-pre-reconcile.db`.
+- Noon/evening remained unattempted `READY` after ordered fail-closed continuation and the 20:30 cutoff. No late posting or catch-up was performed. SQLite quick check is `ok`; Day 6 is non-qualifying. Phase 8 qualifying count remains 0/7 and Phase 9 stays blocked.
 
 ## 2026-10-13 Phase 8 Day 5 observation
 
