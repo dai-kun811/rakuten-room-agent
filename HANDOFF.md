@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-15 20:50 JST
+最終更新: 2026-10-16 20:50 JST
+
+## 2026-10-16 Phase 8 Day 8 observation（安定化後の初回合格日）
+
+- Fenced generation `38814015153` / recovery `production-20261016` / revision `308` completed under HEAD `3976c2f8`; all three copy records passed quality validation (93/78/95; no errors).
+- The Phase 8 stabilization fix allowed noon/evening to continue after morning became `UNCERTAIN`; no slot was retried or resent. Authenticated ROOM showed exact URL, matching image, full comment and five hashtags for all three slots. Morning `bee8-star/16-0000`, noon `tees-factory/diapercake-paron`, evening `aroma-room/au-91-1216-cp` were reconciled to `POSTED` at 20:48 JST.
+- DB, post attempts, resolved incidents, compatibility ledger, and ROOM agree; SQLite quick check and final audit passed. Same-day duplicate and historical URL collision checks were empty. The 20:30 audit fail-closed while reconciliation was pending, then the 20:48 recheck matched the final state. Day 8 qualifies; Phase 8 count is now 1/7 and Phase 9 remains blocked.
 
 ## Phase 8 安定化レビュー（Day 1〜7横断）
 

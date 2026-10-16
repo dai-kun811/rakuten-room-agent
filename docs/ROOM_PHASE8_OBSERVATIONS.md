@@ -20,6 +20,7 @@
 | 2026-10-13 | morning confirmed absent (no repost); noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM absence | morning attempt retained as confirmed_not_posted; ledger reserved only; no posted mismatch | OK (revision 305 / production-20261013 / fenced HEAD) | 20:30 failed closed; absence reconciled at 20:47; no late retry | 3 generated copies passed (93/85/95) | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-14 | morning POSTED after authenticated reconciliation; noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 306 / production-20261014 / fenced HEAD) | 20:30 failed closed; 20:46 reconciled; no late post | 3 generated copies passed (85/95/85) | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-15 | morning POSTED after authenticated reconciliation; noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 307 / production-20261015 / fenced HEAD) | 20:30 failed closed; 20:47 reconciled; no late post | 3 generated copies passed (95/85/85) | 1 bounded generation run; no Codex recovery | No |
+| 2026-10-16 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 308 / production-20261016 / fenced HEAD) | 20:30 fail-closed snapshot; 20:48 reconciled and audit passed | 3 generated copies passed (93/78/95) | 1 bounded generation run; no Codex recovery | Yes |
 
 ## Evidence notes
 
@@ -72,8 +73,15 @@
 - Morning `emu-color/m-079` became `UNCERTAIN`. Authenticated ROOM inspection found the exact normalized URL, matching product image identity, and the exact generated comment plus five hashtags. The attempt was atomically reconciled to `POSTED` at 20:47 JST without repost; the incident is `resolved`, and the compatibility ledger has one idempotent `posted` row (the prior `reserved` audit row remains history). Backup: `.local/room-worker/rollback/phase8-20261015-morning-pre-reconcile.db`.
 - Noon/evening had no attempts after ordered fail-closed continuation and the 20:30 cutoff. No late post or catch-up was performed. SQLite quick check was `ok`; morning DB, attempt, ledger, incident, and ROOM agree. No duplicate, wrong-slot, false-POSTED, fence, or copy-quality incident was observed. Day 7 is non-qualifying because noon/evening are not posted.
 
+### 2026-10-16
+
+- Post-stabilization fenced generation run `38814015153` / recovery `production-20261016` / revision `308` completed under HEAD `3976c2f8`. All three candidates were `ready` and quality-passed (93/78/95; no quality errors).
+- The new continuation rule worked: morning, noon, and evening each reached the submit boundary despite immediate verifier results being `UNCERTAIN`. No slot was retried or resent.
+- Authenticated ROOM inspection showed exact URL, product image, full generated comment, and five hashtags for `bee8-star/16-0000` (morning), `tees-factory/diapercake-paron` (noon), and `aroma-room/au-91-1216-cp` (evening). Profile item count was 239. All three slots were reconciled to `POSTED` at 20:48 JST; all three incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
+- SQLite quick check and the full audit passed with no errors. Same-day duplicate and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:48 recheck matched the final ROOM state. Day 8 qualifies.
+
 ## Seven-day completion summary
 
-- Qualifying dates: 0 / 7
-- Phase 8 status: `OBSERVING` (Day 1 retained as non-qualifying evidence)
+- Qualifying dates: 1 / 7 (2026-10-16)
+- Phase 8 status: `OBSERVING_AFTER_STABILIZATION` (Days 1-7 retained as non-qualifying evidence)
 - Phase 9 authorization: `BLOCKED_UNTIL_GATE_PASSES`
