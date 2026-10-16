@@ -133,34 +133,80 @@ class RoomPhase8RunnerTests(unittest.TestCase):
             self.assertEqual(control["budget_consumed"], 1)
             self.assertEqual(session.posts[0][1]["inputs"]["expected_head_sha"], "a" * 40)
 
-    def test_earliest_due_slot_only_and_uncertain_fails_closed(self) -> None:
+    def test_uncertain_prior_slot_does_not_block_later_independent_slot(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             store = RoomStateStore(Path(temp) / "operations.db")
             value = phase8_manifest()
             store.initialize()
             store.accept_manifest(value, now=NOW)
-            self.assertEqual(next_eligible_slot(value, store, NOW), "morning")
-            execute(
-                manifest=value, slot="morning", active_slots=set(POST_SLOTS), now=NOW,
-                apply=True, store=store, gateway=Gateway(),
-                legacy_ledger_path=Path(temp) / "ledger.jsonl",
+            morning = store.get_slot("2026-10-09", "morning")
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=morning.status,
+                expected_version=morning.version, target_status=SlotStatus.CLAIMED, now=NOW,
+            )
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=SlotStatus.CLAIMED,
+                expected_version=morning.version + 1, target_status=SlotStatus.SUBMITTING, now=NOW,
+            )
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=SlotStatus.SUBMITTING,
+                expected_version=morning.version + 2, target_status=SlotStatus.UNCERTAIN, now=NOW,
             )
             self.assertEqual(next_eligible_slot(value, store, NOW), "noon")
+
+    def test_in_flight_prior_slot_still_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            store = RoomStateStore(Path(temp) / "operations.db")
+            value = phase8_manifest()
+            store.initialize()
+            store.accept_manifest(value, now=NOW)
+            morning = store.get_slot("2026-10-09", "morning")
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=morning.status,
+                expected_version=morning.version, target_status=SlotStatus.CLAIMED, now=NOW,
+            )
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=SlotStatus.CLAIMED,
+                expected_version=morning.version + 1, target_status=SlotStatus.SUBMITTING, now=NOW,
+            )
+            store.transition_slot(
+                "2026-10-09", "morning", expected_status=SlotStatus.SUBMITTING,
+                expected_version=morning.version + 2, target_status=SlotStatus.UNCERTAIN, now=NOW,
+            )
             noon = store.get_slot("2026-10-09", "noon")
             store.transition_slot(
                 "2026-10-09", "noon", expected_status=noon.status,
                 expected_version=noon.version, target_status=SlotStatus.CLAIMED, now=NOW,
             )
-            store.transition_slot(
-                "2026-10-09", "noon", expected_status=SlotStatus.CLAIMED,
-                expected_version=noon.version + 1, target_status=SlotStatus.SUBMITTING, now=NOW,
-            )
-            store.transition_slot(
-                "2026-10-09", "noon", expected_status=SlotStatus.SUBMITTING,
-                expected_version=noon.version + 2, target_status=SlotStatus.UNCERTAIN, now=NOW,
-            )
-            with self.assertRaisesRegex(RuntimeError, "UNCERTAIN"):
+            with self.assertRaisesRegex(RuntimeError, "CLAIMED"):
                 next_eligible_slot(value, store, NOW)
+
+    def test_uncertain_morning_allows_ordered_noon_then_evening(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            store = RoomStateStore(Path(temp) / "operations.db")
+            value = phase8_manifest()
+            store.initialize()
+            store.accept_manifest(value, now=NOW)
+            morning = store.get_slot("2026-10-09", "morning")
+            for source, target, offset in (
+                (SlotStatus.READY, SlotStatus.CLAIMED, 0),
+                (SlotStatus.CLAIMED, SlotStatus.SUBMITTING, 1),
+                (SlotStatus.SUBMITTING, SlotStatus.UNCERTAIN, 2),
+            ):
+                store.transition_slot(
+                    "2026-10-09", "morning", expected_status=source,
+                    expected_version=morning.version + offset,
+                    target_status=target, now=NOW,
+                )
+            noon_now = datetime(2026, 10, 9, 3, 5, tzinfo=timezone.utc)
+            self.assertEqual(next_eligible_slot(value, store, noon_now), "noon")
+            execute(
+                manifest=value, slot="noon", active_slots=set(POST_SLOTS), now=noon_now,
+                apply=True, store=store, gateway=Gateway(),
+                legacy_ledger_path=Path(temp) / "ledger.jsonl",
+            )
+            evening_now = datetime(2026, 10, 9, 10, 5, tzinfo=timezone.utc)
+            self.assertEqual(next_eligible_slot(value, store, evening_now), "evening")
 
     def test_audit_proves_db_attempt_and_ledger_alignment(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -267,14 +267,21 @@ def next_eligible_slot(
             continue
         state = store.get_slot(day, slot)
         if state is not None and state.status in {
+            # These states can still represent an external submit in flight.
+            # Do not let another slot touch the same browser/account until
+            # that operation is reconciled.
             SlotStatus.CLAIMED,
             SlotStatus.SUBMITTING,
             SlotStatus.SUBMITTED_UNCONFIRMED,
-            SlotStatus.UNCERTAIN,
         }:
             raise RuntimeError(
                 f"unresolved {state.status.value.upper()} blocks automatic continuation: {day}:{slot}"
             )
+        # UNCERTAIN is terminal for this invocation: the submit boundary was
+        # crossed, but the immediate verifier could not prove the ROOM card.
+        # It is safe to continue with a different slot because this runner
+        # never retries an UNCERTAIN slot automatically.  A later authenticated
+        # reconciliation still decides POSTED vs confirmed_not_posted.
         if manifest["slots"][slot]["status"] == "ready" and state is not None and state.status in {
             SlotStatus.READY, SlotStatus.FAILED_PRE_SUBMIT,
         }:

@@ -23,6 +23,13 @@
 
 最終更新: 2026-10-15 20:50 JST
 
+## Phase 8 安定化レビュー（Day 1〜7横断）
+
+- 合格日は0/7。生成品質、重複防止、fence、DB/attempt/ledger整合性の共通再発はない。
+- 共通ボトルネックは、morning送信後の一時的な`UNCERTAIN`を`next_eligible_slot()`が送信途中状態と同じ扱いにし、noon/eveningまで停止していたこと。Day 2・6・7は後から実ROOMでmorning POSTED、Day 4・5はconfirmed_not_postedだった。
+- `UNCERTAIN`は同一slotの再投稿なし・再実行なしで後続独立slotを許可し、`CLAIMED`/`SUBMITTING`/`SUBMITTED_UNCONFIRMED`は従来どおり停止する修正を実装。focused 8 tests / 全371 tests合格。
+- 詳細は`docs/ROOM_PHASE8_STABILIZATION_REVIEW.md`。次のroutine dateから安定化後観測を再開し、7合格日まではPhase 9へ進まない。
+
 ## 2026-10-15 Phase 8 Day 7 observation
 
 - Fenced generation `38644489421` / recovery `production-20261015` / revision `307` completed under HEAD `2290d641`; all three copy records passed quality validation (95/85/85; no errors).
