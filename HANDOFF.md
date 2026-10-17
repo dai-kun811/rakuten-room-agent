@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-16 20:50 JST
+最終更新: 2026-10-17 20:50 JST
+
+## 2026-10-17 Phase 8 Day 9 observation
+
+- Fenced generation `38973026833` / recovery `production-20261017` / revision `309` completed under HEAD `83b0c432`; all three copy records passed quality validation (95/85/85; no errors).
+- The stabilized continuation again allowed noon/evening to proceed after morning became `UNCERTAIN`; no slot was retried or resent. Authenticated ROOM showed exact URL, matching image, full comment and five hashtags for all three slots. Morning `peace-bg/967017`, noon `balloonastore/4582583170012`, evening `high-high/okurumi-004` were reconciled to `POSTED` at 20:48 JST.
+- DB, post attempts, resolved incidents, compatibility ledger, and ROOM agree; SQLite quick check and final audit passed. Same-day duplicate and historical URL collision checks were empty. Day 9 qualifies; Phase 8 count is now 2/7 and Phase 9 remains blocked.
 
 ## 2026-10-16 Phase 8 Day 8 observation（安定化後の初回合格日）
 

@@ -21,6 +21,7 @@
 | 2026-10-14 | morning POSTED after authenticated reconciliation; noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 306 / production-20261014 / fenced HEAD) | 20:30 failed closed; 20:46 reconciled; no late post | 3 generated copies passed (85/95/85) | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-15 | morning POSTED after authenticated reconciliation; noon/evening READY and unattempted | 0 | 0 | 0 | 1 resolved by authenticated ROOM | morning DB/attempt/ledger/ROOM aligned; later slots had no attempts | OK (revision 307 / production-20261015 / fenced HEAD) | 20:30 failed closed; 20:47 reconciled; no late post | 3 generated copies passed (95/85/85) | 1 bounded generation run; no Codex recovery | No |
 | 2026-10-16 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 308 / production-20261016 / fenced HEAD) | 20:30 fail-closed snapshot; 20:48 reconciled and audit passed | 3 generated copies passed (93/78/95) | 1 bounded generation run; no Codex recovery | Yes |
+| 2026-10-17 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 309 / production-20261017 / fenced HEAD) | 20:30 fail-closed snapshot; 20:48 reconciled and audit passed | 3 generated copies passed (95/85/85) | 1 bounded generation run; no Codex recovery | Yes |
 
 ## Evidence notes
 
@@ -80,8 +81,14 @@
 - Authenticated ROOM inspection showed exact URL, product image, full generated comment, and five hashtags for `bee8-star/16-0000` (morning), `tees-factory/diapercake-paron` (noon), and `aroma-room/au-91-1216-cp` (evening). Profile item count was 239. All three slots were reconciled to `POSTED` at 20:48 JST; all three incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
 - SQLite quick check and the full audit passed with no errors. Same-day duplicate and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:48 recheck matched the final ROOM state. Day 8 qualifies.
 
+### 2026-10-17
+
+- Fenced generation run `38973026833` / recovery `production-20261017` / revision `309` completed under HEAD `83b0c432`. All three candidates were `ready` and quality-passed (95/85/85; no quality errors).
+- The stabilized continuation again allowed all three slots to reach the submit boundary without retrying any slot. Authenticated ROOM inspection showed exact URL, product image, full generated comment, and five hashtags for `peace-bg/967017` (morning), `balloonastore/4582583170012` (noon), and `high-high/okurumi-004` (evening). All three were reconciled to `POSTED` at 20:48 JST; all incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
+- SQLite quick check and the final audit passed with no errors. Same-day duplicate and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:48 recheck matched the final ROOM state. Day 9 qualifies.
+
 ## Seven-day completion summary
 
-- Qualifying dates: 1 / 7 (2026-10-16)
+- Qualifying dates: 2 / 7 (2026-10-16, 2026-10-17)
 - Phase 8 status: `OBSERVING_AFTER_STABILIZATION` (Days 1-7 retained as non-qualifying evidence)
 - Phase 9 authorization: `BLOCKED_UNTIL_GATE_PASSES`
