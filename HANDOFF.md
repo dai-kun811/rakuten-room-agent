@@ -21,7 +21,13 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-18 20:52 JST
+最終更新: 2026-10-19 20:43 JST
+
+## 2026-10-19 Phase 8 Day 11 observation
+
+- Fenced generation `production-20261019` / revision `311` completed under the accepted HEAD fence; all three copy records passed quality validation (95/85/85; no errors).
+- Morning, noon, and evening each reached the submit boundary and became `UNCERTAIN`; no retry or repost was performed. Authenticated ROOM showed exact product image, full comment, and five hashtags for `auc-seiishop/hmt-1020`, `lifeinnovation430/bag020`, and `stela1/10000000`. All three were reconciled to `POSTED` at 20:41 JST.
+- DB, post attempts, resolved incidents, compatibility ledger, and ROOM agree; SQLite quick check and final audit passed. Same-day and historical URL collision checks were empty. Day 11 qualifies; Phase 8 count is now 4/7 and Phase 9 remains blocked.
 
 ## 2026-10-18 Phase 8 Day 10 observation
 
