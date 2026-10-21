@@ -25,6 +25,7 @@
 | 2026-10-18 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 310 / production-20261018 / fenced HEAD) | 20:30 fail-closed snapshot; 20:51 reconciled and audit passed | 3 generated copies passed (85/78/95) | 1 bounded generation run; no Codex recovery | Yes |
 | 2026-10-19 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 311 / production-20261019 / fenced HEAD) | 20:30 fail-closed snapshot; 20:41 reconciled and audit passed | 3 generated copies passed (95/85/85) | 1 bounded generation run; no Codex recovery | Yes |
 | 2026-10-20 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 312 / production-20261020 / fenced HEAD) | 20:30 fail-closed snapshot; 20:42 reconciled and audit passed | 3 generated copies passed (95/78/85) | 1 bounded generation run; no Codex recovery | Yes |
+| 2026-10-21 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 313 / production-20261021 / fenced HEAD) | 20:30 fail-closed snapshot; 20:50 reconciled and audit passed | 3 generated copies passed (93/95/95) | 1 bounded generation run; no Codex recovery | Yes |
 
 ## Evidence notes
 
@@ -108,8 +109,14 @@
 - The stabilized continuation again allowed all three slots to reach the submit boundary without retrying any slot. Authenticated ROOM showed the exact product image, full generated comment, and five hashtags for `auc-babyjacksons/annanicola02` (morning), `balloonastore/b109480` (noon), and `calmisence/summerswaddle` (evening). All three were reconciled to `POSTED` at 20:42 JST; incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
 - SQLite quick check and final audit passed. Same-day and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:42 recheck matched the final ROOM state. Day 12 qualifies.
 
+### 2026-10-21
+
+- Fenced generation for `production-20261021` produced revision 313 under the accepted HEAD fence. All three candidates were `ready` and quality-passed (93/95/95; no errors).
+- The stabilized continuation again allowed all three slots to reach the submit boundary without retrying any slot. Authenticated ROOM showed the exact product image, full generated comment, and five hashtags for `raraya/omocarunicorn` (morning), `youplus-r/fas-bslbnf-msm` (noon), and `unicona/uc-0801` (evening). All three were reconciled to `POSTED` at 20:50 JST; incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
+- SQLite quick check and final audit passed. Same-day and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:50 recheck matched the final ROOM state. Day 13 qualifies.
+
 ## Seven-day completion summary
 
-- Qualifying dates: 5 / 7 (2026-10-16, 2026-10-17, 2026-10-18, 2026-10-19, 2026-10-20)
+- Qualifying dates: 6 / 7 (2026-10-16, 2026-10-17, 2026-10-18, 2026-10-19, 2026-10-20, 2026-10-21)
 - Phase 8 status: `OBSERVING_AFTER_STABILIZATION` (Days 1-7 retained as non-qualifying evidence)
 - Phase 9 authorization: `BLOCKED_UNTIL_GATE_PASSES`
