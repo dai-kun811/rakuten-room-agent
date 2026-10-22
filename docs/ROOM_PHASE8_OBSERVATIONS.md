@@ -26,6 +26,7 @@
 | 2026-10-19 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 311 / production-20261019 / fenced HEAD) | 20:30 fail-closed snapshot; 20:41 reconciled and audit passed | 3 generated copies passed (95/85/85) | 1 bounded generation run; no Codex recovery | Yes |
 | 2026-10-20 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 312 / production-20261020 / fenced HEAD) | 20:30 fail-closed snapshot; 20:42 reconciled and audit passed | 3 generated copies passed (95/78/85) | 1 bounded generation run; no Codex recovery | Yes |
 | 2026-10-21 | morning/noon/evening POSTED after authenticated reconciliation | 0 | 0 | 0 | 3 resolved by authenticated ROOM | all three DB/attempt/ledger/ROOM aligned; no duplicate or wrong-slot post | OK (revision 313 / production-20261021 / fenced HEAD) | 20:30 fail-closed snapshot; 20:50 reconciled and audit passed | 3 generated copies passed (93/95/95) | 1 bounded generation run; no Codex recovery | Yes |
+| 2026-10-22 | morning POSTED after authenticated reconciliation; noon/evening READY and unposted | 0 | 0 | 0 | 2 resolved incidents; no unresolved incident after reconciliation | morning DB/attempt/ledger/ROOM aligned; noon/evening intentionally not posted after cutoff | NON-QUALIFYING (revision 314 / production-20261022 / fenced HEAD) | 20:30 audit failed closed; morning reconciled 20:47; noon/evening not resumed after cutoff | 3 generated copies passed (95/78/85) | 1 bounded pre-submit retry; no Codex recovery | No |
 
 ## Evidence notes
 
@@ -114,6 +115,14 @@
 - Fenced generation for `production-20261021` produced revision 313 under the accepted HEAD fence. All three candidates were `ready` and quality-passed (93/95/95; no errors).
 - The stabilized continuation again allowed all three slots to reach the submit boundary without retrying any slot. Authenticated ROOM showed the exact product image, full generated comment, and five hashtags for `raraya/omocarunicorn` (morning), `youplus-r/fas-bslbnf-msm` (noon), and `unicona/uc-0801` (evening). All three were reconciled to `POSTED` at 20:50 JST; incidents resolved and the compatibility ledger received one idempotent `posted` row per slot.
 - SQLite quick check and final audit passed. Same-day and prior-POSTED URL collision checks were empty; no wrong-slot, false-POSTED, DB/attempt/ledger/ROOM, fence, retry, or copy-quality incident was observed. The 20:30 snapshot correctly fail-closed while reconciliation was pending; the 20:50 recheck matched the final ROOM state. Day 13 qualifies.
+
+### 2026-10-22
+
+- Fenced generation for `production-20261022` produced revision 314 under HEAD `4661bbcc`. All three candidates were `ready` and quality-passed (95/78/85; no quality errors).
+- Morning first failed before submit. During bounded recovery, the legacy-ledger compatibility import incorrectly downgraded the existing SQLite `FAILED_PRE_SUBMIT` slot to `UNCERTAIN` because an older `reserved` projection was treated as authoritative. This was a general state-authority defect, not a candidate-specific issue.
+- The import path was fixed to skip every already-existing SQLite slot; SQLite remains authoritative for active and terminal slot states. A focused regression was added and the full 372-test suite passed. The pre-submit state was repaired from the audited evidence without data deletion, then exactly one bounded fenced retry was run.
+- The retry reached submit and returned `UNCERTAIN`. Authenticated ROOM showed the exact `hashkude/614` product image, full generated comment, and all five hashtags. The slot was reconciled to `POSTED` without repost; the post-result and pre-submit incidents were resolved, and the compatibility ledger received one idempotent posted projection. SQLite quick check passed.
+- Noon and evening remained `READY` with no attempts. The 20:30 cutoff had passed, so no late posting or catch-up was performed. Day 14 is non-qualifying; Phase 8 remains at 6/7 and Phase 9 stays blocked.
 
 ## Seven-day completion summary
 

@@ -1624,7 +1624,12 @@ class RoomStateStore:
                     "SELECT * FROM slots WHERE routine_date = ? AND slot = ?",
                     (day, slot),
                 ).fetchone()
-                if existing is not None and existing["status"] == SlotStatus.POSTED.value:
+                # SQLite is authoritative once a slot exists.  The legacy
+                # ledger is a compatibility import only and must never
+                # downgrade an active manifest/attempt state (for example a
+                # proven pre-submit failure) to UNCERTAIN merely because its
+                # older projection says `reserved`.
+                if existing is not None:
                     continue
                 if existing is None:
                     connection.execute(

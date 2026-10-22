@@ -23,6 +23,14 @@
 
 最終更新: 2026-10-21 20:52 JST
 
+## 2026-10-22 Phase 8 Day 14 observation
+
+- Fenced generation `production-20261022` / revision `314` completed under the accepted HEAD fence; all three copy records passed quality validation (95/78/85; no errors).
+- Morning first failed before submit. During recovery, the legacy-ledger compatibility import downgraded an existing SQLite `FAILED_PRE_SUBMIT` slot to `UNCERTAIN` from an older `reserved` projection. Root cause was fixed generally: `import_legacy_ledger` now skips every existing SQLite slot, preserving SQLite as the authority. Added regression coverage; focused tests and the full 372-test suite passed.
+- After an audited state repair, exactly one bounded fenced retry reached submit and became `UNCERTAIN`. Authenticated ROOM showed the exact `hashkude/614` image, full generated body, and five hashtags. Morning was reconciled to `POSTED` without repost; both incidents were resolved and the compatibility ledger was synced idempotently. Backup: `.local/room-worker/rollback/phase8-20261022-pre-reconcile.db`.
+- Noon/evening remain `READY` with no attempts. The 20:30 cutoff was already closed, so no late post/catch-up was performed. Day 14 is non-qualifying; Phase 8 remains 6/7 and Phase 9 remains blocked.
+- Code/docs remain to be committed and pushed after diff/secrets/remote checks; no ROOM or schedule changes are pending.
+
 ## 2026-10-21 Phase 8 Day 13 observation
 
 - Fenced generation `production-20261021` / revision `313` completed under the accepted HEAD fence; all three copy records passed quality validation (93/95/95; no errors).

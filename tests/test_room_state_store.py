@@ -457,6 +457,35 @@ class RoomStateStoreTests(unittest.TestCase):
         assert evening is not None
         self.assertEqual(evening.status, SlotStatus.FAILED_PRE_SUBMIT)
 
+    def test_legacy_import_does_not_downgrade_existing_pre_submit_failure(self) -> None:
+        self.store.create_slot(
+            "2026-10-06", "morning", status=SlotStatus.READY,
+            normalized_url="https://item.rakuten.co.jp/shop/morning", content_hash="a" * 64, now=NOW
+        )
+        attempt = self.store.claim_post_attempt("2026-10-06", "morning", expected_version=0, now=NOW)
+        self.store.advance_post_attempt(
+            attempt.attempt_id,
+            expected_slot_status=SlotStatus.CLAIMED,
+            target_slot_status=SlotStatus.FAILED_PRE_SUBMIT,
+            expected_attempt_status=SlotStatus.CLAIMED.value,
+            target_attempt_status=SlotStatus.FAILED_PRE_SUBMIT.value,
+            submit_started=False,
+            now=NOW,
+        )
+        ledger = Path(self.temp_dir.name) / "post-ledger.jsonl"
+        ledger.write_text(
+            json.dumps({
+                "post_slot": "2026-10-06:morning",
+                "status": "reserved",
+                "normalized_url": "https://item.rakuten.co.jp/shop/morning",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        self.store.import_legacy_ledger(ledger, now=NOW)
+        current = self.store.get_slot("2026-10-06", "morning")
+        assert current is not None
+        self.assertEqual(current.status, SlotStatus.FAILED_PRE_SUBMIT)
+
     def test_legacy_six_slot_history_is_skipped_without_aborting_migration(self) -> None:
         ledger = Path(self.temp_dir.name) / "post-ledger.jsonl"
         ledger.write_text(
