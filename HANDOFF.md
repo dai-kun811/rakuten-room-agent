@@ -31,6 +31,13 @@
 - Noon/evening remain `READY` with no attempts. The 20:30 cutoff was already closed, so no late post/catch-up was performed. Day 14 is non-qualifying; Phase 8 remains 6/7 and Phase 9 remains blocked.
 - Code/docs remain to be committed and pushed after diff/secrets/remote checks; no ROOM or schedule changes are pending.
 
+## 2026-10-23 Phase 8 Day 15 observation and completion gate
+
+- Fenced generation `production-20261023` / revision `315` completed under the accepted HEAD fence; all three copy records passed quality validation with no errors.
+- Morning, noon, and evening each reached the submit boundary and became `UNCERTAIN`; authenticated ROOM showed the exact product image, full generated body, and five hashtags for `dearcologne/dw016`, `plusiine/coolerbox02`, and `llic/q-swacap`. All three were reconciled to `POSTED` at 20:42 JST without repost; incidents were resolved and the compatibility ledger was synced idempotently. Backup: `.local/room-worker/rollback/phase8-20261023-pre-reconcile.db`.
+- SQLite quick check and final audit passed. Same-day and historical URL collision checks were empty; DB, post attempts, ledger, incidents, fencing, monitor, and ROOM agree. No wrong-slot, false-POSTED, retry, or quality incident occurred. Normal-path Codex usage was zero.
+- Day 15 qualifies and is the seventh qualifying date. Phase 8 completion review and rollback check passed. Phase 8 is complete (7/7); Phase 9 is authorized to begin. Legacy tasks and `daily.yml` remain disabled.
+
 ## 2026-10-21 Phase 8 Day 13 observation
 
 - Fenced generation `production-20261021` / revision `313` completed under the accepted HEAD fence; all three copy records passed quality validation (93/95/95; no errors).
