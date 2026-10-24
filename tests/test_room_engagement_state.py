@@ -77,6 +77,24 @@ class EngagementStateTests(unittest.TestCase):
         self.assertNotIn("body", raw.lower())
         self.assertTrue(report_path.exists())
 
+    def test_same_day_terminal_engagement_heartbeat_is_not_stale(self) -> None:
+        from room_external_audit import _heartbeat_status
+
+        path = Path(self.temp.name) / "engagement.json"
+        sanitized_heartbeat(
+            path,
+            role="engagement",
+            status="completed",
+            routine_date="2026-10-24",
+            now=datetime(2026, 10, 24, 5, 45, tzinfo=JST),
+        )
+        status, error = _heartbeat_status(
+            path,
+            now=datetime(2026, 10, 24, 20, 45, tzinfo=JST),
+            max_age_minutes=180,
+        )
+        self.assertEqual((status, error), ("ok", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,3 +37,5 @@
 
 登録日の15:23に交流タスクを実運用経路で1回起動し、07:30 cutoffによって終了コード0で安全にスキップされた。SQLiteは`status=skipped`、`last_error_code=cutoff_expired`、交流action 0件で、heartbeatにもURL・本文・候補ID・秘密情報は含まれなかった。20:45外部監査と翌日05:30交流の定刻観測が完了するまではPhase 9完了とはしない。問題があれば新2タスクを無効化し、投稿Orchestratorと旧ledger投影はそのまま継続できる。
 
+2026-10-24 20:45 JSTの外部監査タスクは定刻実行された。初回結果は終了コード2で、当日3枠の実DB状態がすべて`UNCERTAIN`、未解決incident 3件、posting audit不合格であることを正しく検出した。これは正常日の誤警報ではないため、Phase 9完了およびPhase 10開始を停止する。Phase 9監査自身の不具合として、同日中に終端した日次交流heartbeatを3時間経過だけでstale扱いする問題を検出し、同一JST日付の`completed/skipped/partial/needs_human`を終端証跡として扱うよう修正した。追加7件・全379件のテストに合格し、再監査では誤った`heartbeat_stale`が消え、両heartbeatは`ok`、実在するUNCERTAIN関連だけが残った。監査・heartbeat 3ファイルの機密パターン検査は0件。
+

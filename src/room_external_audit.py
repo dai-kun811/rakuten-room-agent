@@ -31,6 +31,15 @@ def _heartbeat_status(path: Path, *, now: datetime, max_age_minutes: int) -> tup
         stamp = datetime.fromisoformat(str(payload["updated_at"])).astimezone(JST)
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return "invalid", "heartbeat_invalid"
+    # The engagement worker is intentionally a once-daily job.  A terminal
+    # heartbeat from the same JST routine date is current evidence even when
+    # it is older than the rolling age used for the repeatedly scheduled
+    # posting orchestrator.
+    if (
+        str(payload.get("routine_date", "")) == now.astimezone(JST).date().isoformat()
+        and str(payload.get("status", "")) in {"completed", "skipped", "partial", "needs_human"}
+    ):
+        return "ok", ""
     age = (now.astimezone(JST) - stamp).total_seconds()
     if age > max_age_minutes * 60:
         return "stale", "heartbeat_stale"

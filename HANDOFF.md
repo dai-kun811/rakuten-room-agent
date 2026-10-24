@@ -618,6 +618,9 @@
 - Windowsタスク登録スクリプトに `-Phase9Only` を追加し、投稿Orchestratorを再登録せずPhase 9の2タスクだけを登録できるようにした。
 - 2026-10-24 15:23 JST、登録スクリプトの`-Phase9Only`を使い、`RakutenROOMEngagement`（05:30）と`RakutenROOMExternalAudit`（20:45）の2タスクだけを本番登録した。両方とも有効、StartWhenAvailable=True、MultipleInstances=IgnoreNew、実行上限45分。投稿Orchestratorの登録前後XMLハッシュは一致し、旧4タスクはDisabledのまま。
 - 登録直後に交流タスクを07:30以降の実運用経路で1回起動。終了コード0、DBは2026-10-24 `skipped/cutoff_expired`、action 0件、heartbeatは運用メタデータだけで、ブラウザ交流操作なしを確認。次は20:45外部監査と翌日05:30交流を各1回定刻観測する。両方合格するまでPhase 9未完了、Phase 10へ進まない。
+- 2026-10-24 20:45 JST、`RakutenROOMExternalAudit`は定刻実行、終了コード2。当日morning/noon/eveningがDB上すべて`UNCERTAIN`、未解決incident 3件、posting audit不合格であることを正しく検出した。投稿状態はPhase 9検証から変更せず、再投稿もしていない。この実状態が解決するまでPhase 9完了・Phase 10開始は禁止。
+- 初回監査で、15:23にcutoffスキップ済みの交流heartbeatを時刻経過だけでstale扱いするPhase 9側の誤警報を検出。同一JST日付の終端heartbeatは有効とする一般修正を追加し、追加7件・全379件合格。再監査ではengagement/orchestrator heartbeatとも`ok`で、残るエラーは実在するUNCERTAIN・重大incident・posting audit不合格だけ。監査/heartbeatの機密パターン検査は0件。
+- 同じheartbeatを翌日05:45 JSTへ変更し、05:30交流の本番観測だけを継続する。観測後はheartbeatを停止するが、UNCERTAINが残る限りPhase 9を完了扱いにしない。
 
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。
