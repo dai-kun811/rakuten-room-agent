@@ -624,6 +624,9 @@
 - 2026-10-25 00:44 JST、実ROOM表示で2026-10-24 revision 316のmorning/noon/eveningを照合。3枠すべて完全本文・全タグ・商品画像ショップ（nenetshop/beefine/calmisence）がmanifestと一致した。再投稿なしでDB slot/attemptをPOSTED、incidentをresolved、旧ledgerへposted 3行を同期し、当日auditはエラー0。
 - 3枠共通のUNCERTAIN原因は、投稿セッション内の`api/collect`成功応答・成功表示を捨て、反映遅延し得る直後のフィード再読込だけで判定していたこと。API成功または成功表示を確定証拠として保持し、閉じた画面・単なる画面遷移は引き続き完全本文ROOM照合が必要となる一般修正を追加。対象18件・全381件合格。二重投稿経路は増やしていない。
 - Phase 9残条件は2026-10-25 05:30交流の定刻実行観測のみ。正常完了、Chromeロック競合なし、投稿非ブロック、DB/heartbeat整合を確認するまでPhase 10へ進まない。
+- 2026-10-25 05:30交流は共通45分上限で50フォロー・43いいね時点に中断されたが、SQLite進捗・候補単位冪等性により外部操作の重複なく回復した。原因は投稿・監査・交流で同じ45分設定を共有していたこと。交流だけ75分、投稿Orchestrator/外部監査は45分に分離し、対象23件・全383件、PowerShell構文、py_compile、diff checkが合格。Phase9Only再登録前後でOrchestrator XML hashは不変。
+- 06:17に1回だけ再開し、06:37に50/50・失敗0・終了コード0で完了。DB `completed`、owner解放、action 64件・候補キー重複0、heartbeat/公開要約一致、Chrome残存なし。終了時刻記録も実終了時刻へ修正・再整合した。旧4タスクはDisabled、新Phase 9タスクは交流05:30・外部監査20:45のみ。
+- Phase 9最終監査は、2026-10-24確定済み3枠についてposting audit、両heartbeat、incident/DB/ledger整合がすべて合格し、秘匿性検査0件。rollback資産も保持。Phase 9は完了し、Phase 10の通知・診断のみ段階へ進行可能。
 
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。

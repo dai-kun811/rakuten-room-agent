@@ -830,15 +830,16 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     finally:
         profile_context.__exit__(None, None, None)
 
+    completed_at = datetime.now().astimezone()
     finish_engagement_state(
         DATABASE_PATH, routine_date=day, followed=followed, liked=liked, goal=goal,
         status=("completed" if followed >= goal and liked >= goal else ("needs_human" if needs_human else "partial")),
         error_code="" if followed >= goal and liked >= goal else (run_error_code or "goal_not_reached"),
-        now=current,
+        now=completed_at,
     )
     final_status = "completed" if followed >= goal and liked >= goal else ("needs_human" if needs_human else "partial")
     sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status=final_status, routine_date=day,
-                        now=current, error_code="" if final_status == "completed" else (run_error_code or "goal_not_reached"))
+                        now=completed_at, error_code="" if final_status == "completed" else (run_error_code or "goal_not_reached"))
     summary = {
         "routine_date": day,
         "followed": followed,

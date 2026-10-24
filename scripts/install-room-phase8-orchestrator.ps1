@@ -39,7 +39,19 @@ $principal = New-ScheduledTaskPrincipal `
     -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
     -LogonType Interactive `
     -RunLevel Limited
-$settings = New-ScheduledTaskSettingsSet `
+$orchestratorSettings = New-ScheduledTaskSettingsSet `
+    -StartWhenAvailable `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -MultipleInstances IgnoreNew `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 45)
+$engagementSettings = New-ScheduledTaskSettingsSet `
+    -StartWhenAvailable `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -MultipleInstances IgnoreNew `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 75)
+$auditSettings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
@@ -56,7 +68,7 @@ $task = New-ScheduledTask `
     -Action $action `
     -Trigger $triggers `
     -Principal $principal `
-    -Settings $settings `
+    -Settings $orchestratorSettings `
     -Description "Unified fenced ROOM generation, one-slot posting, catch-up, and 20:30 audit."
 
 $engagementAction = New-ScheduledTaskAction `
@@ -67,7 +79,7 @@ $engagementTask = New-ScheduledTask `
     -Action $engagementAction `
     -Trigger (New-ScheduledTaskTrigger -Daily -At $EngagementTime) `
     -Principal $principal `
-    -Settings $settings `
+    -Settings $engagementSettings `
     -Description "Bounded ROOM follow/like routine; SQLite gated 05:30-07:30 and non-blocking profile lock."
 
 $auditAction = New-ScheduledTaskAction `
@@ -78,7 +90,7 @@ $auditTask = New-ScheduledTask `
     -Action $auditAction `
     -Trigger (New-ScheduledTaskTrigger -Daily -At $ExternalAuditTime) `
     -Principal $principal `
-    -Settings $settings `
+    -Settings $auditSettings `
     -Description "Read-only sanitized external audit for ROOM posting and engagement state."
 
 if ($Preview) {
@@ -90,7 +102,9 @@ if ($Preview) {
         ExternalAuditTime = $ExternalAuditTime
         LegacyTasks = "disabled"
         MultipleInstances = "IgnoreNew"
-        ExecutionLimitMinutes = 45
+        OrchestratorExecutionLimitMinutes = 45
+        EngagementExecutionLimitMinutes = 75
+        ExternalAuditExecutionLimitMinutes = 45
         State = "Preview"
     }
     return
