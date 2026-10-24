@@ -615,7 +615,9 @@
 - Orchestrator heartbeatを追加し、監査からlegacy ledgerを変更しない経路を追加。
 - 全回帰378件、追加Phase 9テスト6件、py_compile、PowerShell構文解析、diff checkが合格。
 - `docs/ROOM_PHASE9_MIGRATION_REPORT.md` に実装・レビュー・rollbackを記録。
-- Windowsタスク登録スクリプトには `RakutenROOMEngagement`（05:30）と`RakutenROOMExternalAudit`（20:45）を追加したが、実登録・既存スケジュール変更は安全のためこの作業では実施していない。登録時も旧タスクは無効のままにする。
+- Windowsタスク登録スクリプトに `-Phase9Only` を追加し、投稿Orchestratorを再登録せずPhase 9の2タスクだけを登録できるようにした。
+- 2026-10-24 15:23 JST、登録スクリプトの`-Phase9Only`を使い、`RakutenROOMEngagement`（05:30）と`RakutenROOMExternalAudit`（20:45）の2タスクだけを本番登録した。両方とも有効、StartWhenAvailable=True、MultipleInstances=IgnoreNew、実行上限45分。投稿Orchestratorの登録前後XMLハッシュは一致し、旧4タスクはDisabledのまま。
+- 登録直後に交流タスクを07:30以降の実運用経路で1回起動。終了コード0、DBは2026-10-24 `skipped/cutoff_expired`、action 0件、heartbeatは運用メタデータだけで、ブラウザ交流操作なしを確認。次は20:45外部監査と翌日05:30交流を各1回定刻観測する。両方合格するまでPhase 9未完了、Phase 10へ進まない。
 
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。

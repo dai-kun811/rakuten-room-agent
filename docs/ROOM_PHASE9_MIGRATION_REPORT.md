@@ -33,5 +33,7 @@
 
 ## 有効化とrollback
 
-今回の変更ではWindowsタスクの実登録・既存スケジュール変更は実行していない。登録時は既存のPhase 8 Orchestratorを保持したまま、交流と外部監査の2タスクだけを追加する。問題があれば新タスクを無効化し、投稿Orchestratorと旧ledger投影はそのまま継続できる。
+2026-10-24 15:23 JSTにPhase 9限定モードで、`RakutenROOMEngagement`（05:30）と`RakutenROOMExternalAudit`（20:45）の2タスクだけを登録した。両方とも有効、`StartWhenAvailable=True`、`MultipleInstances=IgnoreNew`、実行上限45分。登録前後の`RakutenROOMOrchestrator`定義SHA-256は一致し、旧4タスクは無効のまま。
+
+登録日の15:23に交流タスクを実運用経路で1回起動し、07:30 cutoffによって終了コード0で安全にスキップされた。SQLiteは`status=skipped`、`last_error_code=cutoff_expired`、交流action 0件で、heartbeatにもURL・本文・候補ID・秘密情報は含まれなかった。20:45外部監査と翌日05:30交流の定刻観測が完了するまではPhase 9完了とはしない。問題があれば新2タスクを無効化し、投稿Orchestratorと旧ledger投影はそのまま継続できる。
 

@@ -3,6 +3,7 @@ param(
     [string[]]$RunTimes = @("07:00", "08:00", "08:20", "12:00", "12:20", "19:00", "19:20", "20:30"),
     [string]$EngagementTime = "05:30",
     [string]$ExternalAuditTime = "20:45",
+    [switch]$Phase9Only,
     [switch]$Preview
 )
 
@@ -82,8 +83,9 @@ $auditTask = New-ScheduledTask `
 
 if ($Preview) {
     [pscustomobject]@{
-        TaskName = $taskName
-        Times = ($RunTimes -join ", ")
+        Mode = if ($Phase9Only) { "Phase9Only" } else { "Full" }
+        TaskName = if ($Phase9Only) { "unchanged" } else { $taskName }
+        Times = if ($Phase9Only) { "unchanged" } else { ($RunTimes -join ", ") }
         EngagementTime = $EngagementTime
         ExternalAuditTime = $ExternalAuditTime
         LegacyTasks = "disabled"
@@ -94,7 +96,9 @@ if ($Preview) {
     return
 }
 
-Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
+if (-not $Phase9Only) {
+    Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
+}
 Register-ScheduledTask -TaskName "RakutenROOMEngagement" -InputObject $engagementTask -Force | Out-Null
 Register-ScheduledTask -TaskName "RakutenROOMExternalAudit" -InputObject $auditTask -Force | Out-Null
 Get-ScheduledTask -TaskName $taskName, "RakutenROOMEngagement", "RakutenROOMExternalAudit", $legacyTasks -ErrorAction SilentlyContinue |
