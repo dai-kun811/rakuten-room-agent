@@ -606,6 +606,17 @@
 ## 重要な決定事項
 - リポジトリは**公開のまま維持**（GitHub Pages の routine page 配信のため。無料プランでprivate化するとページ停止）。
 
+## 2026-10-24 Phase 9 implementation
+
+- Phase 8の7/7合格後、交流処理と外部監査の状態管理をPhase 9仕様へ移行するコードを実装した。
+- `src/room_engagement_state.py` が `operations.db` の交流run/action正本、05:30開始・07:30 cutoff、候補単位の再開と冪等更新を担当。
+- `room_engagement_worker.py` は開始ゲート、非ブロッキングChromeプロファイルロック、SQLite進捗、CAPTCHA/認証の`needs_human`分類、途中停止後の再開を使用する。投稿Orchestratorの投稿ロジックは変更していない。
+- `src/room_external_audit.py` を追加。heartbeat欠落/stale、UNCERTAIN、未投稿、重大incident、SQLite異常、交流未完了を読み取り専用で監査し、URL・候補ID・本文・秘密情報を出さない。
+- Orchestrator heartbeatを追加し、監査からlegacy ledgerを変更しない経路を追加。
+- 全回帰378件、追加Phase 9テスト6件、py_compile、PowerShell構文解析、diff checkが合格。
+- `docs/ROOM_PHASE9_MIGRATION_REPORT.md` に実装・レビュー・rollbackを記録。
+- Windowsタスク登録スクリプトには `RakutenROOMEngagement`（05:30）と`RakutenROOMExternalAudit`（20:45）を追加したが、実登録・既存スケジュール変更は安全のためこの作業では実施していない。登録時も旧タスクは無効のままにする。
+
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。
 ## 2026-10-07 morning UNCERTAIN human reconciliation

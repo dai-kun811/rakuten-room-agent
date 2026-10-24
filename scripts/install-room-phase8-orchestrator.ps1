@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
     [string[]]$RunTimes = @("07:00", "08:00", "08:20", "12:00", "12:20", "19:00", "19:20", "20:30"),
+    [string]$EngagementTime = "05:30",
+    [string]$ExternalAuditTime = "20:45",
     [switch]$Preview
 )
 
@@ -8,6 +10,8 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $runner = Join-Path $projectRoot "src\room_phase8_runner.py"
+$engagementWorker = Join-Path $projectRoot "src\room_engagement_worker.py"
+$externalAudit = Join-Path $projectRoot "src\room_external_audit.py"
 $taskName = "RakutenROOMOrchestrator"
 $legacyTasks = @(
     "RakutenROOMDailyEngagement",
@@ -16,7 +20,7 @@ $legacyTasks = @(
     "RakutenROOMPostGuard"
 )
 
-foreach ($path in @($python, $runner)) {
+foreach ($path in @($python, $runner, $engagementWorker, $externalAudit)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required file was not found: $path"
     }
@@ -54,10 +58,34 @@ $task = New-ScheduledTask `
     -Settings $settings `
     -Description "Unified fenced ROOM generation, one-slot posting, catch-up, and 20:30 audit."
 
+$engagementAction = New-ScheduledTaskAction `
+    -Execute $python `
+    -Argument ('"{0}" --apply --headful' -f $engagementWorker) `
+    -WorkingDirectory $projectRoot
+$engagementTask = New-ScheduledTask `
+    -Action $engagementAction `
+    -Trigger (New-ScheduledTaskTrigger -Daily -At $EngagementTime) `
+    -Principal $principal `
+    -Settings $settings `
+    -Description "Bounded ROOM follow/like routine; SQLite gated 05:30-07:30 and non-blocking profile lock."
+
+$auditAction = New-ScheduledTaskAction `
+    -Execute $python `
+    -Argument ('"{0}"' -f $externalAudit) `
+    -WorkingDirectory $projectRoot
+$auditTask = New-ScheduledTask `
+    -Action $auditAction `
+    -Trigger (New-ScheduledTaskTrigger -Daily -At $ExternalAuditTime) `
+    -Principal $principal `
+    -Settings $settings `
+    -Description "Read-only sanitized external audit for ROOM posting and engagement state."
+
 if ($Preview) {
     [pscustomobject]@{
         TaskName = $taskName
         Times = ($RunTimes -join ", ")
+        EngagementTime = $EngagementTime
+        ExternalAuditTime = $ExternalAuditTime
         LegacyTasks = "disabled"
         MultipleInstances = "IgnoreNew"
         ExecutionLimitMinutes = 45
@@ -67,5 +95,7 @@ if ($Preview) {
 }
 
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
-Get-ScheduledTask -TaskName $taskName, $legacyTasks -ErrorAction SilentlyContinue |
+Register-ScheduledTask -TaskName "RakutenROOMEngagement" -InputObject $engagementTask -Force | Out-Null
+Register-ScheduledTask -TaskName "RakutenROOMExternalAudit" -InputObject $auditTask -Force | Out-Null
+Get-ScheduledTask -TaskName $taskName, "RakutenROOMEngagement", "RakutenROOMExternalAudit", $legacyTasks -ErrorAction SilentlyContinue |
     Select-Object TaskName, State

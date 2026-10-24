@@ -16,7 +16,15 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 
-from room_profile_lock import room_profile_lock
+from room_profile_lock import RoomProfileLockTimeout, room_profile_lock
+from room_engagement_state import (
+    audit as audit_engagement_state,
+    finish as finish_engagement_state,
+    progress as state_progress,
+    record_action as record_engagement_action,
+    sanitized_heartbeat,
+    start_gate as engagement_start_gate,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +34,8 @@ PROFILE_LOCK_PATH = STATE_DIR / "chrome-profile.lock"
 LEDGER_PATH = STATE_DIR / "engagement-ledger.jsonl"
 LOG_PATH = STATE_DIR / "engagement-worker.log"
 SUMMARY_PATH = STATE_DIR / "daily-routine-summary.json"
+DATABASE_PATH = STATE_DIR / "operations.db"
+HEARTBEAT_PATH = STATE_DIR / "engagement-heartbeat.json"
 ROUTINE_SOURCE = PROJECT_ROOT / "room-routine" / "index.html"
 ROUTINE_URL = "https://dai-kun811.github.io/rakuten-room-agent/"
 DAILY_GOAL = 50
@@ -594,13 +604,35 @@ def write_and_publish_summary(summary: dict[str, Any], logger: logging.Logger) -
     return bool(summary["published"])
 
 
-def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless: bool) -> int:
+def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless: bool,
+        now: datetime | None = None) -> int:
     configure_logging()
     logger = logging.getLogger("room-engagement-worker")
-    day = routine_date()
+    current = (now or datetime.now().astimezone())
+    day = routine_date(current)
+    gate = engagement_start_gate(DATABASE_PATH, now=current, goal=goal)
+    sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status=str(gate["status"]), routine_date=day,
+                        now=current, error_code=str(gate.get("reason", "")))
+    if gate["status"] in {"not_due", "skipped", "already_complete", "busy"}:
+        followed = int(gate.get("followed", 0))
+        liked = int(gate.get("liked", 0))
+        summary = {"routine_date": day, "followed": followed, "liked": liked, "goal": goal,
+                   "attempted": 0, "failures": 0, "completed": gate["status"] == "already_complete",
+                   "status": gate["status"], "skip_reason": gate.get("reason", "")}
+        if apply:
+            finish_engagement_state(DATABASE_PATH, routine_date=day, followed=followed, liked=liked,
+                                    goal=goal, status="completed" if summary["completed"] else "skipped",
+                                    error_code=str(gate.get("reason", "")), now=current)
+            return 0 if write_and_publish_summary(summary, logger) else 1
+        return 0
     source_candidates, search_urls = load_routine_sources()
     events = read_ledger()
-    today_progress = progress_by_candidate(events, day=day)
+    today_progress = state_progress(DATABASE_PATH, day)
+    legacy_progress = progress_by_candidate(events, day=day)
+    for candidate_id, item in legacy_progress.items():
+        today_progress.setdefault(candidate_id, {"followed": False, "liked": False})
+        today_progress[candidate_id]["followed"] |= item["followed"]
+        today_progress[candidate_id]["liked"] |= item["liked"]
     followed, liked = progress_totals(today_progress)
     if followed >= goal and liked >= goal:
         logger.info("Daily engagement goal already complete follow=%s like=%s", followed, liked)
@@ -629,6 +661,10 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
         return 0
     if not PROFILE_DIR.exists():
         logger.error("ROOM browser profile is missing.")
+        finish_engagement_state(DATABASE_PATH, routine_date=day, followed=followed, liked=liked,
+                                goal=goal, status="needs_human", error_code="profile_missing", now=current)
+        sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status="needs_human", routine_date=day,
+                            now=current, error_code="profile_missing")
         return 1
 
     from playwright.sync_api import sync_playwright
@@ -638,7 +674,22 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     queue = build_daily_candidate_queue(source_candidates, today_progress)
     driver = RoomEngagementDriver()
     failures = 0
-    with room_profile_lock(PROFILE_LOCK_PATH):
+    run_error_code = ""
+    needs_human = False
+    try:
+        profile_context = room_profile_lock(PROFILE_LOCK_PATH, timeout_seconds=0)
+        profile_context.__enter__()
+    except RoomProfileLockTimeout as exc:
+        logger.info("Engagement skipped because ROOM profile is busy error=%s", type(exc).__name__)
+        sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status="skipped", routine_date=day,
+                            now=current, error_code="chrome_profile_busy")
+        finish_engagement_state(DATABASE_PATH, routine_date=day, followed=followed, liked=liked,
+                                goal=goal, status="skipped", error_code="chrome_profile_busy", now=current)
+        summary = {"routine_date": day, "followed": followed, "liked": liked, "goal": goal,
+                   "attempted": 0, "failures": 0, "completed": False, "status": "skipped",
+                   "skip_reason": "chrome_profile_busy"}
+        return 0 if write_and_publish_summary(summary, logger) else 1
+    try:
         with ExitStack() as stack:
             playwright = stack.enter_context(sync_playwright())
             context = playwright.chromium.launch_persistent_context(
@@ -691,9 +742,9 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                     break
 
                 attempted.add(candidate.id)
-                current = today_progress.get(candidate.id, {"followed": False, "liked": False})
-                need_follow = followed < goal and not current["followed"]
-                need_like = liked < goal and not current["liked"]
+                candidate_progress = today_progress.get(candidate.id, {"followed": False, "liked": False})
+                need_follow = followed < goal and not candidate_progress["followed"]
+                need_like = liked < goal and not candidate_progress["liked"]
                 try:
                     result = driver.engage(
                         work_page,
@@ -706,14 +757,26 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                         "routine_date": day,
                         "candidate_id": candidate.id,
                         "room_url": candidate.url,
-                        "followed": current["followed"] or result.followed,
-                        "liked": current["liked"] or result.liked,
+                        "followed": candidate_progress["followed"] or result.followed,
+                        "liked": candidate_progress["liked"] or result.liked,
                         "follow_status": result.follow_status,
                         "like_status": result.like_status,
                     }
                     append_ledger_event(event)
-                    today_progress = progress_by_candidate([*events, event], day=day)
+                    record_engagement_action(
+                        DATABASE_PATH, routine_date=day, candidate_id=candidate.id,
+                        room_url=candidate.url, followed=event["followed"], liked=event["liked"],
+                        follow_status=result.follow_status, like_status=result.like_status,
+                    )
                     events.append(event)
+                    # SQLite is authoritative for resumability; retain the
+                    # legacy projection only as a compatibility supplement.
+                    today_progress = state_progress(DATABASE_PATH, day)
+                    legacy_progress = progress_by_candidate(events, day=day)
+                    for progress_id, progress_item in legacy_progress.items():
+                        today_progress.setdefault(progress_id, {"followed": False, "liked": False})
+                        today_progress[progress_id]["followed"] |= progress_item["followed"]
+                        today_progress[progress_id]["liked"] |= progress_item["liked"]
                     followed, liked = progress_totals(today_progress)
                     logger.info(
                         "Engagement progress candidate=%s follow=%s/%s like=%s/%s",
@@ -726,8 +789,16 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                 except EngagementError as exc:
                     logger.error("Engagement stopped candidate=%s error=%s", candidate.id, str(exc))
                     failures += 1
-                    if "画像認証" in str(exc) or "ログイン状態" in str(exc):
+                    message = str(exc)
+                    if "画像認証" in message or "CAPTCHA" in message.upper():
+                        run_error_code = "captcha"
+                        needs_human = True
                         break
+                    if "ログイン状態" in message or "ログイン" in message:
+                        run_error_code = "auth_required"
+                        needs_human = True
+                        break
+                    run_error_code = "engagement_error"
                 except Exception as exc:
                     logger.error(
                         "Engagement failed candidate=%s error=%s",
@@ -752,7 +823,22 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                 routine_page.reload(wait_until="domcontentloaded")
             except Exception as exc:
                 logger.warning("Routine page final sync failed error=%s", type(exc).__name__)
+    except Exception as exc:
+        logger.error("Engagement worker stopped unexpectedly error=%s", type(exc).__name__)
+        failures += 1
+        run_error_code = "worker_error"
+    finally:
+        profile_context.__exit__(None, None, None)
 
+    finish_engagement_state(
+        DATABASE_PATH, routine_date=day, followed=followed, liked=liked, goal=goal,
+        status=("completed" if followed >= goal and liked >= goal else ("needs_human" if needs_human else "partial")),
+        error_code="" if followed >= goal and liked >= goal else (run_error_code or "goal_not_reached"),
+        now=current,
+    )
+    final_status = "completed" if followed >= goal and liked >= goal else ("needs_human" if needs_human else "partial")
+    sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status=final_status, routine_date=day,
+                        now=current, error_code="" if final_status == "completed" else (run_error_code or "goal_not_reached"))
     summary = {
         "routine_date": day,
         "followed": followed,
@@ -761,6 +847,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
         "attempted": len(attempted),
         "failures": failures,
         "completed": followed >= goal and liked >= goal,
+        "status": final_status,
+        "error_code": "" if final_status == "completed" else (run_error_code or "goal_not_reached"),
     }
     published = write_and_publish_summary(summary, logger)
     return 0 if summary["completed"] and published else 1
@@ -784,6 +872,7 @@ def main() -> int:
         min_delay=args.min_delay,
         max_delay=args.max_delay,
         headless=not args.headful,
+        now=datetime.now().astimezone(),
     )
 
 

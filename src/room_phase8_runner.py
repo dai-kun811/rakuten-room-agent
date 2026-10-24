@@ -18,12 +18,14 @@ from local_room_worker import REPO_API, github_headers, github_token
 from room_operation_contract import JST, POST_SLOTS, SlotStatus, posting_window_open, routine_date_jst
 from room_orchestrator_worker import DATABASE_PATH, LEDGER_PATH, execute, load_fenced_manifest
 from room_state_store import RoomStateStore
+from room_engagement_state import sanitized_heartbeat
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATE_ROOT = PROJECT_ROOT / ".local" / "room-worker"
 RECOVERY_ROOT = STATE_ROOT / "generation-recoveries"
 LOG_PATH = STATE_ROOT / "phase8-orchestrator.log"
+ORCHESTRATOR_HEARTBEAT_PATH = STATE_ROOT / "orchestrator-heartbeat.json"
 WORKFLOW_FILE = "room-fenced-recovery.yml"
 OLD_FENCED_RUN_ID = "37579267266"
 AUDIT_TIME = time(20, 30)
@@ -289,9 +291,10 @@ def next_eligible_slot(
     return None
 
 
-def audit_day(store: RoomStateStore, ledger_path: Path, routine_date: str) -> dict[str, Any]:
+def audit_day(store: RoomStateStore, ledger_path: Path, routine_date: str, *, sync_ledger: bool = True) -> dict[str, Any]:
     store.quick_check()
-    store.sync_legacy_ledger(ledger_path, routine_date=routine_date)
+    if sync_ledger:
+        store.sync_legacy_ledger(ledger_path, routine_date=routine_date)
     snapshot = store.export_snapshot(routine_date)
     ledger_posted: dict[str, str] = {}
     if ledger_path.exists():
@@ -334,6 +337,13 @@ def audit_day(store: RoomStateStore, ledger_path: Path, routine_date: str) -> di
 
 
 def run(*, now: datetime, apply: bool, session: Any, replacement_id: str | None = None) -> dict[str, Any]:
+    sanitized_heartbeat(
+        ORCHESTRATOR_HEARTBEAT_PATH,
+        role="orchestrator",
+        status="running",
+        routine_date=routine_date_jst(now).isoformat(),
+        now=now,
+    )
     store = RoomStateStore(DATABASE_PATH)
     store.initialize()
     store.import_legacy_ledger(LEDGER_PATH, now=now)
