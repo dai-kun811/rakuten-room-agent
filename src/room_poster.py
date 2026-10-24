@@ -129,17 +129,34 @@ class RoomPoster:
                 except PlaywrightTimeoutError:
                     pass
                 if response is not None and self._response_confirms_post(response):
-                    return RoomPostResult(product_url=product_url, status="posted")
+                    return RoomPostResult(
+                        product_url=product_url,
+                        status="posted",
+                        detail="api_collect_success",
+                    )
 
                 try:
                     target.get_by_text(SUCCESS_PATTERN).first.wait_for(state="visible")
                 except PlaywrightTimeoutError:
                     if target.is_closed():
-                        return RoomPostResult(product_url=product_url, status="posted")
+                        return RoomPostResult(
+                            product_url=product_url,
+                            status="posted",
+                            detail="post_window_closed",
+                        )
                     textarea_still_visible = self._first_visible(target, COMMENT_SELECTORS) is not None
                     if target.url == form_url and textarea_still_visible:
                         raise RoomPostError("投稿後の完了表示を確認できませんでした。")
-                return RoomPostResult(product_url=product_url, status="posted")
+                    return RoomPostResult(
+                        product_url=product_url,
+                        status="posted",
+                        detail="post_form_navigated",
+                    )
+                return RoomPostResult(
+                    product_url=product_url,
+                    status="posted",
+                    detail="success_message",
+                )
             finally:
                 context.close()
 

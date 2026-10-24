@@ -8,17 +8,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from room_live_gateway import RoomLiveGateway, classify_room_error, normalize_visible_text
 from room_orchestrator import AuthenticationRequired, Confirmation
-from room_poster import RoomPostError
+from room_poster import RoomPostError, RoomPostResult
 
 
 class FakePoster:
-    def __init__(self) -> None:
+    def __init__(self, result=None) -> None:
         self.calls = 0
+        self.result = result
 
     def post(self, product_url, comment, *, before_submit=None, after_submit=None):
         self.calls += 1
         before_submit()
         after_submit()
+        return self.result
 
 
 class RoomLiveGatewayTests(unittest.TestCase):
@@ -65,6 +67,36 @@ class RoomLiveGatewayTests(unittest.TestCase):
             observed,
             ["十分な長さがある固有の投稿本文です。商品の確認点も自然に案内します。\n\n#育児"],
         )
+
+    def test_authenticated_api_success_is_definitive_without_feed_delay(self) -> None:
+        verifier_calls = []
+        poster = FakePoster(
+            RoomPostResult(
+                product_url="https://item.rakuten.co.jp/shop/item",
+                status="posted",
+                detail="api_collect_success",
+            )
+        )
+        gateway = RoomLiveGateway(poster, lambda comment: verifier_calls.append(comment) or False)
+        result = gateway.submit(
+            self.candidate(), before_submit=lambda: None, after_submit=lambda: None
+        )
+        self.assertEqual(result, Confirmation.PRESENT)
+        self.assertEqual(verifier_calls, [])
+
+    def test_ambiguous_closed_window_still_requires_live_verifier(self) -> None:
+        poster = FakePoster(
+            RoomPostResult(
+                product_url="https://item.rakuten.co.jp/shop/item",
+                status="posted",
+                detail="post_window_closed",
+            )
+        )
+        gateway = RoomLiveGateway(poster, lambda _comment: False)
+        result = gateway.submit(
+            self.candidate(), before_submit=lambda: None, after_submit=lambda: None
+        )
+        self.assertEqual(result, Confirmation.UNKNOWN)
 
 
 if __name__ == "__main__":

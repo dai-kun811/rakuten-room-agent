@@ -621,6 +621,9 @@
 - 2026-10-24 20:45 JST、`RakutenROOMExternalAudit`は定刻実行、終了コード2。当日morning/noon/eveningがDB上すべて`UNCERTAIN`、未解決incident 3件、posting audit不合格であることを正しく検出した。投稿状態はPhase 9検証から変更せず、再投稿もしていない。この実状態が解決するまでPhase 9完了・Phase 10開始は禁止。
 - 初回監査で、15:23にcutoffスキップ済みの交流heartbeatを時刻経過だけでstale扱いするPhase 9側の誤警報を検出。同一JST日付の終端heartbeatは有効とする一般修正を追加し、追加7件・全379件合格。再監査ではengagement/orchestrator heartbeatとも`ok`で、残るエラーは実在するUNCERTAIN・重大incident・posting audit不合格だけ。監査/heartbeatの機密パターン検査は0件。
 - 同じheartbeatを翌日05:45 JSTへ変更し、05:30交流の本番観測だけを継続する。観測後はheartbeatを停止するが、UNCERTAINが残る限りPhase 9を完了扱いにしない。
+- 2026-10-25 00:44 JST、実ROOM表示で2026-10-24 revision 316のmorning/noon/eveningを照合。3枠すべて完全本文・全タグ・商品画像ショップ（nenetshop/beefine/calmisence）がmanifestと一致した。再投稿なしでDB slot/attemptをPOSTED、incidentをresolved、旧ledgerへposted 3行を同期し、当日auditはエラー0。
+- 3枠共通のUNCERTAIN原因は、投稿セッション内の`api/collect`成功応答・成功表示を捨て、反映遅延し得る直後のフィード再読込だけで判定していたこと。API成功または成功表示を確定証拠として保持し、閉じた画面・単なる画面遷移は引き続き完全本文ROOM照合が必要となる一般修正を追加。対象18件・全381件合格。二重投稿経路は増やしていない。
+- Phase 9残条件は2026-10-25 05:30交流の定刻実行観測のみ。正常完了、Chromeロック競合なし、投稿非ブロック、DB/heartbeat整合を確認するまでPhase 10へ進まない。
 
 ## 社長判断待ち
 - なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。

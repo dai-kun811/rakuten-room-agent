@@ -39,3 +39,7 @@
 
 2026-10-24 20:45 JSTの外部監査タスクは定刻実行された。初回結果は終了コード2で、当日3枠の実DB状態がすべて`UNCERTAIN`、未解決incident 3件、posting audit不合格であることを正しく検出した。これは正常日の誤警報ではないため、Phase 9完了およびPhase 10開始を停止する。Phase 9監査自身の不具合として、同日中に終端した日次交流heartbeatを3時間経過だけでstale扱いする問題を検出し、同一JST日付の`completed/skipped/partial/needs_human`を終端証跡として扱うよう修正した。追加7件・全379件のテストに合格し、再監査では誤った`heartbeat_stale`が消え、両heartbeatは`ok`、実在するUNCERTAIN関連だけが残った。監査・heartbeat 3ファイルの機密パターン検査は0件。
 
+2026-10-25 00:44 JST、実ROOM上でrevision 316の3投稿を再照合した。各枠とも完全本文、全タグ、商品画像のショップ識別子（nenetshop / beefine / calmisence）がmanifest・DB attemptと一致し、profile商品数261の実表示内に存在した。再投稿せず、3枠を`UNCERTAIN -> POSTED`、3 attemptを`POSTED`、3 incidentを`resolved`へ原子的に更新し、旧ledgerへposted 3行を同期。2026-10-24 auditはエラー0で合格した。
+
+共通原因は、認証済み投稿セッションで得た`api/collect`成功応答または投稿成功表示を`RoomLiveGateway`が捨て、直後のフィード再読込だけを唯一の確定証拠としていたこと。フィード反映遅延により3枠とも偽陰性になった。投稿セッション内のAPI成功・成功表示を確定証拠として保持し、閉じた画面や単なる遷移など曖昧な場合だけ従来の完全本文ROOM照合へフォールバックするよう修正した。曖昧な結果からはPOSTEDへ進まない回帰テストを含む対象18件・全381件が合格。
+

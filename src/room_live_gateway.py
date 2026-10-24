@@ -55,7 +55,7 @@ class RoomLiveGateway:
             raise RoomPostError("manifest候補の投稿必須項目が不足しています。")
         comment = build_room_comment(body, [str(tag) for tag in hashtags])
         try:
-            self.poster.post(
+            post_result = self.poster.post(
                 product_url,
                 comment,
                 before_submit=before_submit,
@@ -63,6 +63,16 @@ class RoomLiveGateway:
             )
         except RoomPostError as exc:
             raise classify_room_error(exc) from exc
+        # The authenticated submit session can provide definitive evidence
+        # before the profile feed becomes eventually consistent.  Preserve
+        # that evidence instead of discarding it and forcing every success
+        # through an immediately refreshed feed.  Ambiguous navigation or a
+        # closed window still falls back to exact live-ROOM verification.
+        if getattr(post_result, "detail", "") in {
+            "api_collect_success",
+            "success_message",
+        }:
+            return Confirmation.PRESENT
         # Verify the exact submitted comment, including hashtags.  A body-only
         # match can collide with an older post whose tags or source item differ.
         return Confirmation.PRESENT if self.verifier(comment) else Confirmation.UNKNOWN
