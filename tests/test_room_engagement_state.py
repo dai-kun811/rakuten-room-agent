@@ -95,6 +95,67 @@ class EngagementStateTests(unittest.TestCase):
         )
         self.assertEqual((status, error), ("ok", ""))
 
+    def test_orchestrator_partial_and_failed_heartbeats_are_audit_errors(self) -> None:
+        from room_external_audit import _heartbeat_status
+
+        path = Path(self.temp.name) / "orchestrator.json"
+        now = datetime(2026, 10, 24, 20, 45, tzinfo=JST)
+        sanitized_heartbeat(
+            path,
+            role="orchestrator",
+            status="partial",
+            routine_date="2026-10-24",
+            now=now,
+        )
+        self.assertEqual(
+            _heartbeat_status(path, now=now, max_age_minutes=180),
+            ("partial", "heartbeat_partial"),
+        )
+        sanitized_heartbeat(
+            path,
+            role="orchestrator",
+            status="failed",
+            routine_date="2026-10-24",
+            now=now,
+            error_code="RuntimeError",
+        )
+        self.assertEqual(
+            _heartbeat_status(path, now=now, max_age_minutes=180),
+            ("failed", "heartbeat_failed"),
+        )
+        sanitized_heartbeat(
+            path,
+            role="orchestrator",
+            status="generation_failed",
+            routine_date="2026-10-24",
+            now=now,
+        )
+        self.assertEqual(
+            _heartbeat_status(path, now=now, max_age_minutes=180),
+            ("failed", "heartbeat_failed"),
+        )
+
+    def test_running_heartbeat_becomes_stale_after_forced_termination(self) -> None:
+        from room_external_audit import _heartbeat_status
+
+        path = Path(self.temp.name) / "orchestrator-running.json"
+        started = datetime(2026, 10, 24, 17, 0, tzinfo=JST)
+        sanitized_heartbeat(
+            path,
+            role="orchestrator",
+            status="running",
+            routine_date="2026-10-24",
+            now=started,
+        )
+        self.assertEqual(
+            _heartbeat_status(
+                path,
+                now=datetime(2026, 10, 24, 20, 45, tzinfo=JST),
+                max_age_minutes=180,
+            ),
+            ("stale", "heartbeat_stale"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

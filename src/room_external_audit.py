@@ -31,18 +31,25 @@ def _heartbeat_status(path: Path, *, now: datetime, max_age_minutes: int) -> tup
         stamp = datetime.fromisoformat(str(payload["updated_at"])).astimezone(JST)
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return "invalid", "heartbeat_invalid"
+    role = str(payload.get("role", ""))
+    heartbeat_status = str(payload.get("status", ""))
     # The engagement worker is intentionally a once-daily job.  A terminal
     # heartbeat from the same JST routine date is current evidence even when
     # it is older than the rolling age used for the repeatedly scheduled
     # posting orchestrator.
     if (
-        str(payload.get("routine_date", "")) == now.astimezone(JST).date().isoformat()
-        and str(payload.get("status", "")) in {"completed", "skipped", "partial", "needs_human"}
+        role == "engagement"
+        and str(payload.get("routine_date", "")) == now.astimezone(JST).date().isoformat()
+        and heartbeat_status in {"completed", "skipped", "partial", "needs_human"}
     ):
         return "ok", ""
     age = (now.astimezone(JST) - stamp).total_seconds()
     if age > max_age_minutes * 60:
         return "stale", "heartbeat_stale"
+    if heartbeat_status in {"failed", "generation_failed", "audit_failed"}:
+        return "failed", "heartbeat_failed"
+    if heartbeat_status == "partial":
+        return "partial", "heartbeat_partial"
     return "ok", ""
 
 
@@ -61,6 +68,8 @@ def audit(*, now: datetime | None = None, routine_date: str | None = None) -> di
     active_uncertain = sum(1 for status in slot_statuses.values() if status == "uncertain")
     if active_uncertain:
         errors.append("uncertain_slot")
+    if any(status == "blocked" for status in slot_statuses.values()):
+        errors.append("partial_manifest")
     open_incidents = [item for item in snapshot.get("incidents", []) if item.get("status") not in {"resolved", "budget_exhausted"}]
     if open_incidents:
         errors.append("重大incident_open")

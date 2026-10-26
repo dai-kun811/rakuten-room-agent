@@ -76,6 +76,7 @@ class ReasonCode(str, Enum):
     RATE_LIMITED = "rate_limited"
     ACTIONS_RUN_MISSING = "actions_run_missing"
     ACTIONS_RUN_DELAYED = "actions_run_delayed"
+    ACTIONS_RUN_FAILED = "actions_run_failed"
     ARTIFACT_DELAYED = "artifact_delayed"
     PROFILE_LOCK_BUSY = "profile_lock_busy"
     FAILED_PRE_SUBMIT = "failed_pre_submit"
@@ -183,6 +184,7 @@ REASON_ROUTES: dict[ReasonCode, IncidentRoute] = {
     ReasonCode.RATE_LIMITED: IncidentRoute.AUTO_RETRY,
     ReasonCode.ACTIONS_RUN_MISSING: IncidentRoute.AUTO_RETRY,
     ReasonCode.ACTIONS_RUN_DELAYED: IncidentRoute.AUTO_RETRY,
+    ReasonCode.ACTIONS_RUN_FAILED: IncidentRoute.CODEX_RECOMMENDED,
     ReasonCode.ARTIFACT_DELAYED: IncidentRoute.AUTO_RETRY,
     ReasonCode.PROFILE_LOCK_BUSY: IncidentRoute.AUTO_RETRY,
     ReasonCode.FAILED_PRE_SUBMIT: IncidentRoute.AUTO_RETRY,

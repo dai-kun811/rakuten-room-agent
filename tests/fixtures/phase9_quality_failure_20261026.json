@@ -1,0 +1,13 @@
+{
+  "routine_date": "2026-10-26",
+  "variant_count": 64,
+  "baseline": [
+    {"product_type": "stroller_storage", "unique_titles": 4, "short_bodies": 64},
+    {"product_type": "nursing_support", "unique_titles": 4, "short_bodies": 1},
+    {"product_type": "baby_care", "unique_titles": 4, "short_bodies": 64},
+    {"product_type": "baby_sleep", "unique_titles": 4, "short_bodies": 62},
+    {"product_type": "swaddle", "unique_titles": 4, "short_bodies": 43},
+    {"product_type": "formula", "unique_titles": 4, "short_bodies": 32}
+  ],
+  "quality_gate": {"minimum_body_length": 150, "maximum_body_length": 260}
+}

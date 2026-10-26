@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Iterable
@@ -463,6 +464,10 @@ class GeneratedPost:
     tag_evidence_result: str = "未確認"
     recommendation_reason_result: str = "未確認"
     structure_similarity: float = 0.0
+    generation_attempts: int = 0
+    attempted_variant_count: int = 0
+    attempt_error_counts: dict[str, int] = field(default_factory=dict)
+    terminal_reason: str = ""
 
 
 @dataclass
@@ -1563,14 +1568,33 @@ class FixedRulePostGenerator:
         patterns = PATTERNS[attributes.product_type]
         start = stable_index(scored.product.url or scored.product.name, len(patterns))
         last_post: GeneratedPost | None = None
+        seen_variants: set[tuple[str, str]] = set()
+        attempt_error_counts: Counter[str] = Counter()
+        validated_attempts = 0
+        attempts_since_new_variant = 0
+        cycle_probe_window = max(32, len(patterns) * 4)
+        terminal_reason = "max_regeneration_exceeded"
         for attempt in range(MAX_GENERATION_ATTEMPTS):
             pattern = patterns[(start + attempt) % len(patterns)]
             post = build_candidate(scored, attributes, pattern, attempt)
+            signature = (normalize_text(post.title), normalize_text(post.body))
+            if signature in seen_variants:
+                attempts_since_new_variant += 1
+                if attempts_since_new_variant >= cycle_probe_window:
+                    terminal_reason = "variant_space_exhausted"
+                    break
+                continue
+            seen_variants.add(signature)
+            attempts_since_new_variant = 0
             errors = validate_post(post, attributes, context)
+            validated_attempts += 1
+            attempt_error_counts.update(error_code(error) for error in errors)
+            post.generation_attempts = validated_attempts
+            post.attempted_variant_count = len(seen_variants)
+            post.attempt_error_counts = dict(sorted(attempt_error_counts.items()))
             if not errors:
                 post.status = "ready"
                 post.quality = quality_score(post, attributes, [])
-                context.remember(post)
                 return post
             post.status = "needs_review"
             post.quality_errors = errors
@@ -1579,17 +1603,28 @@ class FixedRulePostGenerator:
             last_post = post
         assert last_post is not None
         specific_errors = ", ".join(error_code(error) for error in last_post.quality_errors)
-        max_error = (
-            f"max_regeneration_exceeded: {specific_errors}"
+        terminal_error = (
+            f"{terminal_reason}: {specific_errors}"
             if specific_errors
-            else "max_regeneration_exceeded"
+            else terminal_reason
         )
         last_post.quality_errors = list(
             dict.fromkeys(
                 last_post.quality_errors
-                + [max_error, f"最大{MAX_GENERATION_ATTEMPTS}回の再生成で品質条件を満たせない"]
+                + [
+                    terminal_error,
+                    (
+                        "同一のタイトル・本文variantが循環したため再生成を停止"
+                        if terminal_reason == "variant_space_exhausted"
+                        else f"最大{MAX_GENERATION_ATTEMPTS}回の再生成で品質条件を満たせない"
+                    ),
+                ]
             )
         )
+        last_post.generation_attempts = validated_attempts
+        last_post.attempted_variant_count = len(seen_variants)
+        last_post.attempt_error_counts = dict(sorted(attempt_error_counts.items()))
+        last_post.terminal_reason = terminal_reason
         last_post.quality = quality_score(
             last_post,
             attributes,
@@ -2994,6 +3029,21 @@ def product_specific_distinctive_copy(
     extra_sentence = extra_sentences.get(product_type, "")
     if extra_sentence and variant % 2 == 0 and len(body + extra_sentence) <= 260:
         body += extra_sentence
+    body = finalize_grounded_body_length(body, attributes, variant=variant)
+    if product_type in {
+        "stroller_storage",
+        "nursing_support",
+        "baby_care",
+        "baby_sleep",
+        "swaddle",
+        "formula",
+    }:
+        title = grounded_product_title(
+            attributes,
+            base_titles=titles,
+            body=body,
+            variant=variant,
+        )
     if required and required not in f"{title}{body}":
         if product_type == "stroller_storage":
             stroller_titles = {
@@ -3013,6 +3063,89 @@ def product_specific_distinctive_copy(
         elif not uses_marketing_copy(attributes) and required in attributes.source_product_text:
             title = f"{label}｜{required}を楽しむ"
     return title, body
+
+
+def grounded_product_title(
+    attributes: ProductAttributes,
+    *,
+    base_titles: list[str],
+    body: str,
+    variant: int,
+) -> str:
+    """Build a finite set of natural titles only from confirmed evidence.
+
+    The first four variants intentionally preserve the established wording.
+    Later variants combine the confirmed use scene, purchase checkpoint, and
+    concise feature markers instead of cycling the same four titles.
+    """
+    label = attributes.short_product_label
+    base_title = base_titles[variant % len(base_titles)]
+    if variant < len(base_titles):
+        return base_title
+    candidates: list[str] = []
+    use_cases = [value for value in attributes.confirmed_use_cases if value][:2]
+    checkpoints = [value for value in attributes.purchase_checkpoints if value][:3]
+    for use_case in use_cases:
+        for checkpoint in checkpoints:
+            follow_up = (
+                f"{checkpoint}を見て{use_case}を整える"
+                if "準備" in use_case or "周り" in use_case
+                else f"{checkpoint}を見て{use_case}に備える"
+            )
+            candidates.extend(
+                [
+                    f"{label}｜{use_case}に合わせて{checkpoint}を確認",
+                    f"{label}｜{follow_up}",
+                ]
+            )
+    natural_candidates = [
+        value
+        for value in dict.fromkeys(candidates)
+        if len(value) <= 42
+        and not re.search(r"(を確認を|に備えるに|向けにに)", value)
+        and normalize_text(label) not in normalize_text(value.split("｜", 1)[1])
+    ]
+    if not natural_candidates:
+        return base_title
+    cycle = max(0, variant // len(base_titles) - 1)
+    return natural_candidates[cycle % len(natural_candidates)]
+
+
+def finalize_grounded_body_length(
+    body: str,
+    attributes: ProductAttributes,
+    *,
+    variant: int = 0,
+) -> str:
+    """Lengthen short product-specific copy without adding unverified claims.
+
+    Only purchase checkpoints already derived for the product type are used.
+    If those facts cannot bring the body into the existing 150-260 character
+    gate, the original body is returned and normal validation rejects it.
+    """
+    if len(body) >= 150 or len(body) > 260:
+        return body
+    checkpoints = [value for value in attributes.purchase_checkpoints if value]
+    if not checkpoints:
+        return body
+    joined = "・".join(checkpoints[:3])
+    label = attributes.short_product_label
+    additions = [
+        f"{joined}を基準にすると、家庭で使う場所や手入れの流れに合う{label}か整理できます。",
+        f"{label}を選ぶ時は、{joined}を家庭の使い方と照らし合わせることが大切です。",
+        f"家庭で扱う場面を考えながら、{joined}を{label}選びの基準にできます。",
+    ]
+    sentences = split_sentences(body)
+    for offset in range(len(additions)):
+        addition = additions[(variant + offset) % len(additions)]
+        candidate = (
+            "".join([*sentences[:-1], addition, sentences[-1]])
+            if len(sentences) >= 2
+            else body + addition
+        )
+        if 150 <= len(candidate) <= 260:
+            return candidate
+    return body
 
 def distinct_listing_teaser(body: str, scored: ScoredProduct) -> str:
     # The first words are what a visitor sees in ROOM.  Keep the existing
@@ -3172,6 +3305,12 @@ def validate_post(
     title_parts = [part.strip() for part in post.title.split("｜", 1)]
     if len(title_parts) == 2 and normalize_text(title_parts[0]) == normalize_text(title_parts[1]):
         errors.append("title_content_mismatch: 区切り前後で商品名だけを反復")
+    if (
+        len(title_parts) == 2
+        and normalize_text(attributes.short_product_label)
+        and normalize_text(attributes.short_product_label) in normalize_text(title_parts[1])
+    ):
+        errors.append("title_content_mismatch: 区切り後で商品名を不自然に反復")
     if "を楽しむ" in post.title and attributes.product_type not in {
         "sound_blocks",
         "wooden_blocks",
@@ -3215,7 +3354,15 @@ def validate_post(
         ]
     ):
         errors.append("marketing_awkward_condition: 商品価値につながらない汎用の収納・動線表現を使用")
-    if attributes.product_type in {"activity_cube", "baby_walker_toy", "baby_care", "baby_sleep"}:
+    if attributes.product_type in {
+        "activity_cube",
+        "baby_walker_toy",
+        "stroller_storage",
+        "nursing_support",
+        "baby_care",
+        "baby_sleep",
+        "swaddle",
+    }:
         if post.body.count(attributes.short_product_label) >= 3:
             errors.append("duplicate_short_label: 本文で商品名を3回以上反復")
     if attributes.product_type == "baby_bedding" and any(

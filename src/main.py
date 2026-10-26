@@ -294,6 +294,14 @@ def main() -> int:
 
         generator = FixedRulePostGenerator()
         context = GenerationContext.from_history(recent_history)
+        generation_funnel = {
+            "api_unique_products": len(products),
+            "deduplicated_products": len(deduped_products),
+            "duplicate_products_removed": duplicate_count,
+            "non_room_products_removed": excluded_count,
+            "eligible_products": len(eligible_products),
+            "selected_products": len(selected_products),
+        }
         ready_rows: list[list[object]] = []
         review_rows: list[list[object]] = []
         report_items: list[GenerationReportItem] = []
@@ -302,7 +310,9 @@ def main() -> int:
             generator=generator,
             context=context,
             target_ready=TARGET_READY_POSTS,
+            diagnostics=generation_funnel,
         )
+        LOGGER.info("生成ファネル run_id=%s funnel=%s", run_id, generation_funnel)
         all_slots_ready = (
             sum(generated.status == "ready" for _, generated in generation_results)
             == TARGET_READY_POSTS
@@ -371,6 +381,7 @@ def main() -> int:
             fetch_report=fetch_report,
             items=report_items,
             required_post_slots=POST_SLOTS,
+            generation_funnel=generation_funnel,
         )
         if shadow_mode:
             LOGGER.info(
@@ -605,43 +616,86 @@ def generate_until_ready(
     generator: FixedRulePostGenerator,
     context: GenerationContext,
     target_ready: int,
+    diagnostics: dict[str, object] | None = None,
 ):
     """Generate the required quality-safe posts from supported product types.
 
     A product can fail the text-quality rules after the initial product
     selection has been diversified.  Keep looking through a bounded set of
-    candidates for another ready product type before using a same-type backup.
+    candidates for another ready product type without using a same-type backup.
     Unsupported types cannot produce fact-grounded copy, so do not spend the
     generation budget on them.  This protects the actual posted set, not
     merely the input ranking.
     """
     accepted: list[tuple[ScoredProduct, object]] = []
     reviewed: list[tuple[ScoredProduct, object]] = []
-    used_types: set[str] = set()
-    candidate_window = [
+    supported_candidates = [
         candidate for candidate in candidates if is_supported_room_product(candidate.product)
-    ][:MAX_DIVERSITY_CANDIDATES]
-
+    ]
+    candidate_window = supported_candidates[:MAX_DIVERSITY_CANDIDATES]
+    queues: dict[str, list[ScoredProduct]] = {}
     for item in candidate_window:
-        generated = generator.generate(
-            item,
-            context=context,
-            season="",
-        )
-        if generated.status != "ready":
-            reviewed.append((item, generated))
-            continue
+        queues.setdefault(classify_product_type(item.product), []).append(item)
+    initial_queue_sizes = {
+        product_type: len(queue) for product_type, queue in queues.items()
+    }
 
-        product_type = classify_product_type(item.product)
-        # A three-post day must expose three different product needs.  Repeated
-        # types are never promoted merely to fill a slot; keep searching and
-        # fail the run as missing if three distinct ready types are unavailable.
-        if product_type in used_types:
-            continue
-        accepted.append((item, generated))
-        used_types.add(product_type)
-        if len(accepted) >= target_ready:
+    accepted_types: set[str] = set()
+    generated_count = 0
+    # Visit one candidate from each product type per round.  A deep run of one
+    # type can no longer consume the generation window before other grounded
+    # types are evaluated.  There is intentionally no same-type slot fallback.
+    while len(accepted) < target_ready:
+        progressed = False
+        for product_type, queue in queues.items():
+            if product_type in accepted_types or not queue:
+                continue
+            progressed = True
+            item = queue.pop(0)
+            generated = generator.generate(
+                item,
+                context=context,
+                season="",
+            )
+            generated_count += 1
+            if generated.status != "ready":
+                reviewed.append((item, generated))
+                continue
+            accepted.append((item, generated))
+            accepted_types.add(product_type)
+            if hasattr(context, "remember"):
+                context.remember(generated)
+            if len(accepted) >= target_ready:
+                break
+        if not progressed:
             break
+
+    if diagnostics is not None:
+        error_counts: Counter[str] = Counter()
+        terminal_counts: Counter[str] = Counter()
+        attempts_total = 0
+        for _item, generated in [*accepted, *reviewed]:
+            attempts_total += int(getattr(generated, "generation_attempts", 0))
+            error_counts.update(getattr(generated, "attempt_error_counts", {}))
+            terminal_reason = str(getattr(generated, "terminal_reason", ""))
+            if terminal_reason:
+                terminal_counts[terminal_reason] += 1
+        diagnostics.update(
+            {
+                "input_candidates": len(candidates),
+                "supported_candidate_window": len(candidate_window),
+                "supported_candidates_total": len(supported_candidates),
+                "unsupported_candidates_filtered": len(candidates) - len(supported_candidates),
+                "supported_candidates_outside_window": len(supported_candidates) - len(candidate_window),
+                "product_type_queue_sizes": initial_queue_sizes,
+                "generated_candidates": generated_count,
+                "accepted_ready": len(accepted),
+                "reviewed_candidates": len(reviewed),
+                "generation_attempts": attempts_total,
+                "attempt_error_counts": dict(sorted(error_counts.items())),
+                "terminal_reason_counts": dict(sorted(terminal_counts.items())),
+            }
+        )
     return [*accepted, *reviewed]
 
 

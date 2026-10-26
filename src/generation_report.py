@@ -49,6 +49,7 @@ def write_generation_reports(
     fetch_report: FetchReport | None,
     items: list[GenerationReportItem],
     required_post_slots: tuple[str, ...] = (),
+    generation_funnel: dict[str, Any] | None = None,
     manifest_actions_run_id: str | int | None = None,
     manifest_head_sha: str | None = None,
 ) -> list[Path]:
@@ -62,6 +63,7 @@ def write_generation_reports(
         fetch_report=fetch_report,
         items=items,
         required_post_slots=required_post_slots,
+        generation_funnel=generation_funnel,
     )
     ensure_no_secret_fields(payload)
     json_path = report_dir / f"{REPORT_BASENAME}.json"
@@ -103,6 +105,7 @@ def build_report_payload(
     fetch_report: FetchReport | None,
     items: list[GenerationReportItem],
     required_post_slots: tuple[str, ...] = (),
+    generation_funnel: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ready_slots = [
         item.post_slot
@@ -119,6 +122,7 @@ def build_report_payload(
         "sheet_columns": SHEET_HEADERS,
         "sheet_column_count": len(SHEET_HEADERS),
         "rakuten_fetch": fetch_summary(fetch_report),
+        "generation_funnel": generation_funnel or {},
         "required_post_slots": list(required_post_slots),
         "ready_slots": ready_slots,
         "missing_post_slots": [
@@ -167,6 +171,12 @@ def report_item(item: GenerationReportItem) -> dict[str, Any]:
             "tag_evidence_result": generated.tag_evidence_result,
             "recommendation_reason_result": generated.recommendation_reason_result,
             "structure_similarity": generated.structure_similarity,
+        },
+        "generation_diagnostics": {
+            "attempts": generated.generation_attempts,
+            "attempted_variant_count": generated.attempted_variant_count,
+            "attempt_error_counts": generated.attempt_error_counts,
+            "terminal_reason": generated.terminal_reason,
         },
         "write_sheet": item.write_sheet,
         "duplicate_result": item.duplicate_result,
@@ -285,6 +295,7 @@ def write_markdown_report(path: Path, payload: dict[str, Any]) -> None:
         f"- required_post_slots: `{', '.join(payload['required_post_slots'])}`",
         f"- ready_slots: `{', '.join(payload['ready_slots'])}`",
         f"- missing_post_slots: `{', '.join(payload['missing_post_slots'])}`",
+        f"- generation_funnel: `{json.dumps(payload['generation_funnel'], ensure_ascii=False, sort_keys=True)}`",
         "",
     ]
     for index, item in enumerate(payload["items"], start=1):

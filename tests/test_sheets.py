@@ -328,6 +328,7 @@ class SheetsTest(unittest.TestCase):
                 )
             ],
             required_post_slots=("morning", "noon", "evening"),
+            generation_funnel={"generated_candidates": 7, "accepted_ready": 1},
         )
 
         ensure_no_secret_fields(payload)
@@ -337,6 +338,11 @@ class SheetsTest(unittest.TestCase):
         self.assertEqual(payload["items"][0]["post_slot"], "morning")
         self.assertEqual(payload["items"][0]["sheet_row_column_count"], 34)
         self.assertEqual(payload["items"][0]["write_sheet"], "ROOM_Posts_v2")
+        self.assertEqual(payload["generation_funnel"]["generated_candidates"], 7)
+        self.assertEqual(
+            payload["items"][0]["generation_diagnostics"]["attempts"],
+            generated.generation_attempts,
+        )
 
     def test_unknown_row_is_not_targeted_to_normal_output_sheet(self) -> None:
         scored = score_product(

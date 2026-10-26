@@ -326,19 +326,88 @@ class RoomStateStore:
         *,
         owner_id: str,
         replacement_run_id: str | None = None,
+        result_status: str = "ready",
         now: datetime | None = None,
     ) -> None:
+        if result_status not in {"ready", "partial"}:
+            raise ValueError("recovery result_status must be ready or partial")
         timestamp = _timestamp(now)
         with self.transaction() as connection:
             result = connection.execute(
                 """UPDATE recovery_controls
-                   SET status = 'ready', owner_id = NULL, lease_expires_at = NULL,
+                   SET status = ?, owner_id = NULL, lease_expires_at = NULL,
                        replacement_run_id = COALESCE(?, replacement_run_id), updated_at = ?
                    WHERE recovery_id = ? AND status = 'running' AND owner_id = ?""",
-                (replacement_run_id, timestamp, recovery_id, owner_id),
+                (result_status, replacement_run_id, timestamp, recovery_id, owner_id),
             )
             if result.rowcount != 1:
                 raise StateConflictError("recovery lease is missing or expired")
+
+    def mark_recovery_control_partial(
+        self,
+        recovery_id: str,
+        *,
+        replacement_run_id: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Idempotently downgrade an accepted generation result to partial.
+
+        This repairs legacy rows that were marked ready before the Actions
+        conclusion was inspected.  It never promotes a partial result to ready.
+        """
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT status, replacement_run_id FROM recovery_controls WHERE recovery_id = ?",
+                (recovery_id,),
+            ).fetchone()
+            if row is None:
+                raise StateConflictError("recovery control is missing")
+            current_run = str(row["replacement_run_id"] or "")
+            if current_run and current_run != str(replacement_run_id):
+                raise StateConflictError("recovery control belongs to a different Actions run")
+            if str(row["status"]) == "partial":
+                return
+            if str(row["status"]) != "ready":
+                raise StateConflictError("only a ready recovery can be downgraded to partial")
+            connection.execute(
+                """UPDATE recovery_controls
+                   SET status = 'partial', replacement_run_id = ?, updated_at = ?
+                   WHERE recovery_id = ? AND status = 'ready'""",
+                (str(replacement_run_id), timestamp, recovery_id),
+            )
+
+    def fail_recovery_control(
+        self,
+        recovery_id: str,
+        *,
+        owner_id: str,
+        replacement_run_id: str,
+        now: datetime | None = None,
+    ) -> None:
+        """Terminalize a completed generation run that produced no valid artifact."""
+        timestamp = _timestamp(now)
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT status, owner_id, replacement_run_id FROM recovery_controls WHERE recovery_id = ?",
+                (recovery_id,),
+            ).fetchone()
+            if row is None:
+                raise StateConflictError("recovery control is missing")
+            current_run = str(row["replacement_run_id"] or "")
+            if str(row["status"]) == "failed":
+                if current_run != str(replacement_run_id):
+                    raise StateConflictError("failed recovery belongs to a different Actions run")
+                return
+            if str(row["status"]) != "running" or str(row["owner_id"] or "") != owner_id:
+                raise StateConflictError("only the active recovery lease can fail")
+            connection.execute(
+                """UPDATE recovery_controls
+                   SET status = 'failed', owner_id = NULL, lease_expires_at = NULL,
+                       replacement_run_id = ?, updated_at = ?
+                   WHERE recovery_id = ? AND status = 'running' AND owner_id = ?""",
+                (str(replacement_run_id), timestamp, recovery_id, owner_id),
+            )
 
     def rebind_preflight_recovery_control(
         self,
@@ -377,7 +446,7 @@ class RoomStateStore:
             raise StateConflictError("recovery control is not registered")
         if str(row["expected_head_sha"]) != expected_head_sha or int(row["revision"]) != revision:
             raise StateConflictError("recovery control fence does not match")
-        if str(row["status"]) not in {"running", "ready", "posting_allowed"}:
+        if str(row["status"]) not in {"running", "ready", "partial", "posting_allowed"}:
             raise StateConflictError("recovery control is not usable")
         return dict(row)
 
@@ -764,6 +833,7 @@ class RoomStateStore:
         slot: str = "",
         component: str = "",
         manifest_revision: int | None = None,
+        dedupe_terminal: bool = False,
         now: datetime | None = None,
     ) -> str:
         day = _date_text(routine_date)
@@ -777,15 +847,23 @@ class RoomStateStore:
             component=component,
         )
         with self.transaction() as connection:
-            existing = connection.execute(
-                """
-                SELECT incident_id FROM incidents
-                WHERE fingerprint = ? AND routine_date = ?
-                  AND status NOT IN ('resolved', 'needs_human', 'budget_exhausted')
-                ORDER BY created_at DESC LIMIT 1
-                """,
-                (fingerprint, day),
-            ).fetchone()
+            if dedupe_terminal:
+                existing = connection.execute(
+                    """SELECT incident_id FROM incidents
+                       WHERE fingerprint = ? AND routine_date = ?
+                       ORDER BY created_at DESC LIMIT 1""",
+                    (fingerprint, day),
+                ).fetchone()
+            else:
+                existing = connection.execute(
+                    """
+                    SELECT incident_id FROM incidents
+                    WHERE fingerprint = ? AND routine_date = ?
+                      AND status NOT IN ('resolved', 'needs_human', 'budget_exhausted')
+                    ORDER BY created_at DESC LIMIT 1
+                    """,
+                    (fingerprint, day),
+                ).fetchone()
             if existing is not None:
                 return str(existing["incident_id"])
             incident_id = f"{day}-{reason.value}-{uuid4().hex[:8]}"

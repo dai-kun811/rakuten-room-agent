@@ -21,7 +21,33 @@
 > 新しいセッション（Codex）は AGENTS.md → このファイルの順で読み、前回の続きから作業する。
 > 「現在の状態」だけを書く。詳細な仕様・運用は README.md。作業の区切り・セッション終了前・コンテキストが長くなったら必ず最新化する。
 
-最終更新: 2026-10-21 20:52 JST
+最終更新: 2026-10-26 JST
+
+## 2026-10-27 Phase 9 残存P1 2件の是正（ローカル、未commit）
+
+- `manifest-verification.json` の `valid_until` は、保存値を信頼せずfenceのroutine dateから22:30 JSTを再計算し、保存文字列との厳密一致後に再計算値で期限判定するよう修正。未来・欠落・形式不正の期限値をfail closedで拒否し、22:29:59許可／22:30:00拒否の境界テストを追加した。
+- Actionsが`completed/success`でもartifactが無い場合は、timezone-awareな`updated_at`から15分だけ待機し、14分59秒は`artifact_delayed`非終端、15分到達時は同reasonの終端incidentへ移行する。時刻欠落・不正・naive値はfail closed。同一runのincidentは再評価しても1件で、heartbeatは`failed`へ終端する。
+- 対象22テスト、全406テスト、`git diff --check`、未追跡を含む15ファイルの秘密情報検査に合格。Codex独自プローブでも期限改ざん拒否と14:59/15:00境界を確認した。
+- Claude Code新規独立セッション`4945fc61-196f-44b8-b8b3-18a0427d2127`の読み取り専用監査はPASS、P0=0/P1=0。exact-once、投稿済み枠の再送禁止、UNCERTAIN保護に回帰なし。P2は今回変更していない。
+- HEADは`2ae9e4a149d2821911d78cc1f51237fd98268ef1`のまま。commit・push・deploy・本番DB/Actions/投稿/スケジュール操作は未実施。監査CLIがユーザーPython環境へpytest 9.1.1を導入したが、リポジトリ内の`.pytest_cache`とテスト一時ディレクトリは削除済み。
+
+## 2026-10-26 Phase 9 独立監査P1是正（ローカル、未commit）
+
+- 同じ分離worktreeでP1 4件を是正。本番ディレクトリ、DB、Actions、投稿、スケジュールは変更・実行していない。基準・現在HEADは `2ae9e4a149d2821911d78cc1f51237fd98268ef1` のまま、全差分は未commit・未push。
+- 検証済みmanifestにrun ID、HEAD、revision、Actions結果、manifest SHA-256、22:30期限を持つローカル検証証跡を追加。同日後続枠はGitHub停止中も再利用でき、未検証・内容hash不一致・改ざん・期限切れ・recovery control不一致はfail closed。exact-once、UNCERTAIN、再送禁止は変更していない。
+- artifactなしrunを、未完了・成功後artifact待ち・失敗確定に分離。失敗確定はrecoveryを`failed`へ終端し、同一runの`actions_run_failed` incidentを1件だけ記録、heartbeatを`failed`へ更新する。複数runで帰属が曖昧な場合は失敗確定せず待機する。部分artifactの品質合格slotは既存安全条件のまま継続可能。
+- タイトルは商品名反復と特徴語の機械連結を禁止し、確認済み用途＋購入確認点の自然な固定文型だけへ限定。6タイプ×64 variantで本文150〜260文字、自然候補10〜16種、商品名反復0。ready本文の商品名3回以上反復も0。
+- 2026-10-26保存report 111件と過去manifest 60件を読み取り専用で再構成した最新オフライン比較では、全件品質スイープが基準HEAD `ready=11 / needs_review=100 / attempts=6382 / 82.55秒`、修正後 `ready=73 / needs_review=38 / attempts=2655 / 37.15秒`。3枠採用フローは双方3枠、attemptsは133→61。処理時間は実行環境で変動する。元233候補のうち保存されていない122件、元の完全な選定順、Sheets 30日履歴全量は再現不能のため、本番障害解消の最終証明にはしない。
+- 新規回帰を含む全402テスト、`compileall`、`git diff --check`、秘密情報パターン検査は成功。P2は、強制終了時heartbeatは外部監査のstale検出に依存する点と、タイプ別round-robinによる順位変更の妥当性が再監査対象。UNCERTAIN監査は既存のfail-closed検出を維持。
+- 次は独立Claude Code再監査。再監査合格と社長承認まではcommit・push・deploy・本番生成/投稿をしない。
+
+## 2026-10-26 Phase 9 安定化改修セットA・B（ローカル、未commit）
+
+- 基準HEAD `2ae9e4a149d2821911d78cc1f51237fd98268ef1` から、稼働中ディレクトリと分離した worktree `phase9-stabilization-ab` で実装した。本番タスク、DB、Actions、投稿、スケジュールは変更・実行していない。
+- セットAは、商品タイプ別本文確定後の根拠付き文字数補正、確認済み用途・特徴・購入確認点による決定論的タイトル拡張、variant循環検出、採用後のみのcontext更新、異なる商品タイプの候補キュー、生成ファネル・attemptエラー診断を追加した。品質閾値、重複判定、同一タイプfallbackは変更していない。
+- セットBは、Actions `status` / `conclusion` 判定、部分manifestの`partial`化、blocked品質枠の`quality_pool_exhausted` incident、同一runのincident冪等化、全終了経路のheartbeat終端化、外部監査のpartial・heartbeat異常検知を追加した。exact-once、UNCERTAIN、再送制御は変更していない。
+- 2026-10-26障害fixtureの代表6タイプで、150文字未満は修正前合計266/384 variantから修正後0/384、タイトルは各4種から7〜19種へ増加。ローカル6タイプファネルは3生成・3 ready・review 0・missing 0。これは本番再生成結果ではない。
+- 重点229テスト、全393テスト、`compileall`、秘密情報パターン検査、`git diff --check` は成功。変更は未commit・未push。次は独立Claude Code監査と社長承認後に、本番反映用のcommit/push/deploy判断を行う。
 
 ## 2026-10-22 Phase 8 Day 14 observation
 

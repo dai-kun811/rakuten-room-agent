@@ -27,7 +27,9 @@ from fixed_rule_generator import (
     confirmation_repeat_count,
     ending_family,
     extract_attributes,
+    finalize_grounded_body_length,
     hashtags_for,
+    normalize_text,
     product_specific_distinctive_copy,
     stable_index,
     split_sentences,
@@ -1497,6 +1499,122 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             generated.quality_errors,
         )
 
+    def test_phase9_quality_failure_fixture_has_no_short_body_and_more_grounded_titles(self) -> None:
+        fixture_path = Path(__file__).parent / "fixtures" / "phase9_quality_failure_20261026.json"
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        variant_count = fixture["variant_count"]
+        for baseline in fixture["baseline"]:
+            attributes = extract_attributes(product_for(baseline["product_type"]))
+            variants = [
+                product_specific_distinctive_copy(
+                    attributes,
+                    teaser="",
+                    variant=variant,
+                )
+                for variant in range(variant_count)
+            ]
+            generated = [value for value in variants if value is not None]
+            bodies = [body for _title, body in generated]
+            titles = {title for title, _body in generated}
+            base_titles = {title for title, _body in generated[:4]}
+            grounded_titles = {
+                value
+                for use_case in attributes.confirmed_use_cases[:2]
+                for checkpoint in attributes.purchase_checkpoints[:3]
+                for value in (
+                    f"{attributes.short_product_label}｜{use_case}に合わせて{checkpoint}を確認",
+                    (
+                        f"{attributes.short_product_label}｜{checkpoint}を見て{use_case}を整える"
+                        if "準備" in use_case or "周り" in use_case
+                        else f"{attributes.short_product_label}｜{checkpoint}を見て{use_case}に備える"
+                    ),
+                )
+                if normalize_text(attributes.short_product_label)
+                not in normalize_text(value.split("｜", 1)[1])
+            }
+            self.assertEqual(len(generated), variant_count, baseline)
+            self.assertTrue(all(150 <= len(body) <= 260 for body in bodies), baseline)
+            self.assertGreater(len(titles), baseline["unique_titles"], baseline)
+            self.assertTrue(titles.issubset(base_titles | grounded_titles), baseline)
+            label = attributes.short_product_label
+            for title in titles:
+                parts = title.split("｜", 1)
+                self.assertEqual(len(parts), 2, title)
+                self.assertNotIn(normalize_text(label), normalize_text(parts[1]), title)
+            self.assertNotIn("スリーパー｜スリーパーと素材を確認", titles)
+            self.assertNotIn("スワドル｜モロー反射とサイズを確認", titles)
+
+    def test_awkward_product_label_repetition_is_rejected(self) -> None:
+        generated = generate("baby_sleep")
+        changed = replace(
+            generated,
+            title="スリーパー｜スリーパーと素材を確認",
+        )
+        self.assertIn(
+            "title_content_mismatch: 区切り後で商品名を不自然に反復",
+            validate_post(changed, changed.attributes),
+        )
+
+    def test_wearable_and_care_types_reject_body_label_repetition(self) -> None:
+        for product_type in (
+            "stroller_storage",
+            "nursing_support",
+            "baby_care",
+            "baby_sleep",
+            "swaddle",
+        ):
+            with self.subTest(product_type=product_type):
+                generated = generate(product_type)
+                label = generated.attributes.short_product_label
+                changed = replace(generated, body=generated.body + label * 3)
+                self.assertIn(
+                    "duplicate_short_label: 本文で商品名を3回以上反復",
+                    validate_post(changed, changed.attributes),
+                )
+
+    def test_final_length_repair_refuses_to_invent_without_grounded_checkpoints(self) -> None:
+        attributes = replace(
+            extract_attributes(product_for("baby_care")),
+            purchase_checkpoints=(),
+        )
+        short_body = "保湿用品を置く場所に迷います。毎日の流れに合うか見ておきたいです。"
+        self.assertLess(len(short_body), 150)
+        self.assertEqual(
+            finalize_grounded_body_length(short_body, attributes),
+            short_body,
+        )
+
+    def test_identical_variant_cycle_stops_before_the_64_attempt_ceiling(self) -> None:
+        product = product_for("wipes")
+        scored = score_product(product, date(2026, 10, 26))
+        attributes = extract_attributes(product)
+        pattern = PATTERNS[attributes.product_type][0]
+        repeated = build_candidate(scored, attributes, pattern, 0)
+        with patch("fixed_rule_generator.build_candidate", return_value=repeated), patch(
+            "fixed_rule_generator.validate_post", return_value=["同一タイトル"]
+        ):
+            generated = FixedRulePostGenerator().generate(
+                scored,
+                context=GenerationContext(),
+            )
+        self.assertEqual(generated.status, "needs_review")
+        self.assertEqual(generated.terminal_reason, "variant_space_exhausted")
+        self.assertEqual(generated.attempted_variant_count, 1)
+        self.assertEqual(generated.generation_attempts, 1)
+        self.assertLess(generated.rewrite_count, MAX_GENERATION_ATTEMPTS - 1)
+
+    def test_generator_does_not_commit_context_before_candidate_acceptance(self) -> None:
+        context = GenerationContext()
+        generated = FixedRulePostGenerator().generate(
+            score_product(product_for("wipes"), date(2026, 10, 26)),
+            context=context,
+        )
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertEqual(context.used_titles, set())
+        self.assertEqual(context.used_bodies, [])
+        context.remember(generated)
+        self.assertIn(generated.title, context.used_titles)
+
     def test_distinctive_rewrite_prioritizes_product_and_use_case_without_price_anchor(self) -> None:
         generated = generate("wooden_blocks")
         title, body = add_distinctive_product_detail(
@@ -1755,12 +1873,13 @@ class FixedRuleGeneratorTest(unittest.TestCase):
                 product_for("wipes", suffix=str(index)),
                 price=3_000 + index * 137,
             )
-            generated_posts.append(
-                FixedRulePostGenerator().generate(
-                    score_product(product, date(2026, 9, 16)),
-                    context=context,
-                )
+            generated = FixedRulePostGenerator().generate(
+                score_product(product, date(2026, 9, 16)),
+                context=context,
             )
+            generated_posts.append(generated)
+            if generated.status == "ready":
+                context.remember(generated)
 
         self.assertTrue(
             all(post.status == "ready" for post in generated_posts),

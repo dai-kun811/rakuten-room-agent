@@ -310,9 +310,6 @@ class MainSelectionTest(unittest.TestCase):
             scored("おしりふき 厚手 最終", "https://example.com/ready-wipes", 100),
             scored("紙おむつ パンツ Mサイズ", "https://example.com/ready-diaper", 99),
             scored("粉ミルク 800g", "https://example.com/ready-formula", 98),
-            scored("マグネットブロック 48ピース", "https://example.com/ready-blocks", 97),
-            scored("授乳ライト ホワイトノイズ", "https://example.com/ready-light", 96),
-            scored("ベビーローション 保湿", "https://example.com/ready-care", 95),
         ]
 
         class Generated:
@@ -324,9 +321,13 @@ class MainSelectionTest(unittest.TestCase):
                 self.calls = 0
 
             def generate(self, item, *, context, season):
-                del item, context, season
+                del context, season
                 self.calls += 1
-                return Generated("needs_review" if self.calls <= 48 else "ready")
+                failed_wipes = (
+                    "/wipes-" in item.product.url
+                    and not item.product.url.endswith("ready-wipes")
+                )
+                return Generated("needs_review" if failed_wipes else "ready")
 
         generator = Generator()
         results = generate_until_ready(
@@ -431,6 +432,60 @@ class MainSelectionTest(unittest.TestCase):
             [classify_product_type(item.product) for item, _generated in results],
             ["wipes", "magnetic_blocks"],
         )
+
+    def test_type_queues_commit_context_only_for_three_accepted_types(self) -> None:
+        candidates = [
+            scored("おしりふき 厚手 失敗", "https://example.com/wipes-fail", 110),
+            scored("おしりふき 厚手 80枚", "https://example.com/wipes-ready", 109),
+            scored("おしりふき 厚手 60枚", "https://example.com/wipes-unused", 108),
+            scored("紙おむつ パンツ Mサイズ", "https://example.com/diaper", 100),
+            scored("マグネットブロック 48ピース", "https://example.com/blocks", 99),
+        ]
+
+        class Generated:
+            def __init__(self, status: str, key: str) -> None:
+                self.status = status
+                self.key = key
+                self.generation_attempts = 1
+                self.attempt_error_counts = {"quality_error": 1} if status != "ready" else {}
+                self.terminal_reason = "max_regeneration_exceeded" if status != "ready" else ""
+
+        class Generator:
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            def generate(self, item, *, context, season):
+                del context, season
+                self.calls.append(item.product.url)
+                failed = item.product.url.endswith("wipes-fail")
+                return Generated("needs_review" if failed else "ready", item.product.url)
+
+        class Context:
+            def __init__(self) -> None:
+                self.remembered: list[str] = []
+
+            def remember(self, generated) -> None:
+                self.remembered.append(generated.key)
+
+        generator = Generator()
+        context = Context()
+        diagnostics: dict[str, object] = {}
+        results = generate_until_ready(
+            candidates,
+            generator=generator,
+            context=context,
+            target_ready=3,
+            diagnostics=diagnostics,
+        )
+
+        ready = [generated.key for _item, generated in results if generated.status == "ready"]
+        self.assertEqual(len(ready), 3)
+        self.assertEqual(context.remembered, ready)
+        self.assertNotIn("https://example.com/wipes-fail", context.remembered)
+        self.assertNotIn("https://example.com/wipes-unused", generator.calls)
+        self.assertEqual(diagnostics["accepted_ready"], 3)
+        self.assertEqual(diagnostics["reviewed_candidates"], 1)
+        self.assertEqual(diagnostics["attempt_error_counts"], {"quality_error": 1})
 
 
 if __name__ == "__main__":
