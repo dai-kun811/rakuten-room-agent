@@ -2,6 +2,7 @@
 
 ## ROOM-B→ROOM-A 2026-11-12｜X公式API連動・スケジュール実装（本番接続前）
 
+- 12:14 JST当日運用確認: fenced recovery run `43107950178`はcompleted/success、朝・昼はDB slot/attemptと互換台帳が`posted`、晩は`ready`で19:00/19:20トリガー待ち。`RakutenROOMOrchestrator`はEnabled/Ready、12:00実行結果0、次回12:20、その後19:00/19:20。晩は未到来のため当日3枠完了とはまだ報告しない。現行は旧`daily.yml`ではなく`ROOM Fenced Recovery Generation`が07:00生成正本。
 - 社長の「スケジュールにあわせてXの自動公開を進めて」を受け、週7本（役立つ4・宣伝3）の公式X API連動を実装。Xブラウザ自動操作は使わず、OAuth 2.0 PKCE、DPAPI暗号化token、画像upload、`POST /2/tweets`、宣伝時`paid_partnership=true`を使う構成。X API、OAuth、Developer Console、課金、本番投稿はまだ実行していない。
 - 宣伝日は07:10/07:20/07:35に07:00成果から1商品を事前選定。対象ROOM枠より後に計画しか作れない場合は当日停止。DBのslot/attemptがともに`posted`、商品URL一致、ログイン済み所有ROOM詳細`/tora_papa/<数字>`のリンク先商品一致後だけ、08:05/08:12、12:05/12:12、19:05/19:12の15分窓内でreleaseする。遅延起動、別商品fallback、日内重複、結果不明時の自動再送はしない。
 - 役立つ日は月09:10、水20:10、金09:10、日20:10。4型×5本の審査済みカード20本とオリジナル1200×675 PNG 20枚を用意。初期4週間16本＋各型予備1本で、販売リンク、商品名、`#PR`、医療・発達断定、未使用体験談を含めない。
