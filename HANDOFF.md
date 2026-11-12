@@ -1,5 +1,13 @@
 # rakuten-room 引き継ぎ（HANDOFF）
 
+## ROOM-B→ROOM-A 2026-11-12 22:07 JST｜X OAuth権限付与・暗号化保存完了
+
+- 社長の「この権限で『許可して』」という直前確認を受け、本人Xアカウント`@torao_akanavi`から専用アプリ`rakuten-room-x-publisher`へOAuth 2.0権限を付与した。
+- 付与範囲は`tweet.read`、`users.read`、`tweet.write`、`media.write`、`offline.access`の5つだけ。DM、メール取得、フォロー・いいね操作の権限は含めていない。
+- OAuth tokenは`.local/room-worker/x-publisher/oauth-token.dpapi`へWindows DPAPIで現在ユーザー専用に暗号化保存した。access/refresh tokenの存在、期限、scope完全一致を秘密値を表示せず確認。`.local/`はGit対象外で、Client Secretは保存・設定していない。
+- X画面で認証完了のローカルcallbackを確認後、認証用待受処理を終了した。X API呼出、投稿、Windowsタスク登録はまだ行っていない。
+- 購入クレジット反映後の確認値は残高`$10.00`、無料クレジット`$5.00`、自動チャージOFF、請求サイクル上限`$3.00`、現在支出`$0.00`。次の一手は、Windowsタスク登録と初回公開開始について社長の本番確認を得ること。初回宣伝投稿は有料パートナーシップ表示を直後に実画面確認し、欠落時は以後を停止する。
+
 ## ROOM-B→ROOM-A 2026-11-12 21:50 JST｜Xクレジット初回購入成功・残高反映待ち
 
 - 社長の決済直前の明示承認を受け、X Developer Consoleで初回クレジット`$5.00`（表示請求額`¥830`）を一度だけ購入。成功ダイアログと支払い履歴のstatus `成功しました`、金額`$5.00`を確認した。
