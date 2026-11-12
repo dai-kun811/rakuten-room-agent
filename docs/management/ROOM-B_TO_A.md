@@ -2,7 +2,7 @@
 
 ## B2A-20261112-002｜公式X APIによるスケジュール公開
 
-- 状態: `OAUTH_AUTHORIZED_PRODUCTION_APPROVAL_REQUIRED`
+- 状態: `PRODUCTION_SCHEDULED_INITIAL_VERIFICATION_PENDING`
 - 実装: OAuth PKCE/DPAPI、公式画像upload/Create Post、週7スケジュール、ROOM完全一致release、日単位冪等、uncertain停止、20本の役立つカードと画像。
 - 宣伝: 火木土。07:00成果から対象枠前に1商品を固定し、DB postedと所有ROOM詳細の商品一致後15分窓だけで公開。`#PR`と`paid_partnership=true`必須。
 - 役立つ: 月09:10、水20:10、金09:10、日20:10。4型×5本で4週間＋予備。
@@ -11,7 +11,9 @@
 - X接続準備: Developer登録、プロジェクト/Developmentアプリ作成、請求サイクル上限`$3.00`設定まで完了。社長の決済直前承認後、初回`$5.00`（`¥830`）を一度だけ購入し、支払い履歴の成功を確認。自動チャージOFFを維持。
 - 接続認証: 購入反映後に残高`$10.00`、無料クレジット`$5.00`、自動チャージOFF、上限`$3.00`、支出`$0.00`を確認。専用public clientをRead/Write、callbackはローカル待受に限定し、社長の直前確認後にOAuth権限を付与した。
 - token保護: `tweet.read`、`users.read`、`tweet.write`、`media.write`、`offline.access`だけを取得し、Windows DPAPIで`.local`へ暗号化保存。Client Secretは未設定、token値は表示・記録せず、Git対象外を確認した。
-- 未実施: Windowsタスク登録、X API呼出、公開。次は本番タスク登録・初回公開開始の社長確認が必要。初回宣伝直後に有料パートナーシップ表示を実画面確認し、欠落時は以後を停止する。
+- 本番登録: 社長の本番開始承認後、X関連39テスト合格を再確認し、`RakutenROOMXPublisher`をEnabled/Readyで登録。次回2026-11-13 07:10、11トリガー、Limited/Interactive、`IgnoreNew`、`StartWhenAvailable=false`、10分上限。開始日前のapply検査はAPI送信前に停止し、planも作らなかった。
+- 監視: 新規heartbeat `room-b-x-publisher`を毎日20:30 JST、2026-12-10までACTIVEで作成。既存A/B稿監視とROOM-Aから分離し、秘密値非取得、重大不一致時の追加公開停止、手動再投稿禁止を明記。
+- 未実施: X API呼出・新規公開。最初の公開予定は11月13日09:10の役立つ投稿。次はその全文・画像・禁止導線なしと、最初の宣伝投稿のROOM一致・`#PR`・有料パートナーシップ表示を実画面確認する。
 
 最終更新: 2026-11-12 JST
 
@@ -21,7 +23,7 @@ ROOM-Bの市場・集客・収益検証からシステム改修が必要にな�
 
 ## 現在の変更依頼
 
-**隔離実装2件を管理中。Xコンテンツ計画は独立差分監査とChatGPT最終レビューまで合格し、X APIのOAuth認証まで完了。Windowsタスク、API送信、公開は未実施。交流候補計画は別差分の監査待ち。**
+**隔離実装2件を管理中。Xコンテンツ計画は監査・OAuth・本番タスク登録まで完了し、初回公開確認待ち。API送信・新規公開はまだ0件。交流候補計画は別差分の監査待ち。**
 
 - 下記依頼は設計独立監査、隔離実装、実装後監査、軽微6件の補修、補修差分の最終監査PASS、ChatGPT最終評価まで完了。社長の「最後までやって」は、直前に示した最終監査と本番開始判断の継続承認として、現行の手動入力・手動操作・スケジュールなし範囲にだけ適用する。自動操作、ネットワーク候補取得、DB、Windowsタスク、Actionsは承認範囲外。
 - `ROOM-A/AGENT-LINK`はROOM-A内部の別タスクであり、ROOM-Bからの変更依頼ではない。
