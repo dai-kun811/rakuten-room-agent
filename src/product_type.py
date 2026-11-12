@@ -79,6 +79,21 @@ UNSUPPORTED_NURSING_DEVICE_TERMS = [
     "搾乳ポンプ",
 ]
 
+# Board-game listings can include broad toy SEO terms such as "積み木" even
+# though the sold item is a board, pieces, and a rule book.  The current
+# wooden-block copy assumes stacking and shape play, so publishing that copy
+# for shogi/chess/reversi would be factually wrong.  Keep named board games in
+# review until they have dedicated attributes and copy rules.
+UNSUPPORTED_BOARD_GAME_TERMS = [
+    "将棋",
+    "しょうぎ",
+    "囲碁",
+    "チェス",
+    "オセロ",
+    "リバーシ",
+    "ボードゲーム",
+]
+
 # Carrier listings commonly mention that their storage pocket can hold wipes
 # or diapers.  Those are accessories carried by the product, not the product
 # identity.  Until carrier-specific attributes and copy exist, keep these
@@ -200,6 +215,8 @@ def classify_room_product_type(product: Product) -> str:
     # this medical-adjacent device. Keep the whole device class out of
     # automatic posting until it has dedicated attributes and copy rules.
     if contains_any(text, UNSUPPORTED_NURSING_DEVICE_TERMS):
+        return "unknown"
+    if contains_any(name_text, UNSUPPORTED_BOARD_GAME_TERMS):
         return "unknown"
     if contains_any(name_text, UNSUPPORTED_BABY_CARRIER_TERMS):
         return "unknown"

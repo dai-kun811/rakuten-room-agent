@@ -193,6 +193,17 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_shogi_set_with_block_seo_terms_is_not_classified_as_wooden_blocks(self) -> None:
+        name = "はじめての しょうぎ セット 将棋盤セット 積木 木製 積み木 3歳 知育玩具"
+        product = replace(
+            product_for("wooden_blocks"),
+            name=name,
+            caption="盤・駒・遊び方ガイド付きの初心者向け将棋セット",
+            catchcopy="親子で遊べるボードゲーム",
+        )
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
     def test_magnetic_block_add_on_parts_are_not_treated_as_complete_sets(self) -> None:
         name = (
             "NEOFORMERS 磁石ブロック 単品 ばら売り 追加 お試しパック "

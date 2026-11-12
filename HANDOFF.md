@@ -1,5 +1,174 @@
 # rakuten-room 引き継ぎ（HANDOFF）
 
+## ROOM-B→ROOM-A 2026-11-12｜X公式API連動・スケジュール実装（本番接続前）
+
+- 社長の「スケジュールにあわせてXの自動公開を進めて」を受け、週7本（役立つ4・宣伝3）の公式X API連動を実装。Xブラウザ自動操作は使わず、OAuth 2.0 PKCE、DPAPI暗号化token、画像upload、`POST /2/tweets`、宣伝時`paid_partnership=true`を使う構成。X API、OAuth、Developer Console、課金、本番投稿はまだ実行していない。
+- 宣伝日は07:10/07:20/07:35に07:00成果から1商品を事前選定。対象ROOM枠より後に計画しか作れない場合は当日停止。DBのslot/attemptがともに`posted`、商品URL一致、ログイン済み所有ROOM詳細`/tora_papa/<数字>`のリンク先商品一致後だけ、08:05/08:12、12:05/12:12、19:05/19:12の15分窓内でreleaseする。遅延起動、別商品fallback、日内重複、結果不明時の自動再送はしない。
+- 役立つ日は月09:10、水20:10、金09:10、日20:10。4型×5本の審査済みカード20本とオリジナル1200×675 PNG 20枚を用意。初期4週間16本＋各型予備1本で、販売リンク、商品名、`#PR`、医療・発達断定、未使用体験談を含めない。
+- 当日朝ROOM投稿のWOODY PUDDY将棋セットが`wooden_blocks`へ誤分類され、積み木本文で公開済みだったことを検出。Xへは公開していない。将棋・しょうぎ・囲碁・チェス・オセロ・リバーシ・ボードゲームを固定ルール対象外へ落とす修正と実商品相当の回帰テストを追加。既存ROOM投稿の削除・編集は行っていない。
+- 公式仕様上、Create Postは`paid_partnership`をサポートし、OAuth scopeは`tweet.read users.read tweet.write`、画像は`media.write`、自動更新は`offline.access`。実装は#PRと構造化広告表示の両方を必須にし、通信timeout/5xx/不正成功bodyを`uncertain`として停止する。
+- Claude Code独立監査は`claude-opus-4-8`、effort=`high`、ツール無効、MCPなし、セッション保存なしで実施。初回はsandbox DNSの`ENOTFOUND`で結果なし、外部接続だけ許可した同一監査1回が`CONDITIONAL_PASS`、P0=0/P1=1/P2=7。最大effortは未使用。P1は実アカウントでPaid Partnership表示が反映されることの公開前確認。P2のDPAPI、release改ざん検知、CLI secret、URL正規化、予備カードを補修。安全なpre-submit再claimとrefresh token保存障害は継続改善。
+- 補修後、`py_compile`、X関連、DPAPI実round-trip、全回帰458件が合格。タスクinstaller Previewは`IgnoreNew`、`StartWhenAvailable=false`、10分上限、token/client ID未設定を確認。タスク登録なし。
+- 次の一手は社長の事前確認が必要。X従量課金プログラム開始、購入上限、自動チャージOFF、OAuth app/callback設定、認証を行い、token保存後にWindowsタスクを登録する。初回宣伝直後に実画面で有料パートナーシップ表示を確認し、欠落なら以後の宣伝を停止する。
+
+## ROOM-B→ROOM-A 2026-11-12｜ROOM連動X継続運用の調査・隔離実装
+
+- Claude Code正式初回監査は`claude-opus-4-8`、effort=`high`、ツール無効、MCPなし、セッション保存なしで実施し、`CONDITIONAL_PASS`、P0=0、P1=3、P2=8。最大effortで開始した旧実行は社長指示で中断し、結果不採用。今後の監査も品質と使用量を両立するためOpus・highを上限目安とし、最大effortを常用しない。
+- P1の商品証拠の厳密一致と二重送信防止を補修。ROOM詳細が示す商品URLと事前選定商品を完全一致させ、証拠ID、計画改ざん検知、日単位の冪等キー、外部永続ストアが原子的に発行したclaimをrelease必須条件にした。有料パートナーシップ表示は将来の公式X送信接続の必須制御として残る。
+- P2のplan時文字数、役立つ投稿の短期重複、禁止断定表現、異常入力、HTTP URL加重、異常系テスト、資料表題を補修。専用13件、許可済み`.local/test-tmp`で全回帰434件が合格。
+- 補修差分は`claude-opus-4-8`、effort=`high`、対象2ファイル、ツール無効、MCPなし、セッション保存なしで1回再監査し、`PASS`、P0=0、P1=0、P2=0。最大effortは未使用。ChatGPT最終レビューも隔離・送信なしの範囲で合格し、状態を`REVIEW_PASSED_PRODUCTION_APPROVAL_REQUIRED`へ更新。本番X公開、API、認証、課金、DB、Windowsタスク、Actionsは未変更・未承認。
+
+- 社長指示により、Xは週7投稿を役立つ4・宣伝3で検証する方針へ変更。宣伝投稿はROOM3枠完了後に選ぶのではなく、07:00生成成果から品質合格・review理由なし・直近重複なしの最も早い枠を事前選定し、同一商品のROOM台帳`posted`とURL一致後10分以内を公開目標にする。未投稿・UNCERTAIN・不一致は公開しない。
+- X実画面で日本語の育児ライフハック、イヤイヤ期、育児便利情報、通園準備、親子遊びを検索し、高反応の関連14投稿を抽出。表示・返信・リポスト・いいね・ブックマークを記録。役立つ投稿の型を、1場面1工夫、保存用3項目、困りごとの前後、具体例＋質問1つの4種類に限定した。フォロワー数等の差があるため因果は未証明で、4週間の再現性検証が必要。
+- `docs/ROOM_X_HELPFUL_CONTENT_RESEARCH_2026-11-12.md`へ調査結果、投稿URL、指標、共通点、禁止条件を記録。`src/room_x_content_planner.py`と`tests/test_room_x_content_planner.py`を追加し、宣伝候補の事前選定、`#PR`、Paid Partnership、完全一致`posted`証拠、役立つ4型、出典・審査・オリジナル画像・禁止表現・質問1つ・280字をfail-closedで検査する。
+- 内部レビューで、公開候補を複数から1商品だけへ限定し、その商品以外はrelease不能に変更。所有ROOM詳細URL・商品URL証拠・クエリ混入・X日本語加重文字数を厳格化した。
+- X公開、API、認証、課金、DB、台帳、Windowsタスク、Actionsは変更していない。公式X接続と本番公開は別承認が必要。
+
+## ROOM-B 2026-11-12 07:46 JST｜Xプロフィール再確認・A稿手動削除確認
+
+- 社長から「Xを見たが何も投稿されていない」と申告を受け、Chromeの本人プロフィール`@torao_akanavi`を読み取り再確認。投稿・削除・編集・予約変更は行っていない。
+- プロフィールの「ポスト」一覧では、固定投稿の直下にB稿`B01-B-v7`（2026-11-08 21:15 JST、status `2119403309467374061`）が表示されている。全文、ROOMリンク、`#PR`、有料パートナーシップ表示を維持。確認時は表示16、いいね0、リポスト0、返信0。
+- A稿`B01-A-v7`の既知URL（status `2116866594706186600`）を直接開くと、Xは「このページは存在しません」と表示。社長申告により、B稿と同じ商材だったため以前に手動削除したことを確認した。X側障害・非表示ではない。再投稿せず、削除後の現在値は測定不能とし、過去取得値だけを履歴として保持する。
+- Xでは日次の新規投稿を行う運用ではなく、承認済みA/B 2稿だけの限定公開実証を観測していた。heartbeatは投稿処理ではない。追加稿公開は停止状態を維持する。A/B比較はA稿削除により未完了で終了し、今後はB稿の既存168/336時間定点だけを単独観測する。
+
+## ROOM-B 2026-11-12 06:31 JST｜B稿72時間定点
+
+- 対象はB稿`B01-B-v7`の72時間定点のみ。基準時刻は2026-11-11 21:15 JST、取得は2026-11-12 06:31 JST。投稿、予約変更、削除、追加公開は行っていない。
+- Xアナリティクス値は、インプレッション11、エンゲージメント3、詳細クリック3、リンククリック0、プロフィールアクセス0。公開画面で、いいね0、リポスト0、返信0、表示11を確認した。
+- 公開画面の全文、短縮ROOMリンク`https://t.co/Awl2HuJIrg`、`#PR`、有料パートナーシップ表示は維持。事実誤認・リンク不一致・広告表示欠落は見つからない。短縮リンクは指標汚染を避けるため今回再クリックせず、前回確認済みの到達先を履歴として保持する。
+- 楽天公式クリック、注文、確定報酬は今回取得しておらず、X指標と分離して`UNMEASURED`を維持。24時間定点からはインプレッション+1、エンゲージメント+1、詳細クリック+1で、リンククリックは0のまま。小標本のため勝敗や収益効果は判定しない。
+- 次の定点は2026-11-15 21:15 JST基準のA稿336時間・B稿168時間。その後B稿336時間を観測する。
+
+## ROOM-A 2026-11-12 00:58 JST｜Issue #1と11月11日本番記録の読み取り照合
+
+- 非公開`dai-kun811/room-coo-ops` Issue #1の最新コメントは2026-11-12 00:52 JSTの`6800460930`。公開交流集計（11/11フォロー50・いいね50・試行74・失敗0）のみ確認済みで、Windows上の実投稿・DB・台帳・送信attempt・外部監査は未確認、と記録されていた。
+- `.local/room-worker/operations.db`は原本へSQLite接続せず、新規の`.local/room-a-observations/20261112-005810-jst-20261111-reconcile/`へコピー。原本のコピー前後とコピーのSHA-256はすべて`3C352D5E42E35FCF4DE288E755CBFD27388FD754E82A3AB99BCF4777941B330A`で一致。コピーだけを`mode=ro`・`immutable=1`・`query_only=ON`で開き、`quick_check=ok`。
+- 11/11 manifestはrevision 334、Actions run `42910383590`、HEAD `c8b257cb17a6100afe7d5802d675ac346725e65d`。GitHub上でもrunは`completed/success`でDB記録と一致。
+- 朝`bcbabycare/clp001`、昼`fancl-shop/3065-11`、晩`netbaby/4902705129504`はいずれも、DB slot=`posted`、`submit_started=1`かつattempt=`posted`が各1件、互換台帳`posted`が各1件。DBとattemptのURL・本文hash、DBと台帳のURLがすべて一致。各slotの遷移は`ready→claimed→submitting→submitted_unconfirmed→posted`。
+- 同一日同一枠の重複attempt 0、`UNCERTAIN` 0、11/11付incident 0。20:45外部監査は`ok=true`、`posting_audit_ok=true`、errors空、3枠すべてposted。11/11の実投稿・台帳・送信記録は全件整合した。本番DB・台帳・投稿・タスク・Issueへの書き込みは行っていない。
+- 今回の照合範囲はDBコピー、台帳コピー、送信attempt、イベント遷移、既存外部監査。公開ROOM実画面はこのセッションでは再表示していないため、画面上の現在表示は別証跡とする。
+- `days.status`は既定値`in_progress`のままだが、現コードに日全体をcompletedへ更新する処理はなく、3枠完了判定はslot・attempt・台帳・外部監査で行う。この値だけを未投稿扱いしない。
+
+## ROOM-B→ROOM-A 2026-11-11 新規5人＋各人の最新関連投稿1件への変更
+
+- 社長指示により、朝・昼・晩ごとの配分を旧「新規3人＋既存2人」から「未フォローの新規5人＋各人の最新の関連投稿1件へのいいね」に変更。1日合計は新規フォロー予定15、対応するいいね予定15。最新投稿が無関係または古い場合は、いいねせず候補を入れ替える。
+- `src/room_growth_review.py`の方針IDを`new5_follow_and_like_latest_v1`とし、既存候補を選ばず、各候補にfollow予定・最新関連投稿へのlike予定・差替え条件を明示。実際の自動クリックはfollow/like/commentすべてfalseで、ネットワーク、API、DB、Windowsタスク、Actionsは変更していない。
+- 旧11月12日キュー`3b2f462b4c6b6a76`は未実行・使用停止として上書き/削除せず保持。未フォロー確認済み候補15人の別入力から、新方針キュー`56194b7d585ec351`を別ファイルで生成。朝昼晩各5人、新規15、既存0、日内重複0、follow予定15、最新関連投稿like予定15、初回`created`、再実行`already_exists`。
+- 新方針の単体テスト15件と全回帰421件は合格。全回帰の初回はsandboxの一時フォルダ権限で149件エラーになったが、プロジェクト内の許可済み一時フォルダへ切り替えた同一421件は全件合格。旧方針の最終監査PASSは新しい差分を対象にしないため、`B2A-20261111-001`を`AUDIT_PENDING`へ戻した。次は社長承認後のClaude Code独立差分監査。実フォロー・いいねは各時間帯の操作直前確認後に限る。
+
+## ROOM-B→ROOM-A 2026-11-11 関連性重視の交流自動化依頼
+
+- 社長から、根拠付き提案に沿った自動化指示を受領。自動化範囲は、朝・昼・晩ごとの新規候補3人＋既存候補2人の選定、未フォロー判定、同日重複除外、候補理由、手動確認状態、楽天公式成果の比較記録。フォロー・いいねの自動クリック、コメント、外部API、新規認証、課金は含めない。
+- 現行実測は2026-11-07〜11の各日で `already_following=50`、新規フォロー成功0、`liked=50`。楽天公式クリック・注文・確定報酬は未取得で、効果は未証明。
+- `docs/management/ROOM-B_TO_A.md` に `B2A-20261111-001` を登録し、設計独立監査とChatGPT最終評価後の状態を`CEO_APPROVAL`へ更新。コード、DB、Windowsタスク、本番運用はまだ変更していない。
+- 社長からClaude CodeはProへダウングレード済みとの申告と、品質を下げず適切なモデル・effortで監査する指示を受領。ローカルCLIの認証表示はまだMaxだったが、APIキーではなく既存Claude契約の認証経路。主監査モデル`claude-opus-4-8`、effort=`max`、読み取り専用、MCP/外部検索/セッション保存なしで1回実行した。
+- 独立監査は`CONDITIONAL_PASS`、P0=0、P1=6、P2=3。P1は本番DB分離、自動クリック経路非流用、第三者情報非公開、候補取得の読取限定、`UNMEASURED`維持と指標分離、正確一度の取込。P2は既定無効・保持期限・手動値の明示。結果は `audit/claude_growth_automation_20261111/AUDIT_RESULT.md`。
+- ChatGPT最終評価は監査条件を採用し、隔離・既定無効の実装着手だけを条件付き可とした。本番反映、Windowsタスク、外部API/認証、既存DB変更、自動フォロー/いいねは未承認・未実施。
+- 社長から隔離・既定無効の実装着手OKを受領。`src/room_growth_review.py`、`tests/test_room_growth_review.py`、`docs/ROOM_GROWTH_REVIEW_AUTOMATION.md`を新設。候補は朝昼晩ごとに新規3人＋既存2人を決定的に選び、自分・重複・不正URL・不足候補を拒否。成果値は楽天公式・ROOM・Xを分離し、未取得値を`UNMEASURED`のまま保持する。自動フォロー・自動いいね・コメント・ネットワーク接続・既存DB利用は実装していない。
+- 新規12件、関連回帰37件、全回帰418件、`py_compile`、`git diff --check`が合格。候補・手動結果はGit対象外の`.local/room-worker/room-b-growth/`だけへ保存し、同じ入力の再処理は冪等、異なる内容による既存成果物上書きは拒否する。Windowsタスク、Actions、本番DB、ROOM/X、投稿・交流運用は変更していない。
+- 変更依頼`B2A-20261111-001`は`AUDIT_PENDING`へ更新。次は実装差分に対するClaude Code独立再監査1回とChatGPT最終評価。本番反映、スケジュール登録、外部API/認証、既存DB変更、自動フォロー/いいねは未承認で、再監査後も社長の本番反映承認が別途必要。
+- 社長承認を受け、実装後のClaude Code独立監査を主モデル`claude-opus-4-8`、effort=`max`、読み取り専用、外部検索0で1回実施。約431秒・17 turnで完了し、`PASS`、P0=0、P1=0、P2=6。CLIコスト表示はAPI換算`$1.7335165`で、実請求はCLIだけでは未確認。結果は`audit/claude_growth_automation_20261111/IMPLEMENTATION_REAUDIT_RESULT.md`。
+- P2は入力異常等の不足テスト、整形差による論理重複、エラーの候補ID、失敗時tmp残渣、撤去パス、必要候補人数の6件。すべて隔離範囲で補修し、測定を日付＋測定源、手動結果を日付＋キューIDの不変キーにした。候補IDをエラーから除き、tmpを後始末し、必要人数と撤去方法を文書化した。
+- 補修後は新規15件、関連回帰40件、全回帰421件、`py_compile`、`git diff --check`、`.local`のGit除外が合格。本番DB、Windowsタスク、Actions、ROOM/X、投稿・交流運用は変更なし。監査後差分があるため元PASSを差分監査済みとは扱わず、状態は`AUDIT_PENDING`のまま。次は補修差分の最終独立監査1回とChatGPT最終評価。本番反映はさらに別の社長承認が必要。
+- 社長の「最後までやって」を受け、補修差分の最終Claude Code監査を主モデル`claude-opus-4-8`、effort=`max`、読み取り専用、外部検索0で実行。約436秒・12 turnで`PASS`、P0=0、P1=0、P2=2。前回P2の6件は実質クローズ。CLIコスト表示はAPI換算`$1.6043325`で、実請求はCLIだけでは未確認。結果は`audit/claude_growth_automation_20261111/FINAL_DELTA_AUDIT_RESULT.md`。
+- ChatGPT最終評価も合格。変更依頼は、手動入力・手動操作・スケジュールなしの正確な現行範囲だけ`APPROVED`へ更新。自動フォロー/いいね/コメント、ネットワーク候補取得、外部API/認証、既存DB/台帳、Windowsタスク/Actionsは含めない。
+- 最終監査直後の確認では`.local/room-worker/room-b-growth/`が未作成で実候補入力0、キュー生成0だった。開始には確認済みの新規候補9人以上・既存候補6人以上が必要と判定した。候補のネットワーク自動取得を追加する場合は仕様拡張・外部データ利用として別承認と再監査が必要。この入力不足は次項の読み取り確認で解消した。
+- 上記入力不足を安全に解消。Chromeの楽天ROOM画面を読み取り、フォロワー一覧の「フォロー」表示から育児関連の新規9人、フォロー一覧の「フォロー中」表示から育児関連の既存6人を確認した。フォロー、いいね、コメント、投稿、設定変更は一切行っていない。表示名・自由文は保存せず、候補ID・正規ROOMリンク・分類・固定理由コードだけをGit対象外の`.local/room-worker/room-b-growth/inbox/`へ保存。
+- 2026-11-11の初回キュー`d60f02b68a1cd125`を生成。朝・昼・晩各5人（新規3＋既存2）、合計15人、日内重複0、follow/like/commentすべてfalse、期限2026-12-11。初回`created`、同じ入力の再実行`already_exists`で二重生成なし。変更依頼`B2A-20261111-001`は限定された手動入力・手動操作・スケジュールなし範囲で`VERIFIED`。ネットワーク候補取得、自動フォロー/いいね、外部API/認証、DB/台帳、Windowsタスク/Actionsは未実装・未承認。
+- 続行指示後の現在時刻は2026-11-11 22:35 JST。朝昼晩の時間帯を過ぎているため11月11日キューの交流操作は0のまま終了し、深夜に15人分を集中実行しなかった。翌11月12日用に、楽天ROOMで未フォロー表示を確認した育児・知育・親子テーマの新規9人と、フォロー中表示を確認した既存6人からキュー`3b2f462b4c6b6a76`を生成。朝昼晩各5人（新規3＋既存2）、日内重複0、自動操作false、初回created・再実行already_exists、期限2026-12-12。実フォロー/いいねは各時間帯の操作直前確認が必要。
+- 現在権限のWindowsタスク一覧を読み取り、`RakutenROOM*`に一致するタスクは0件。旧交流タスクとの明朝の二重実行予定は確認されなかった。ただし別ユーザー権限等で非表示のタスクがないことまでは証明しない。タスク登録・停止・再登録は行っていない。
+
+## ROOM-B 2026-11-10 06:33 JST B稿24時間定点
+
+- 対象はB稿 `B01-B-v7` の24時間定点のみ。基準時刻は2026-11-09 21:15 JST、取得は2026-11-10 06:33 JST。投稿・予約変更・削除・追加公開は行っていない。
+- Xアナリティクス値は、インプレッション10、エンゲージメント2、詳細クリック2、リンククリック0、プロフィールアクセス0。公開画面で、いいね0、リポスト0、返信0を確認した。
+- 公開画面の表示数も10。全文、ROOMリンク、`#PR`、有料パートナーシップ表示は維持され、事実誤認・リンク不一致・広告表示欠落は見つからない。
+- 楽天公式クリック、注文、確定報酬は今回取得しておらず、X指標と分離して`UNMEASURED`を維持する。小標本のためA/Bの勝敗や収益効果はまだ判定しない。
+- 次の定点はB稿72時間（基準2026-11-11 21:15 JST）。その後、2026-11-15 21:15 JSTのA稿336時間・B稿168時間を観測する。
+
+## ROOM-B 2026-11-09 06:26 JST X公開実証
+
+- 対象は承認済みのA稿 `B01-A-v7` とB稿 `B01-B-v7` のみ。投稿・予約変更・削除・追加公開は行っていない。
+- B稿は予定どおり2026-11-08 21:15 JSTに公開済み。公開URLは `https://x.com/torao_akanavi/status/2119403309467374061`。全文、`#PR`、有料パートナーシップ表示、投稿日時をX実画面で確認した。
+- B稿の短縮リンク `https://t.co/Awl2HuJIrg` は `https://room.rakuten.co.jp/tora_papa/1700395389131223` へ到達し、A稿と同じ対象商品のROOMページであることを確認した。事実誤認・リンク不一致・広告表示欠落は見つからない。
+- B稿は公開約9時間後の公開画面で4表示。24時間定点前の参考値であり、インプレッション内訳、エンゲージメント、詳細クリック、リンククリック、プロフィールアクセス、いいね、リポスト、返信はまだ`UNMEASURED`。正式な24時間定点は2026-11-09 21:15 JST以後に取得する。
+- A稿168時間定点（基準2026-11-08 21:15 JST、取得2026-11-09 06:26 JST）は、Xアナリティクスでインプレッション13、エンゲージメント4、詳細クリック4、リンククリック0、プロフィールアクセス0、いいね0、リポスト0、返信0。公開画面の表示数は14で、アナリティクス値との差を推測で補正しない。
+- 楽天公式クリック、注文、確定報酬は今回取得しておらず、X指標と分離してすべて`UNMEASURED`を維持する。次はB稿24時間定点、その後B稿72時間、A稿/B稿168・336時間の順に観測する。
+
+## ROOM-A／ROOM-B 2026-11-06 22:53 JST 最新状態
+
+- ROOM-A日次運用は正常。11/6朝・昼・晩3枠posted、品質合格、交流50/50・失敗0、外部監査合格、公開ROOM照合済み。
+- ROOM-Aの10/12・10/13朝2枠限定修復は21:13に実行・検証完了。対象2slotと追記event4件だけが変更され、UNCERTAINは0件。本日3枠は不変。再投稿なし。
+- 旧GitHub Actions run `37579267266` は通常cancelとforce-cancelを各1回実行したが、GitHubが両方409 `Cannot cancel a workflow run that has not been queued yet` で拒否。再読取では表示`queued`、job 0件、更新日時は2026-10-07のまま、旧`daily.yml`はdisabled。削除は行わず、現行fenced運用へ影響しない無実体の旧表示として保持する。
+- 公開接続診断は、取消不能・job 0・workflow無効を `queued-run-disposition.json` に正式記録し、既承認の1session/1turn/60秒・公開固定文・追加課金なしの範囲で21:56 JSTに1回だけ実行。3.55秒で期待JSONを受信しcompleted、追加監査なし、元counter・凍結source不変。再試行禁止recordを保持する。OSレベル宛先allowlistは未証明のため、診断成功を独立監査PASSや本番統合完了に読み替えない。
+- ROOM-B公開実証は開始済み。Xアカウント `@torao_akanavi` のA稿は2026-11-01 21:15 JST公開済みで、本文、ROOMリンク、`#PR`、有料パートナーシップ表示を2026-11-06に実画面確認。現時点は表示12、エンゲージメント3、詳細クリック3、リンククリック0、プロフィールアクセス0、いいね/リポスト/返信0。
+- ROOM-BのB稿は2026-11-08 21:15 JST予約済み。予約一覧で日時・全文・ROOMリンク・`#PR`一致を確認。重複投稿・予約変更はしていない。
+- ROOM-B観測はA稿168/336時間、B稿24/72/168/336時間を基準とし、X表示・反応・リンククリックと楽天公式クリック/注文/確定報酬を別々に記録する。取得不能値は推測せず`UNMEASURED`を維持する。
+- ROOM-B観測heartbeat `room-b-x` を毎日21:30 JST、2026-11-22まで有効化。重要な変化・公開確認・測定時点・失敗・ユーザー操作が必要な場合だけ報告し、重複投稿・予約変更・追加稿公開は行わない。
+- 次の一手：ROOM-Bは11/8 21:15直後のB稿公開確認、11/9・11/11・11/15・11/22の定点観測を行う。ROOM-Aは独立監査PASSと本番統合ゲートを別管理し、実証結果なしに自動投稿開発やROOM-A改修へ進めない。
+
+## ROOM-A 2026-11-06 21:12 JST 3操作の承認受領・実行開始
+
+- 社長回答「3操作が必要であれば対応して下さい」を、直前に提示した3操作への承認として受領。①過去10/12・10/13朝の2slot/event4件のみのDB修復、②旧queued run37579267266の取消（削除/再enableなし）、③api.anthropic.com限定・公開固定文 `Return only {"ok":true}.` の新規診断1回（1turn・認証/終了処理込み60秒・既存契約内・追加課金なし）をこの順に実施する。
+- DB承認識別子は `ROOM-A-HISTORICAL-ABSENCE-20261106-TWO-SLOTS`。直前の提示候補hash `e1d8777f12cb7959ccf0c3c3d00b2234dbdc53a17da5e633ec148c276fe7e960` と現物一致を再確認。fresh snapshot/元不在証拠の条件不一致時は適用せず原因を記録する。
+- 既存counterを維持し、③は承認済みの別タスク専用記録を新設する。追加のコード監査、r6変更、課金、新規認証、ROOM投稿/再送、タスク変更、旧incidentのcloseは今回の承認に含めない。
+- 以下の「未承認」「未実行」は履歴。各操作の実行結果・事後検証はこの節へ追記する。
+
+## ROOM-A 2026-11-06 課題解決作業（21時台、最新）
+
+- 社長の「課題を全部解決して」を受け、既存の禁止・承認上限を維持して調査と隔離修正を継続。本番変更・投稿再送・旧run取消/削除・追加モデル送信・counterリセット・commit/push/deployは実行していない。
+- 所在問題は解消。前回会話の正確なsandboxリンクから、元環境を `C:\Users\daiku\Documents\Codex\2026-10-29\room-a-room-b-github-dai` と特定。監査記録は `work\room_a_audit\approved-20261104`、隔離sourceは `dev\room-a-ceo-v1`。r6の28ファイル実hash・manifest・payload・bundle一致。原本は読み取りだけ。監査3/3・診断1/1消費、PASSなしを維持。
+- 本日20:45:01のexternal-auditを再読込し、ok/posting_audit_ok=true、3枠posted、交流50/50・失敗0を確認。公開Chromeで朝 `1700399896596278`、昼 `1700399922223299`、晩 `1700399966850413` のROOM詳細を読み、商品・本文・5タグと楽天URLを照合。投稿/編集/削除はしていない。
+- Task SchedulerのCIM/RPC読取りは失敗したが、既存タスク定義XMLの読み取りは成功。現行Orchestratorの07:00/08:00/08:20/12:00/12:20/19:00/19:20/20:30、Engagement05:30（75分上限）、ExternalAudit20:45（45分上限）を確認。旧AutoPoster/PostGuard/GenerationGuard/DailyEngagementはEnabled=false。現行定義のEnabled省略をAPIの現在状態取得成功と読み替えない。実行証拠は当日ログ・監査。
+- 旧daily.ymlはGitHub実画面で手動disabledを確認。一方run37579267266はGitHub接続でもqueued/nullのまま。旧runに現在の生成所有権はなく、現行fenced生成とは分離済み。取消や削除、旧incidentのcloseはしていない。
+- 過去UNCERTAIN2枠は投稿結果不明のままではない。10/12朝はabsence event358でconfirmed_not_posted/incident resolvedとなった後、legacy import event361でready→uncertain。10/13朝もabsence372→legacy375。同一URL/hash、各attempt1件、後続同URL再選定なし、manifest304/305一致を確認。現行importの既存SQLite slot上書き防止とconfirmed-absence URL除外は修正済み。
+- コピー限定修復は12テスト合格。対象2slotだけをuncertain→failed_pre_submit（manual）→expired_unpostedとし、event4件追記、他slot/attempt/incident/manifest/ledger/本日3枠不変、途中障害全rollback、二重適用/前提不一致拒否、quick_check=ok。別の本番候補も準備・QA完了し、22テストと同22テストのpython -O実行に合格。親担当も-Oの22テスト再実行に合格。本番適用は未実施。DB全体の旧backup復元は後続投稿を巻き戻すため採用しない。
+- 10/9品質incidentは既にexpired_unposted slotに対応するbudget_exhausted終端履歴。通常契約でresolvedへの遷移はないため、件数を減らす目的で書き換えない。
+- 接続診断補助には終了コード0だけで成功扱い・未選別result/modelUsage保存・認証とmodel待機の時間予算別立てが残っていた。Temp候補で厳密な成功envelopeと唯一の期待JSONのみ許可、自由出力の保存/表示削除、認証開始から共通60秒予算へ修正。元5＋追加8の13テスト合格（親担当の再実行も13合格）。実CLI/認証/送信0。候補は `C:\Users\daiku\AppData\Local\Temp\room_a_probe_candidate_20261106_glibh50l`、承認対象はNEXT_DIAGNOSTIC_REVIEW.md。消費済みrecordをコピーしてあるので単独起動は拒否する。元補助scriptとr6は変更していない。
+- 最終候補を `.local/room-a-remediation/20261106/` に保存。historical-repair配下はコード・テスト・承認範囲・QA要約だけでDBコピーを含めていない。候補historical_repair_candidate.py SHA256=`e1d8777f12cb7959ccf0c3c3d00b2234dbdc53a17da5e633ec148c276fe7e960`。明示apply・固定本番パス・承認識別子 `ROOM-A-HISTORICAL-ABSENCE-20261106-TWO-SLOTS`・fresh安定backup・原本契約hash一致が必要。識別子は未承認の提案ラベルであり、承認受領を意味しない。assert0、copy経路のprotected samefile/hardlink拒否を含む。実hardlink作成はsandbox拒否だったため、samefile対象をfixtureへmockしlink-count metadataを模擬して検査。live接続は一度もしていない。
+- probe配下は補助修正・13テスト・NEXT_DIAGNOSTIC_REVIEW.mdと消費済みrecordを保存。保存済みrecordを削除/上書きして起動してはいけない。追加承認後に限り別タスク専用の新record設計で一度だけ実行する。
+- 次の具体操作：QA済み候補による過去2slot/event4件だけの本番適用承認を得る。旧待機run37579267266の取消（削除/再enableなし）も既存本番操作制限を維持し、別途明示判断対象。新しい接続診断はapi.anthropic.comのみ・公開文 `Return only {"ok":true}.`・別タスク1session/1turn/認証と終了処理込み60秒・追加課金なしの明示承認が必要。旧counterを変えて代用しない。診断成功から追加コード監査を自動起動しない。OS宛先制御、過去無応答の真因、全子孫終了は未証明のまま。
+- 独立監査PASS、Phase10後続接続、本番権限分離/TPM/checks/依存検査/復元訓練、Phase11観測/撤去承認は未完了。今回の改善を開発全体・本番安定化全体の完了とは扱わない。ROOM-B変更なし。
+
+## ROOM-A 2026-11-06 20:30 JST 再開時の読み取り観測（最新）
+
+- 社長指示：既存承認・禁止事項を維持し、最初に作業フォルダへのアクセスと本番の読み取り観測を確認。指定Windowsプロジェクト、AGENTS、HANDOFF、ローカル本番ファイル、非公開Issue #1を実際に読めた。前回の「Windows環境へアクセス不可」は今回の本番観測には該当しない。
+- 本番DBは直接SQLite接続せず、DB等を一時領域へコピーし、取得前後とコピー本体のhash一致後にコピーのみquery_onlyで照合。quick_check=ok。本番DB・台帳・投稿・交流・Windowsタスク・コードは変更していない。
+- 11/6 morning/noon/eveningはすべてDB posted、posted台帳各1件、送信attempt各1件、URL・本文hash一致。当日UNCERTAINなし。10/28〜11/6の10日分すべて同じ3枠整合を確認。10/25以降の同一日同一枠の重複送信0件。公開ROOM実画面は今回未確認。
+- 当日生成report `9bee266c67ad` はrequired/ready全3枠、missing空、ready品質95/88/85、quality.errors/review_reasons空、重複なし。ローカル証跡は `.local/room-worker/generation-recoveries/production-20261106/`。manifest実hash・検証記録・DB payload一致、有効期限22:30 JST。
+- GitHub接続でも当日run `42117638512` のcompleted/success・生成/アップロード各step成功・当日artifact存在を確認。実際の経路は `room-fenced-recovery.yml`。`daily.yml` の当日成功と混同しない。ローカルghのapi.github.com通信は失敗したが、既存GitHub接続では読取り成功。再dispatchしていない。
+- 交流50フォロー/50いいね、completed、失敗0。11/6 20:30内部監査はaudit_ok/errors空。最新external-auditは11/5 20:45の合格記録。11/6 20:45の外部監査はこの確認時点では未到来・未確認。
+- 過去UNCERTAINは10/12 morning・10/13 morningの2枠。未解決incidentは10/7 actions_run_delayed/budget_exhausted、10/7 secret_or_auth_change_required/needs_human、10/9 copy_validation_regression/budget_exhaustedの3件。証拠なしに解決・再送しない。
+- Issue #1最新記録（6658460703まで）を照合。独立監査3枠・接続診断1枠は消費済み、独立監査PASSなし。counterリセット・追加モデル送信・再監査は未実行。541テスト＋34 subtests、補助スクリプト5テストは過去の検証値で、今回は再実行していない。
+- `work/room_a_audit/approved-20261104/current-status.json` と隔離開発成果物は、指定プロジェクト・既存Phase9 worktree・本部work・ユーザーworkの候補位置に存在しない。r6の28ファイル再照合は未実施。欠損を理由に凍結コードを再生成・上書きしない。
+- 次の一手：11/6外部監査の結果確認と、既存隔離開発成果物の実在する保存先への接続確認。アクセスできたらcurrent-status/qa-closure/消費済み記録から再開し、追加送信なしの承認内調査を続ける。本番変更・DB修復・未承認commit/push/deploy・課金・ROOM-B変更は行わない。今回の読み取り結果をPhase9/10/11全体の完了や独立監査の代用にしない。
+- Task Schedulerの読取りはCIMアクセス取得失敗で未確認。既存タスクを停止・再登録していない。既存のHANDOFF差分を維持し、この再開記録のみ追記。
+
+## ROOM-A／ROOM-B 管理入口
+
+管理入口最終更新: 2026-10-26 JST
+
+このファイルの既存記録は履歴として保持する。現在の管理状態は、次の分離台帳を先に確認する。過去の「Phase 9完了」記録より、下記ROOM-A台帳の現行判定を優先する。
+
+- **ROOM-A：自動化開発・運用** — `docs/management/ROOM-A.md`
+  - 本番Phase 9は未完了。
+  - 基準HEADは383テスト成功。
+  - Phase 9改修worktreeは別証跡として402テスト成功、Claude Code再監査待ち。
+  - Phase 10は未着手。
+  - 開発エージェント自動連携はROOM-Aの別タスクであり、Phase 9安定化へ混ぜない。
+- **ROOM-B：市場調査・集客・収益化** — `docs/management/ROOM-B.md`
+  - 市場性監査は未完了。
+  - Claude Codeの独立監査結果がないため、ChatGPT最終評価・社長承認・公開実証へ進まない。
+- **ROOM-BからROOM-Aへの変更依頼** — `docs/management/ROOM-B_TO_A.md`
+  - 承認済み・実装可能な変更依頼は現在0件。
+
+運用ルール:
+
+- 報告には必ずROOM-AまたはROOM-Bを明記し、Phase・進捗・障害・成果物・承認状態を混同しない。
+- ROOM-B起点のシステム改修は、変更依頼台帳で承認されるまでROOM-Aへ反映しない。
+- 基準HEADの383テストと改修worktreeの402テストを同じ検証結果として扱わない。
+- Phase 9改修worktreeには、この管理整理から干渉しない。
+
 ## 最優先の運用ルール
 
 楽天ROOM投稿は、朝・昼・晩の各1投稿、合計3投稿が当日の `post-ledger.jsonl` で `posted` と確認できるまで完了ではない。
@@ -655,7 +824,16 @@
 - Phase 9最終監査は、2026-10-24確定済み3枠についてposting audit、両heartbeat、incident/DB/ledger整合がすべて合格し、秘匿性検査0件。rollback資産も保持。Phase 9は完了し、Phase 10の通知・診断のみ段階へ進行可能。
 
 ## 社長判断待ち
-- なし。通常運用の生成・投稿時刻到来後の確認と安全な未投稿枠回復を継続する。
+- 通常運用に関する判断待ちはなし。市場性検証については、下記の初回SNS公開実証テストが承認待ち。
+
+## 2026-10-25 市場性・集客再現性検証
+
+- 公開情報、公式資料、競合29アカウント、成功・失敗公開事例、既存コードの再利用範囲を読み取り調査し、`docs/ROOM_MARKET_GROWTH_VALIDATION_2026-10-25.md` に記録した。
+- 結論は、SNS公開の小規模手動実証のみ条件付きGO、SNS制作・投稿システムの開発は現時点でNO-GO。直近9クリック・未確定108円から月5万〜10万円には、現状EPCの単純延長でも月4,167〜8,333楽天クリックが必要で、集客再現性は未証明。
+- 初回案は、Instagram 6本とX 6本を14日間、広告・商品購入・API費0円で手動公開し、条件達成時のみ最大4〜8週へ延長する。Threads、投稿API、P4以降の自動化は見送る。
+- 本調査ではSNS公開、API認証、課金、既存ROOM自動化、Phase 9、Windowsタスク、GitHub Actions、本番シートを変更していない。commit・push・デプロイもしていない。
+- 社長判断待ちは、初回実証テストの公開承認1件。承認前は投稿制作・公開・認証を進めない。
+
 ## 2026-10-07 morning UNCERTAIN human reconciliation
 
 - User confirmed the matching `morning` item is present in the authenticated Rakuten ROOM screen. No repost or browser submit was performed for reconciliation.
@@ -694,3 +872,33 @@
 - The canary reached the submit boundary and ended `UNCERTAIN` (attempt `2026-10-08-morning-cfd9f98a1ae2`, `submit_started=1`, incident `2026-10-08-post_result_uncertain-11865a46`).
 - Current state: morning `UNCERTAIN`, noon/evening `READY`; today legacy ledger has no rows. No automatic repost, no noon/evening canary, and no Phase 8+ action was performed.
 - Phase 7 is stopped at the required human ROOM-result confirmation gate. Do not retry or repost morning until actual ROOM presence is confirmed.
+
+## 2026-10-28 ROOM-A / ROOM-B 非公開Issue作業（本番変更なし）
+
+- 対象：dai-kun811/room-coo-ops Issue #1（A-COO-001）と #3（B-SNS-001）。最新指示に従いWork自身が実行。子Codexの失敗経路は再試行なし。
+- ROOM-A：隔離ダミーでWork直接編集・14受入テスト・架空360表示/18クリック/5.0%集計を実施。GitHub保存と同一結果の再読込を確認、GITHUB_SYNC_PASS / WORK_DIRECT_PASS。LOCAL_CODEX_CLAUDE_UNVERIFIEDと常時起動未構築は維持。最終記録：https://github.com/dai-kun811/room-coo-ops/issues/1#issuecomment-6459166663
+- ROOM-B：市場・商品仕様・競合を再確認し、X6本、IGリール4本・カルーセル2本の全文と14日計画を制作・自己点検。限定公開実証は条件付きGO、未公開・未予約。最終記録：https://github.com/dai-kun811/room-coo-ops/issues/3#issuecomment-6459167125
+- 社長判断：AのWork直実行最小運用の採否、Bの12本・14日・0円限定公開案のOK/NG。Bは対象アカウント・所定広告ラベル・公開担当の実行枠・既存関連品到達の確認が開始条件。新規アカウント・認証変更・期間延長は対象外。
+- 本番ROOM・Phase9・DB・Windowsタスク・投稿交流状態・Actionsは変更実行なし。commit/push/deploy/SNS公開/追加従量APIなし。本番日次3投稿・Phase9完了は今回検証宣言していない。
+- 成果一式：https://chatgpt.com/library?file_id=libfile_5b18c6db4cd4819189621c345d8304a6&account_id=personal
+- 次回は各Issueの最終成果と社長OK/NGから再開。ダミー再実行・原稿再生成を不要に繰り返さない。調査・原稿全文は公開リポジトリへ追加しない。
+
+
+## 2026-10-28 社長A/B承認後（現在の再開点）
+
+- 社長回答「A：OK、B：OK」を受領し、各非公開Issueへ承認記録を保存・再読込確認。A承認：https://github.com/dai-kun811/room-coo-ops/issues/1#issuecomment-6459906346 ／ B承認：https://github.com/dai-kun811/room-coo-ops/issues/3#issuecomment-6459906910
+- ROOM-A：Work直実行最小運用を採用済み。GITHUB_SYNC_PASS / WORK_DIRECT_PASSを維持。子Codex・Claude・常駐起動は未実行／未構築。承認済みダミーを繰り返していない。採用と技術課題：https://github.com/dai-kun811/room-coo-ops/issues/1#issuecomment-6459996043
+- ROOM-B：承認済み12本を投稿画像・動画まで制作。X画像6、IGリール4（各24秒・1080x1920・30fps・無音字幕）、IGカルーセル2（各6枚）、カバー・本文・ALT・未測定nullの12件計測台帳を用意。文字収まり・原稿一致・全4動画のメタデータと24場面復号照合・目視点検合格。独立監査未実施。
+- 素材保存先：https://chatgpt.com/library?file_id=libfile_f80bb9baf4408191a88c4e5e15218688&account_id=personal
+- B状態：APPROVED_BLOCKED_PUBLICATION_CONNECTION、公開0／予約0／Day1未開始。現在提供されたWork機能にSNS投稿接続・Browser操作機能なし。対象IGアカウント・公開権限・所定広告ラベル・ROOM関連品到達・各日実行枠は未確認。新規サービス／新規アカウント／認証変更は承認範囲外で未実施。
+- 最新B記録：https://github.com/dai-kun811/room-coo-ops/issues/3#issuecomment-6459996599
+- 次回最初の一手：既存X/Instagramへ操作できる正式なWork接続が利用可能か確認。利用可能なら所有対象・広告ラベル・導線・実行枠を確認してDay1の暦日を確定し、既承認範囲だけ公開。A採用やB12稿の再承認は不要。接続が利用できないまま公開済み・予約済み・無人実行中と報告しない。
+- 本番ROOM・Phase9・DB・Windowsタスク・投稿交流状態は変更なし。commit/push/deploy/追加従量APIなし。日次3投稿・Phase9の本番完了は今回の判定対象外。
+
+
+## 2026-10-28 Xのみ先行（最新）
+- 社長申告：Instagramは未作成。今回の集客公開対象は既存Xのみへ縮小し、IG新設・公開は行わない。IG素材は保存したまま、Xの開始条件からIGを除外。
+- ROOM-B最新記録：https://github.com/dai-kun811/room-coo-ops/issues/3#issuecomment-6460052556
+- ROOM-A方式整理：https://github.com/dai-kun811/room-coo-ops/issues/1#issuecomment-6460053223
+- 第一候補は既承認X6本を14日でX公式予約配信。原稿生成からの常設自動化とは区別。公式自動化規定で非APIのWebスクリプト自動化が禁止されている点を確認し、前回の反復ブラウザー投稿案は常設経路として不採用へ訂正。APIは従量課金のため無断導入なし。
+- 現状はX投稿・Browser操作接続なし、公開0／予約0／Day1未開始。次は既存Xへの正式接続が利用可能になったら、本人アカウント・公式予約・広告ラベル・リンク・予約一覧を確認。追加課金、新規サービス・認証変更、本番ROOM変更、commit/push/deployなし。承認済み6稿の再承認と社長による毎回手動投稿は求めない。
