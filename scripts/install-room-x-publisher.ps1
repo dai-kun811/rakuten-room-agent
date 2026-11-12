@@ -34,6 +34,9 @@ if ($Preview) {
         ExecutionLimitMinutes = 10
         TokenStoreConfigured = Test-Path -LiteralPath $tokenStore
         ClientIdConfigured = -not [string]::IsNullOrWhiteSpace($env:X_OAUTH_CLIENT_ID)
+        TrialStartDate = $env:X_TRIAL_START_DATE
+        TrialEndDate = $env:X_TRIAL_END_DATE
+        ApprovedMonthlyBudgetUsd = $env:X_APPROVED_MONTHLY_BUDGET_USD
         State = "Preview"
     }
     return
@@ -67,6 +70,11 @@ if (-not (Test-Path -LiteralPath $tokenStore)) {
 }
 if ([string]::IsNullOrWhiteSpace($env:X_OAUTH_CLIENT_ID)) {
     throw "X_OAUTH_CLIENT_ID is not configured for the current user."
+}
+foreach ($name in @("X_TRIAL_START_DATE", "X_TRIAL_END_DATE", "X_APPROVED_MONTHLY_BUDGET_USD")) {
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+        throw "$name is not configured for the current user."
+    }
 }
 
 Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null

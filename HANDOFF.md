@@ -1,5 +1,13 @@
 # rakuten-room 引き継ぎ（HANDOFF）
 
+## ROOM-B→ROOM-A 2026-11-12｜X利益実証の期限・予算ゲート追加
+
+- 社長方針を「API代回収ではなく利益が残る場合だけ継続」へ確定。初回は最大28日、承認済み月額上限3.00米ドル、Developer Consoleの自動チャージOFFを前提とする。
+- `room_x_schedule_worker.py`へfail-closedゲートを追加。`X_TRIAL_START_DATE`、`X_TRIAL_END_DATE`、`X_APPROVED_MONTHLY_BUDGET_USD`の設定がない、29日以上、3.01米ドル以上、開始前、期限後のいずれでもX API送信前に停止する。期限後は利益レビューなしに自動再開しない。
+- 継続条件は楽天で確定した報酬がAPI実費の3倍以上、かつ差引利益1,000円以上。X指標、楽天クリック・注文・確定報酬は分離し、帰属不能値を利益に含めない。
+- 専用26件、全回帰461件、`py_compile`、`git diff --check`が合格。タスクPreviewではtoken、client ID、試験期間、承認額がすべて未設定で、タスク未登録・API呼出なし・課金なしを確認。
+- 次はX Developer Consoleの実画面で、購入額、3米ドル以下の利用上限、自動チャージOFFを確認してから、社長の課金開始確認を得る。その後にOAuth認証、28日間の期間設定、Windowsタスク登録を行う。
+
 ## ROOM-B→ROOM-A 2026-11-12｜X公式API連動・スケジュール実装（本番接続前）
 
 - 12:14 JST当日運用確認: fenced recovery run `43107950178`はcompleted/success、朝・昼はDB slot/attemptと互換台帳が`posted`、晩は`ready`で19:00/19:20トリガー待ち。`RakutenROOMOrchestrator`はEnabled/Ready、12:00実行結果0、次回12:20、その後19:00/19:20。晩は未到来のため当日3枠完了とはまだ報告しない。現行は旧`daily.yml`ではなく`ROOM Fenced Recovery Generation`が07:00生成正本。

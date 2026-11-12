@@ -13,6 +13,7 @@ import os
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
@@ -53,10 +54,54 @@ HELPFUL_TIMES = {
     6: time(20, 10),  # Sunday evening
 }
 WINDOW_MINUTES = 15
+MAX_TRIAL_DAYS = 28
+MAX_APPROVED_MONTHLY_BUDGET_USD = Decimal("3.00")
 
 
 class XScheduleError(RuntimeError):
     """A scheduling, input, or evidence gate failure."""
+
+
+def validate_profit_trial_gate(
+    now: datetime,
+    *,
+    start_date_value: str,
+    end_date_value: str,
+    monthly_budget_value: str,
+) -> dict[str, str]:
+    """Require a bounded, explicitly budgeted trial before any X API write.
+
+    The gate is deliberately local and fail-closed.  The matching spend limit
+    and disabled auto-recharge must still be configured in X Developer Console;
+    this prevents the publisher from running with a broader local approval.
+    """
+    try:
+        start_date = date.fromisoformat(start_date_value)
+        end_date = date.fromisoformat(end_date_value)
+    except ValueError as exc:
+        raise XScheduleError("X profit trial start/end dates are not configured") from exc
+    if end_date < start_date:
+        raise XScheduleError("X profit trial end date precedes its start date")
+    if (end_date - start_date).days + 1 > MAX_TRIAL_DAYS:
+        raise XScheduleError("X profit trial exceeds the approved 28-day maximum")
+    try:
+        monthly_budget = Decimal(monthly_budget_value)
+    except InvalidOperation as exc:
+        raise XScheduleError("X approved monthly budget is invalid") from exc
+    if not monthly_budget.is_finite() or monthly_budget <= 0:
+        raise XScheduleError("X approved monthly budget must be positive")
+    if monthly_budget > MAX_APPROVED_MONTHLY_BUDGET_USD:
+        raise XScheduleError("X approved monthly budget exceeds USD 3.00")
+    local_date = now.astimezone(JST).date()
+    if local_date < start_date:
+        raise XScheduleError("X profit trial has not started")
+    if local_date > end_date:
+        raise XScheduleError("X profit trial has ended; profit review is required")
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "monthly_budget_usd": format(monthly_budget, ".2f"),
+    }
 
 
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
@@ -407,6 +452,13 @@ def run_once(*, now: datetime, apply: bool) -> dict[str, Any]:
     from room_x_room_evidence import find_room_detail_for_product
 
     local = now.astimezone(JST)
+    if apply:
+        validate_profit_trial_gate(
+            local,
+            start_date_value=os.environ.get("X_TRIAL_START_DATE", ""),
+            end_date_value=os.environ.get("X_TRIAL_END_DATE", ""),
+            monthly_budget_value=os.environ.get("X_APPROVED_MONTHLY_BUDGET_USD", ""),
+        )
     cards_payload = None
     manifest = None
     existing_plan_path = X_STATE_ROOT / "plans" / f"{local.date().isoformat()}.json"

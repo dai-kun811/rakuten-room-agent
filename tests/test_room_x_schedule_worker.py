@@ -21,6 +21,7 @@ from room_x_schedule_worker import (
     posted_database_evidence,
     prepare_daily_plan,
     release_promotion_from_evidence,
+    validate_profit_trial_gate,
 )
 from room_x_content_planner import plan_x_content, x_weighted_length
 
@@ -60,6 +61,40 @@ def manifest(day: date) -> dict[str, object]:
 
 
 class RoomXScheduleWorkerTest(unittest.TestCase):
+    def test_profit_trial_gate_accepts_only_bounded_three_dollar_window(self) -> None:
+        value = validate_profit_trial_gate(
+            datetime(2026, 11, 20, 9, 10, tzinfo=JST),
+            start_date_value="2026-11-13",
+            end_date_value="2026-12-10",
+            monthly_budget_value="3.00",
+        )
+        self.assertEqual(value["monthly_budget_usd"], "3.00")
+
+    def test_profit_trial_gate_rejects_expired_trial(self) -> None:
+        with self.assertRaisesRegex(XScheduleError, "profit review is required"):
+            validate_profit_trial_gate(
+                datetime(2026, 12, 11, 9, 10, tzinfo=JST),
+                start_date_value="2026-11-13",
+                end_date_value="2026-12-10",
+                monthly_budget_value="3.00",
+            )
+
+    def test_profit_trial_gate_rejects_excess_budget_or_duration(self) -> None:
+        with self.assertRaisesRegex(XScheduleError, "exceeds USD 3.00"):
+            validate_profit_trial_gate(
+                datetime(2026, 11, 20, 9, 10, tzinfo=JST),
+                start_date_value="2026-11-13",
+                end_date_value="2026-12-10",
+                monthly_budget_value="3.01",
+            )
+        with self.assertRaisesRegex(XScheduleError, "28-day maximum"):
+            validate_profit_trial_gate(
+                datetime(2026, 11, 20, 9, 10, tzinfo=JST),
+                start_date_value="2026-11-13",
+                end_date_value="2026-12-11",
+                monthly_budget_value="3.00",
+            )
+
     def test_reviewed_catalog_supplies_unique_visual_ready_cards_for_four_weeks(self) -> None:
         catalog = json.loads(
             Path("config/room-x-helpful-cards.json").read_text(encoding="utf-8")
