@@ -6,6 +6,7 @@
 - 実行時刻は毎日06:40／08:40／12:40／19:40 JST。06:40は`RakutenROOMEngagement`の初回・日次実績、08:40は朝投稿、12:40は朝昼、19:40は朝昼晩を期限判定する。通常無変化は通知せず、失敗・公開不一致・ユーザー操作必須・新仕様初回検証完了だけを通知する`failed_runs_only`。
 - 交流完了はsummaryや終了コード0だけでなく、整合コピーした`operations.db`の`engagement_runs` completed／goal=15／followed=15／liked=15／owner null、同日キー重複0、`engagement_actions`と台帳の新規follow status 15、同一15人のlike 15、既フォロー加算0、別人like 0、失敗0まで照合する。11月16日を新仕様の初回実動確認日とし、結果をHANDOFFへ記録する。
 - 不具合時は原因特定、最小修正、関連・全回帰、秘密情報scan、通常commit/push、必要なタスク更新、同一未完了ペアだけの安全な再開、DB・台帳・ログ確認まで自走する。ただし結果不明、07:30以後、ログイン/CAPTCHA、認証・秘密情報・課金・大きな仕様変更はfail-closedで止め、余分な新規フォローで15件を埋めない。投稿側も既存`RakutenROOMOrchestrator`／`RakutenROOMExternalAudit`、3枠posted、重複・UNCERTAIN・品質ゲートを維持する。
+- 16:24 JSTの初回前監査では、`RakutenROOMEngagement`はEnabled/Ready、次回11月16日05:30、専用worker／Chromeプロセスなし。本番`operations.db`にWALなしを確認後、`.local/room-a-observations/20261115-162429-new15-preflight/operations.db`へコピーし、コピー前後とコピー本体のSHA-256 `D5744B1EF137B69772AE2F65F1F28683E259A6183A9751E2C93249BEC79D2E03`が一致。コピーだけを`mode=ro`／`immutable=1`／`query_only`で開き`quick_check=ok`。11月15日は旧goal=50のcompleted／owner nullで、action 73件中new follow status 0、already_following 50、liked 50。11月16日以降の`engagement_runs`先行行は0件で、新goal=15を新しいroutine dateとして開始できる状態。ROOM操作・手動起動・DB原本接続はしていない。
 
 ## ROOM-A 2026-11-15 14:18 JST｜交流を新規15＋対応いいね15へ本番切替
 
