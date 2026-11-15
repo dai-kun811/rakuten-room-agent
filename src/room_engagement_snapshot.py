@@ -60,9 +60,13 @@ def create_snapshot(
     if output_dir.exists():
         raise SnapshotError("snapshot_output_already_exists")
 
-    wal_path = source_dir / "operations.db-wal"
-    if wal_path.exists():
-        raise SnapshotError("database_wal_present")
+    auxiliary_paths = {
+        "wal": source_dir / "operations.db-wal",
+        "shm": source_dir / "operations.db-shm",
+    }
+    present_auxiliary = [path.name for path in auxiliary_paths.values() if path.exists()]
+    if present_auxiliary:
+        raise SnapshotError("database_auxiliary_present:" + ",".join(sorted(present_auxiliary)))
 
     sources = {name: source_dir / name for name in EVIDENCE_FILES}
     missing = [name for name, path in sources.items() if not path.is_file()]
@@ -75,9 +79,11 @@ def create_snapshot(
         shutil.copy2(source, output_dir / name)
     after = {name: _fingerprint(path) for name, path in sources.items()}
     copied = {name: _fingerprint(output_dir / name) for name in EVIDENCE_FILES}
+    wal_absent_after = not auxiliary_paths["wal"].exists()
+    shm_absent_after = not auxiliary_paths["shm"].exists()
 
     files: dict[str, Any] = {}
-    consistent = True
+    consistent = wal_absent_after and shm_absent_after
     for name in EVIDENCE_FILES:
         unchanged = before[name] == after[name]
         copy_matches = (
@@ -98,7 +104,12 @@ def create_snapshot(
         "schema_version": 1,
         "created_at": created_at,
         "source_database_opened": False,
-        "wal_absent": True,
+        "wal_absent_before": True,
+        "wal_absent_after": wal_absent_after,
+        "shm_absent_before": True,
+        "shm_absent_after": shm_absent_after,
+        "wal_absent": wal_absent_after,
+        "shm_absent": shm_absent_after,
         "consistent": consistent,
         "output_dir": str(output_dir),
         "files": files,
@@ -145,7 +156,8 @@ def main() -> int:
         "consistent": bool(manifest["consistent"]),
         "output_dir": manifest["output_dir"],
         "source_database_opened": False,
-        "wal_absent": True,
+        "wal_absent": bool(manifest["wal_absent"]),
+        "shm_absent": bool(manifest["shm_absent"]),
         "file_count": len(manifest["files"]),
     }
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
