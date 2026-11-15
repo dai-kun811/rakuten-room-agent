@@ -41,6 +41,11 @@ class FakeSession:
 
 
 class RoomProgressPublisherTest(unittest.TestCase):
+    def test_public_payload_defaults_to_current_fifteen_pair_goal(self) -> None:
+        payload = build_public_payload({"routine_date": "2026-11-16"})
+
+        self.assertEqual(payload["goal"], 15)
+
     def test_public_payload_contains_aggregate_only(self) -> None:
         payload = build_public_payload(
             {

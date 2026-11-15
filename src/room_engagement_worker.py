@@ -38,7 +38,8 @@ DATABASE_PATH = STATE_DIR / "operations.db"
 HEARTBEAT_PATH = STATE_DIR / "engagement-heartbeat.json"
 ROUTINE_SOURCE = PROJECT_ROOT / "room-routine" / "index.html"
 ROUTINE_URL = "https://dai-kun811.github.io/rakuten-room-agent/"
-DAILY_GOAL = 50
+DAILY_GOAL = 15
+ENGAGEMENT_POLICY_ID = "new15_follow_and_like_latest_v1"
 RESET_HOUR = 5
 OWN_ROOM_ID = "tora_papa"
 CAPTCHA_PATTERN = re.compile(r"captcha|ロボットではありません|画像認証", re.IGNORECASE)
@@ -215,6 +216,42 @@ def build_daily_candidate_queue(
     return queue
 
 
+def candidates_from_events(
+    events: Iterable[dict[str, Any]],
+    *,
+    day: str,
+) -> list[RoutineCandidate]:
+    candidates: dict[str, RoutineCandidate] = {}
+    for event in events:
+        if event.get("routine_date") != day:
+            continue
+        candidate = candidate_from_room_url(
+            str(event.get("room_url", "")),
+            str(event.get("candidate_id", "")),
+        )
+        if candidate is not None:
+            candidates[candidate.id] = candidate
+    return list(candidates.values())
+
+
+def next_candidate_for_goals(
+    queue: Iterable[RoutineCandidate],
+    *,
+    attempted: set[str],
+    progress: dict[str, dict[str, bool]],
+    followed: int,
+    goal: int,
+) -> RoutineCandidate | None:
+    for candidate in queue:
+        if candidate.id in attempted:
+            continue
+        candidate_progress = progress.get(candidate.id, {"followed": False, "liked": False})
+        if followed >= goal and not candidate_progress["followed"]:
+            continue
+        return candidate
+    return None
+
+
 def candidate_from_room_url(url: str, name: str = "") -> RoutineCandidate | None:
     parsed = urlparse(url)
     if parsed.netloc.lower() != "room.rakuten.co.jp":
@@ -305,8 +342,54 @@ class RoomEngagementDriver:
         self._prepare_page(page)
         self._goto(page, candidate.url)
         self._assert_safe_page(page)
-        followed, follow_status = self._follow(page) if need_follow else (False, "goal_reached")
-        liked, like_status = self._like(page) if need_like else (False, "goal_reached")
+        if need_follow and not need_like:
+            return EngagementResult(
+                candidate_id=candidate.id,
+                followed=False,
+                liked=False,
+                follow_status="paired_like_already_recorded",
+                like_status="goal_reached",
+            )
+        if need_follow:
+            follow_ready, follow_status = self._can_follow(page)
+            if not follow_ready:
+                return EngagementResult(
+                    candidate_id=candidate.id,
+                    followed=False,
+                    liked=False,
+                    follow_status=follow_status,
+                    like_status="not_new_follow",
+                )
+            like_ready, like_status = self._can_like_latest(page)
+            if not like_ready:
+                return EngagementResult(
+                    candidate_id=candidate.id,
+                    followed=False,
+                    liked=False,
+                    follow_status="follow_deferred",
+                    like_status=like_status,
+                )
+            followed, follow_status = self._follow(page)
+            if not followed or follow_status != "followed":
+                return EngagementResult(
+                    candidate_id=candidate.id,
+                    followed=False,
+                    liked=False,
+                    follow_status=follow_status,
+                    like_status="not_new_follow",
+                )
+            liked, like_status = self._like(page)
+            if not liked:
+                page.wait_for_timeout(1_500)
+                liked, like_status = self._like(page)
+        elif need_like:
+            # A resumed same-day partial action may complete only the like that
+            # belongs to a new follow already recorded for this candidate.
+            followed, follow_status = False, "paired_follow_already_recorded"
+            liked, like_status = self._like(page)
+        else:
+            followed, follow_status = False, "goal_reached"
+            liked, like_status = False, "goal_reached"
         return EngagementResult(
             candidate_id=candidate.id,
             followed=followed,
@@ -357,7 +440,7 @@ class RoomEngagementDriver:
         locator = page.locator('button, [role="button"]')
         return [locator.nth(index) for index in range(min(locator.count(), 120))]
 
-    def _follow(self, page: Any) -> tuple[bool, str]:
+    def _follow_control(self, page: Any) -> tuple[Any | None, str]:
         follow_button = None
         for element in self._action_elements(page):
             try:
@@ -369,12 +452,22 @@ class RoomEngagementDriver:
                 continue
             combined = label or text
             if combined in {"フォロー中", "フォロー済み"}:
-                return True, "already_following"
+                return None, "already_following"
             if combined in {"フォロー", "フォローする"}:
                 follow_button = element
                 break
         if follow_button is None:
-            return False, "follow_button_not_found"
+            return None, "follow_button_not_found"
+        return follow_button, "follow_available"
+
+    def _can_follow(self, page: Any) -> tuple[bool, str]:
+        _button, status = self._follow_control(page)
+        return status == "follow_available", status
+
+    def _follow(self, page: Any) -> tuple[bool, str]:
+        follow_button, status = self._follow_control(page)
+        if follow_button is None:
+            return False, status
 
         before = self._element_state(follow_button)
         follow_button.click()
@@ -384,33 +477,46 @@ class RoomEngagementDriver:
             return True, "followed"
         return False, "follow_unverified"
 
-    def _like(self, page: Any) -> tuple[bool, str]:
+    def _latest_like_button(self, page: Any) -> Any | None:
         like_buttons = page.locator('button:has([class*="rex-favorite-"])')
         try:
             like_buttons.first.wait_for(state="visible", timeout=self.timeout_ms)
         except Exception:
-            return False, "like_button_not_found"
+            return None
 
         for index in range(min(like_buttons.count(), 120)):
             element = like_buttons.nth(index)
             try:
                 if not element.is_visible():
                     continue
-                icon_class = self._favorite_icon_class(element)
             except Exception:
                 continue
-            if "favorite-filled" in icon_class:
-                continue
-            before = self._element_state(element)
-            element.click()
-            page.wait_for_timeout(800)
-            after = self._element_state(element)
-            if "favorite-filled" in self._favorite_icon_class(element):
-                return True, "liked"
-            if after != before and "favorite-outline" not in after[3]:
-                return True, "liked"
-            return False, "like_unverified"
-        return False, "like_button_not_found"
+            return element
+        return None
+
+    def _can_like_latest(self, page: Any) -> tuple[bool, str]:
+        element = self._latest_like_button(page)
+        if element is None:
+            return False, "latest_like_button_not_found"
+        if "favorite-filled" in self._favorite_icon_class(element):
+            return False, "latest_already_liked"
+        return True, "latest_unliked"
+
+    def _like(self, page: Any) -> tuple[bool, str]:
+        element = self._latest_like_button(page)
+        if element is None:
+            return False, "latest_like_button_not_found"
+        if "favorite-filled" in self._favorite_icon_class(element):
+            return True, "already_liked_paired_post"
+        before = self._element_state(element)
+        element.click()
+        page.wait_for_timeout(800)
+        after = self._element_state(element)
+        if "favorite-filled" in self._favorite_icon_class(element):
+            return True, "liked"
+        if after != before and "favorite-outline" not in after[3]:
+            return True, "liked"
+        return False, "like_unverified"
 
     @staticmethod
     def _favorite_icon_class(element: Any) -> str:
@@ -616,7 +722,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     if gate["status"] in {"not_due", "skipped", "already_complete", "busy"}:
         followed = int(gate.get("followed", 0))
         liked = int(gate.get("liked", 0))
-        summary = {"routine_date": day, "followed": followed, "liked": liked, "goal": goal,
+        summary = {"routine_date": day, "policy_id": ENGAGEMENT_POLICY_ID,
+                   "followed": followed, "liked": liked, "goal": goal,
                    "attempted": 0, "failures": 0, "completed": gate["status"] == "already_complete",
                    "status": gate["status"], "skip_reason": gate.get("reason", "")}
         if apply:
@@ -640,6 +747,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
             return 0
         summary = {
             "routine_date": day,
+            "policy_id": ENGAGEMENT_POLICY_ID,
             "followed": followed,
             "liked": liked,
             "goal": goal,
@@ -671,7 +779,9 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
 
     attempted: set[str] = set()
     known = {candidate.id: candidate for candidate in source_candidates}
-    queue = build_daily_candidate_queue(source_candidates, today_progress)
+    for candidate in candidates_from_events(events, day=day):
+        known[candidate.id] = candidate
+    queue = build_daily_candidate_queue(known.values(), today_progress)
     driver = RoomEngagementDriver()
     failures = 0
     run_error_code = ""
@@ -685,7 +795,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                             now=current, error_code="chrome_profile_busy")
         finish_engagement_state(DATABASE_PATH, routine_date=day, followed=followed, liked=liked,
                                 goal=goal, status="skipped", error_code="chrome_profile_busy", now=current)
-        summary = {"routine_date": day, "followed": followed, "liked": liked, "goal": goal,
+        summary = {"routine_date": day, "policy_id": ENGAGEMENT_POLICY_ID,
+                   "followed": followed, "liked": liked, "goal": goal,
                    "attempted": 0, "failures": 0, "completed": False, "status": "skipped",
                    "skip_reason": "chrome_profile_busy"}
         return 0 if write_and_publish_summary(summary, logger) else 1
@@ -716,7 +827,13 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                 logger.warning("Routine page initial sync failed error=%s", type(exc).__name__)
 
             while followed < goal or liked < goal:
-                candidate = next((item for item in queue if item.id not in attempted), None)
+                candidate = next_candidate_for_goals(
+                    queue,
+                    attempted=attempted,
+                    progress=today_progress,
+                    followed=followed,
+                    goal=goal,
+                )
                 if candidate is None:
                     completed_or_attempted_ids = {
                         candidate_id
@@ -736,7 +853,13 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                             and today_progress.get(item.id, {}).get("liked")
                         ):
                             queue.append(item)
-                    candidate = next((item for item in queue if item.id not in attempted), None)
+                    candidate = next_candidate_for_goals(
+                        queue,
+                        attempted=attempted,
+                        progress=today_progress,
+                        followed=followed,
+                        goal=goal,
+                    )
                 if candidate is None:
                     logger.error("Candidate pool was exhausted before reaching the daily goal.")
                     break
@@ -786,6 +909,15 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                         liked,
                         goal,
                     )
+                    if result.followed and not result.liked:
+                        logger.error(
+                            "Paired latest-post like did not complete candidate=%s; stopping before another follow",
+                            candidate.id,
+                        )
+                        failures += 1
+                        run_error_code = "paired_like_incomplete"
+                        needs_human = True
+                        break
                 except EngagementError as exc:
                     logger.error("Engagement stopped candidate=%s error=%s", candidate.id, str(exc))
                     failures += 1
@@ -842,6 +974,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                         now=completed_at, error_code="" if final_status == "completed" else (run_error_code or "goal_not_reached"))
     summary = {
         "routine_date": day,
+        "policy_id": ENGAGEMENT_POLICY_ID,
         "followed": followed,
         "liked": liked,
         "goal": goal,

@@ -45,7 +45,7 @@ $engagementTask = New-ScheduledTask `
     -Trigger $engagementTriggers `
     -Principal $principal `
     -Settings $settings `
-    -Description "Run the daily Rakuten ROOM follow and like routine up to 50 each."
+    -Description "Run the daily Rakuten ROOM new-follow 15 plus paired latest-post likes 15 routine."
 
 $postAction = New-ScheduledTaskAction `
     -Execute $python `

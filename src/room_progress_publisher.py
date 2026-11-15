@@ -18,7 +18,7 @@ def build_public_payload(summary: dict[str, Any]) -> dict[str, Any]:
         "routine_date": str(summary.get("routine_date", "")),
         "followed": int(summary.get("followed", 0)),
         "liked": int(summary.get("liked", 0)),
-        "goal": int(summary.get("goal", 50)),
+        "goal": int(summary.get("goal", 15)),
         "attempted": int(summary.get("attempted", 0)),
         "failures": int(summary.get("failures", 0)),
         "completed": bool(summary.get("completed", False)),

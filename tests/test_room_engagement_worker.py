@@ -16,10 +16,12 @@ from room_engagement_worker import (
     build_daily_candidate_queue,
     candidate_from_room_url,
     candidate_from_search_user,
+    candidates_from_events,
     discover_candidates,
     discover_candidates_from_api,
     extract_json_constant,
     load_routine_sources,
+    next_candidate_for_goals,
     progress_by_candidate,
     progress_totals,
     routine_date,
@@ -42,6 +44,7 @@ class FakeFavoriteIcon:
 class FakeFavoriteButton:
     def __init__(self, *, filled: bool = False) -> None:
         self.icon_class = "rex-favorite-filled--test" if filled else "rex-favorite-outline--test"
+        self.click_count = 0
 
     def locator(self, _selector: str):
         return FakeFavoriteIcon(self)
@@ -59,6 +62,7 @@ class FakeFavoriteButton:
         return "image-icon--test" if name == "class" else None
 
     def click(self) -> None:
+        self.click_count += 1
         self.icon_class = "rex-favorite-filled--test"
 
 
@@ -181,7 +185,7 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         self.assertEqual(page.search_input.pressed, "Enter")
         self.assertEqual(page.waited_for, "domcontentloaded")
 
-    def test_like_waits_for_cards_and_clicks_an_unfilled_favorite(self) -> None:
+    def test_like_never_skips_latest_post_to_like_an_older_post(self) -> None:
         filled = FakeFavoriteButton(filled=True)
         unfilled = FakeFavoriteButton()
         page = FakePage([filled, unfilled])
@@ -189,8 +193,21 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         liked, status = RoomEngagementDriver()._like(page)
 
         self.assertTrue(liked)
+        self.assertEqual(status, "already_liked_paired_post")
+        self.assertEqual(filled.click_count, 0)
+        self.assertEqual(unfilled.click_count, 0)
+
+    def test_like_clicks_the_latest_unliked_post(self) -> None:
+        latest = FakeFavoriteButton()
+        older = FakeFavoriteButton()
+        page = FakePage([latest, older])
+
+        liked, status = RoomEngagementDriver()._like(page)
+
+        self.assertTrue(liked)
         self.assertEqual(status, "liked")
-        self.assertIn("favorite-filled", unfilled.icon_class)
+        self.assertEqual(latest.click_count, 1)
+        self.assertEqual(older.click_count, 0)
 
     def test_engage_sets_navigation_timeout_before_opening_candidate(self) -> None:
         class FakeNavigationPage:
@@ -217,6 +234,12 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         class FastDriver(RoomEngagementDriver):
             def _assert_safe_page(self, _page) -> None:
                 pass
+
+            def _can_follow(self, _page):
+                return True, "follow_available"
+
+            def _can_like_latest(self, _page):
+                return True, "latest_unliked"
 
             def _follow(self, _page):
                 return True, "followed"
@@ -273,6 +296,12 @@ class RoomEngagementWorkerTest(unittest.TestCase):
             def _assert_safe_page(self, _page) -> None:
                 pass
 
+            def _can_follow(self, _page):
+                return True, "follow_available"
+
+            def _can_like_latest(self, _page):
+                return True, "latest_unliked"
+
             def _follow(self, _page):
                 return True, "followed"
 
@@ -291,6 +320,63 @@ class RoomEngagementWorkerTest(unittest.TestCase):
 
         self.assertTrue(result.followed)
         self.assertTrue(result.liked)
+
+    def test_engage_skips_already_following_candidate_without_like(self) -> None:
+        class PolicyDriver(RoomEngagementDriver):
+            def _prepare_page(self, _page) -> None:
+                pass
+
+            def _goto(self, _page, _url) -> None:
+                pass
+
+            def _assert_safe_page(self, _page) -> None:
+                pass
+
+            def _can_follow(self, _page):
+                return False, "already_following"
+
+            def _like(self, _page):
+                raise AssertionError("like must not run for an existing follow")
+
+        candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items")
+        self.assertIsNotNone(candidate)
+
+        result = PolicyDriver().engage(object(), candidate, need_follow=True, need_like=True)
+
+        self.assertFalse(result.followed)
+        self.assertFalse(result.liked)
+        self.assertEqual(result.follow_status, "already_following")
+        self.assertEqual(result.like_status, "not_new_follow")
+
+    def test_engage_checks_latest_like_before_following(self) -> None:
+        class PolicyDriver(RoomEngagementDriver):
+            def _prepare_page(self, _page) -> None:
+                pass
+
+            def _goto(self, _page, _url) -> None:
+                pass
+
+            def _assert_safe_page(self, _page) -> None:
+                pass
+
+            def _can_follow(self, _page):
+                return True, "follow_available"
+
+            def _can_like_latest(self, _page):
+                return False, "latest_already_liked"
+
+            def _follow(self, _page):
+                raise AssertionError("follow must not run without an eligible paired like")
+
+        candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items")
+        self.assertIsNotNone(candidate)
+
+        result = PolicyDriver().engage(object(), candidate, need_follow=True, need_like=True)
+
+        self.assertFalse(result.followed)
+        self.assertFalse(result.liked)
+        self.assertEqual(result.follow_status, "follow_deferred")
+        self.assertEqual(result.like_status, "latest_already_liked")
 
     def test_discover_candidates_sets_search_navigation_timeout(self) -> None:
         class EmptyLocator:
@@ -450,6 +536,49 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         queue = build_daily_candidate_queue(candidates, today_progress)
 
         self.assertEqual([candidate.id for candidate in queue], ["b", "c"])
+
+    def test_event_candidate_restores_dynamic_partial_for_same_day_resume(self) -> None:
+        events = [
+            {
+                "routine_date": "2026-11-16",
+                "candidate_id": "room_dynamic",
+                "room_url": "https://room.rakuten.co.jp/room_dynamic/items",
+            },
+            {
+                "routine_date": "2026-11-15",
+                "candidate_id": "room_old",
+                "room_url": "https://room.rakuten.co.jp/room_old/items",
+            },
+        ]
+
+        candidates = candidates_from_events(events, day="2026-11-16")
+
+        self.assertEqual([candidate.id for candidate in candidates], ["room_dynamic"])
+
+    def test_follow_goal_reached_selects_only_recorded_partial_pair(self) -> None:
+        fresh = RoutineCandidate(
+            id="fresh",
+            name="Fresh",
+            url="https://room.rakuten.co.jp/fresh/items",
+        )
+        partial = RoutineCandidate(
+            id="partial",
+            name="Partial",
+            url="https://room.rakuten.co.jp/partial/items",
+        )
+        progress = {
+            "partial": {"followed": True, "liked": False},
+        }
+
+        candidate = next_candidate_for_goals(
+            [fresh, partial],
+            attempted=set(),
+            progress=progress,
+            followed=15,
+            goal=15,
+        )
+
+        self.assertEqual(candidate, partial)
 
     def test_candidate_from_room_url_only_accepts_profile_item_pages(self) -> None:
         candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items", "Example")

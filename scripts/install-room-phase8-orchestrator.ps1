@@ -80,7 +80,7 @@ $engagementTask = New-ScheduledTask `
     -Trigger (New-ScheduledTaskTrigger -Daily -At $EngagementTime) `
     -Principal $principal `
     -Settings $engagementSettings `
-    -Description "Bounded ROOM follow/like routine; SQLite gated 05:30-07:30 and non-blocking profile lock."
+    -Description "ROOM new-follow 15 plus paired latest-post likes 15; SQLite gated 05:30-07:30."
 
 $auditAction = New-ScheduledTaskAction `
     -Execute $python `
