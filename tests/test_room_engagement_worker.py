@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 import unittest
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +12,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import room_engagement_worker as engagement_worker
 from room_engagement_worker import (
     RoomEngagementDriver,
     RoutineCandidate,
@@ -27,6 +30,8 @@ from room_engagement_worker import (
     routine_date,
     submit_user_search,
 )
+from room_engagement_state import finish, record_action, start_gate
+from room_operation_contract import JST
 
 
 class FakeFavoriteIcon:
@@ -612,6 +617,121 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         )
 
         self.assertEqual(candidate, partial)
+
+    def test_completed_progress_resume_releases_owner_and_normalizes_evidence(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            database = root / "operations.db"
+            heartbeat = root / "engagement-heartbeat.json"
+            now = datetime(2026, 11, 16, 5, 45, tzinfo=JST)
+            self.assertEqual(start_gate(database, now=now, goal=15)["status"], "allowed")
+            for index in range(15):
+                record_action(
+                    database,
+                    routine_date="2026-11-16",
+                    candidate_id=f"room_{index}",
+                    room_url=f"https://room.rakuten.co.jp/room_{index}/items",
+                    followed=True,
+                    liked=True,
+                    follow_status="followed",
+                    like_status="liked",
+                    now=now,
+                )
+
+            with patch.object(engagement_worker, "DATABASE_PATH", database), \
+                 patch.object(engagement_worker, "HEARTBEAT_PATH", heartbeat), \
+                 patch.object(engagement_worker, "configure_logging"), \
+                 patch.object(engagement_worker, "load_routine_sources", return_value=([], [])), \
+                 patch.object(engagement_worker, "read_ledger", return_value=[]), \
+                 patch.object(engagement_worker, "write_and_publish_summary", return_value=True) as publish:
+                result = engagement_worker.run(
+                    apply=True,
+                    goal=15,
+                    min_delay=0,
+                    max_delay=0,
+                    headless=True,
+                    now=now,
+                )
+
+            self.assertEqual(result, 0)
+            with closing(sqlite3.connect(database)) as connection:
+                row = connection.execute(
+                    "SELECT status,followed,liked,owner_id,last_error_code FROM engagement_runs WHERE routine_date=?",
+                    ("2026-11-16",),
+                ).fetchone()
+            self.assertEqual(row, ("completed", 15, 15, None, ""))
+            self.assertEqual(json.loads(heartbeat.read_text(encoding="utf-8"))["status"], "completed")
+            summary = publish.call_args.args[0]
+            self.assertEqual(summary["status"], "completed")
+            self.assertEqual(summary["error_code"], "")
+
+    def test_busy_gate_preserves_other_owner_and_does_not_publish(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            database = root / "operations.db"
+            heartbeat = root / "engagement-heartbeat.json"
+            started = datetime(2026, 11, 16, 5, 30, tzinfo=JST)
+            self.assertEqual(
+                start_gate(database, now=started, goal=15, owner="other-owner")["status"],
+                "allowed",
+            )
+
+            with patch.object(engagement_worker, "DATABASE_PATH", database), \
+                 patch.object(engagement_worker, "HEARTBEAT_PATH", heartbeat), \
+                 patch.object(engagement_worker, "configure_logging"), \
+                 patch.object(engagement_worker, "write_and_publish_summary", return_value=True) as publish:
+                result = engagement_worker.run(
+                    apply=True,
+                    goal=15,
+                    min_delay=0,
+                    max_delay=0,
+                    headless=True,
+                    now=datetime(2026, 11, 16, 5, 31, tzinfo=JST),
+                )
+
+            self.assertEqual(result, 0)
+            with closing(sqlite3.connect(database)) as connection:
+                row = connection.execute(
+                    "SELECT status,owner_id FROM engagement_runs WHERE routine_date=?",
+                    ("2026-11-16",),
+                ).fetchone()
+            self.assertEqual(row, ("running", "other-owner"))
+            self.assertFalse(heartbeat.exists())
+            publish.assert_not_called()
+
+    def test_already_complete_gate_keeps_completed_heartbeat(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            database = root / "operations.db"
+            heartbeat = root / "engagement-heartbeat.json"
+            now = datetime(2026, 11, 16, 5, 45, tzinfo=JST)
+            self.assertEqual(start_gate(database, now=now, goal=15)["status"], "allowed")
+            finish(
+                database,
+                routine_date="2026-11-16",
+                followed=15,
+                liked=15,
+                goal=15,
+                status="completed",
+                now=now,
+            )
+
+            with patch.object(engagement_worker, "DATABASE_PATH", database), \
+                 patch.object(engagement_worker, "HEARTBEAT_PATH", heartbeat), \
+                 patch.object(engagement_worker, "configure_logging"), \
+                 patch.object(engagement_worker, "write_and_publish_summary", return_value=True) as publish:
+                result = engagement_worker.run(
+                    apply=True,
+                    goal=15,
+                    min_delay=0,
+                    max_delay=0,
+                    headless=True,
+                    now=now,
+                )
+
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads(heartbeat.read_text(encoding="utf-8"))["status"], "completed")
+            self.assertEqual(publish.call_args.args[0]["status"], "already_complete")
 
     def test_candidate_from_room_url_only_accepts_profile_item_pages(self) -> None:
         candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items", "Example")

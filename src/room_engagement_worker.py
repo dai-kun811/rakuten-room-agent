@@ -725,21 +725,51 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     current = (now or datetime.now().astimezone())
     day = routine_date(current)
     gate = engagement_start_gate(DATABASE_PATH, now=current, goal=goal)
-    sanitized_heartbeat(HEARTBEAT_PATH, role="engagement", status=str(gate["status"]), routine_date=day,
-                        now=current, error_code=str(gate.get("reason", "")))
-    if gate["status"] in {"not_due", "skipped", "already_complete", "busy"}:
+    gate_status = str(gate["status"])
+    if gate_status in {"not_due", "skipped", "already_complete", "busy"}:
         followed = int(gate.get("followed", 0))
         liked = int(gate.get("liked", 0))
         summary = {"routine_date": day, "policy_id": ENGAGEMENT_POLICY_ID,
                    "followed": followed, "liked": liked, "goal": goal,
-                   "attempted": 0, "failures": 0, "completed": gate["status"] == "already_complete",
-                   "status": gate["status"], "skip_reason": gate.get("reason", "")}
-        if apply:
-            finish_engagement_state(DATABASE_PATH, routine_date=day, followed=followed, liked=liked,
-                                    goal=goal, status="completed" if summary["completed"] else "skipped",
-                                    error_code=str(gate.get("reason", "")), now=current)
-            return 0 if write_and_publish_summary(summary, logger) else 1
-        return 0
+                   "attempted": 0, "failures": 0, "completed": gate_status == "already_complete",
+                   "status": gate_status, "skip_reason": gate.get("reason", "")}
+        if not apply:
+            return 0
+        if gate_status == "busy":
+            # Another owner is authoritative.  Do not release its claim,
+            # overwrite its heartbeat, or publish an incomplete summary.
+            logger.info("Engagement skipped because another owner is active")
+            return 0
+        final_status = "completed" if summary["completed"] else gate_status
+        error_code = "" if final_status == "completed" else str(gate.get("reason", ""))
+        if gate_status == "skipped":
+            finish_engagement_state(
+                DATABASE_PATH,
+                routine_date=day,
+                followed=followed,
+                liked=liked,
+                goal=goal,
+                status="skipped",
+                error_code=error_code,
+                now=current,
+            )
+        sanitized_heartbeat(
+            HEARTBEAT_PATH,
+            role="engagement",
+            status=final_status,
+            routine_date=day,
+            now=current,
+            error_code=error_code,
+        )
+        return 0 if write_and_publish_summary(summary, logger) else 1
+    sanitized_heartbeat(
+        HEARTBEAT_PATH,
+        role="engagement",
+        status=gate_status,
+        routine_date=day,
+        now=current,
+        error_code=str(gate.get("reason", "")),
+    )
     source_candidates, search_urls = load_routine_sources()
     events = read_ledger()
     today_progress = state_progress(DATABASE_PATH, day)
@@ -753,6 +783,24 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
         logger.info("Daily engagement goal already complete follow=%s like=%s", followed, liked)
         if not apply:
             return 0
+        completed_at = current
+        finish_engagement_state(
+            DATABASE_PATH,
+            routine_date=day,
+            followed=followed,
+            liked=liked,
+            goal=goal,
+            status="completed",
+            error_code="",
+            now=completed_at,
+        )
+        sanitized_heartbeat(
+            HEARTBEAT_PATH,
+            role="engagement",
+            status="completed",
+            routine_date=day,
+            now=completed_at,
+        )
         summary = {
             "routine_date": day,
             "policy_id": ENGAGEMENT_POLICY_ID,
@@ -762,6 +810,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
             "attempted": 0,
             "failures": 0,
             "completed": True,
+            "status": "completed",
+            "error_code": "",
         }
         return 0 if write_and_publish_summary(summary, logger) else 1
     if not apply:

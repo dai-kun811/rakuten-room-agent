@@ -7,6 +7,7 @@
 - 交流完了はsummaryや終了コード0だけでなく、整合コピーした`operations.db`の`engagement_runs` completed／goal=15／followed=15／liked=15／owner null、同日キー重複0、`engagement_actions`と台帳の新規follow status 15、同一15人のlike 15、既フォロー加算0、別人like 0、失敗0まで照合する。11月16日を新仕様の初回実動確認日とし、結果をHANDOFFへ記録する。
 - 不具合時は原因特定、最小修正、関連・全回帰、秘密情報scan、通常commit/push、必要なタスク更新、同一未完了ペアだけの安全な再開、DB・台帳・ログ確認まで自走する。ただし結果不明、07:30以後、ログイン/CAPTCHA、認証・秘密情報・課金・大きな仕様変更はfail-closedで止め、余分な新規フォローで15件を埋めない。投稿側も既存`RakutenROOMOrchestrator`／`RakutenROOMExternalAudit`、3枠posted、重複・UNCERTAIN・品質ゲートを維持する。
 - 16:24 JSTの初回前監査では、`RakutenROOMEngagement`はEnabled/Ready、次回11月16日05:30、専用worker／Chromeプロセスなし。本番`operations.db`にWALなしを確認後、`.local/room-a-observations/20261115-162429-new15-preflight/operations.db`へコピーし、コピー前後とコピー本体のSHA-256 `D5744B1EF137B69772AE2F65F1F28683E259A6183A9751E2C93249BEC79D2E03`が一致。コピーだけを`mode=ro`／`immutable=1`／`query_only`で開き`quick_check=ok`。11月15日は旧goal=50のcompleted／owner nullで、action 73件中new follow status 0、already_following 50、liked 50。11月16日以降の`engagement_runs`先行行は0件で、新goal=15を新しいroutine dateとして開始できる状態。ROOM操作・手動起動・DB原本接続はしていない。
+- 初回後監査の判定漏れを防ぐため、`src/room_engagement_verifier.py`を追加。本番DB原本をCLIで拒否し、整合コピーをread-only／immutable／query-onlyで開いてquick_check、run completed／goal 15／owner解放、DBのfollow/like同一15人、既フォロー加算0、重複キー0、台帳の新規follow・対応like履歴、summary、heartbeat、当日logの15/15と公開成功を一括照合する。旧11月15日50/50コピーは意図どおり不合格。併せて、重複起動`busy`が他ownerを解除し公開値を上書きし得た経路と、15組到達済み再開がownerを`running`のまま残す経路、完了済み再検出がheartbeatを`already_complete`へ落とす経路を修正。関連38件・全482件、構文、diff、秘密情報scanに合格し、ROOM操作・手動本番起動はしていない。
 
 ## ROOM-A 2026-11-15 14:18 JST｜交流を新規15＋対応いいね15へ本番切替
 
