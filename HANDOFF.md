@@ -1,5 +1,15 @@
 # rakuten-room 引き継ぎ（HANDOFF）
 
+## ROOM-A 2026-11-15 14:18 JST｜交流を新規15＋対応いいね15へ本番切替
+
+- 社長の本番切替指示に基づき、旧「フォロー状態50・いいね50」を廃止し、`new15_follow_and_like_latest_v1`へ変更。日次目標は新規フォロー15人と、その同じ15人の先頭表示（最新）投稿へのいいね15件。既フォローは新規件数へ含めず、その相手へのいいねもしない。
+- フォロー前に最新投稿の未いいね状態を確認し、最新がいいね済み・ボタン確認不能ならフォローせず候補を見送る。最新がいいね済みでも古い投稿へ遡らない。新規フォロー後の対応いいねが2回の限定確認で完了しなければ、次のフォローへ進まず`paired_like_incomplete`で安全停止する。
+- 同日途中再開では、DB／互換台帳に記録された「新規フォロー済み・いいね未完了」の同じ相手だけを復元していいねを再開し、フォロー目標到達後に別人へいいねする経路を禁止した。ログイン切れ・CAPTCHA停止、05:30〜07:30開始窓、専用Chromeロック、12〜25秒間隔、SQLite正本、75分上限、`IgnoreNew`は維持。
+- 関連31テスト、専用一時領域で全回帰472テスト、`py_compile`、PowerShell構文、`git diff --check`、秘密情報差分scanに合格。全回帰初回は無関係なXテスト1件がWindows一時ファイルロックで失敗したが、新しい専用一時領域で同じ472件が全件合格。
+- commit `fc7df1b`（`Switch ROOM engagement to paired new follows`）を`origin/main`へ通常fast-forward push済み。push後のmain SHAは`fc7df1b4f60126d6cfd321a6460d3079adf53a4b`。
+- Windows本番タスク`RakutenROOMEngagement`だけを再登録。Enabled/Ready、次回2026-11-16 05:30 JST、75分上限、`IgnoreNew`、`StartWhenAvailable=True`、実行先repo `.venv`／`room_engagement_worker.py --apply --headful`を確認。11月15日分は旧仕様で06:30に50/50完了済みのため再実行せず、既存summaryも変更していない。
+- 外部Claude独立監査は、リポジトリ内容の外部送信に対する追加承認がないため未実施。迂回せずローカルレビューと全回帰を実施した。新仕様の初回実動確認は11月16日05:30以後に、`follow_status=followed`が15、対応`like_status`が15、既フォロー加算0、別人いいね0、失敗0をDBコピー・台帳・ログで確認する。候補は育児関連検索／既存候補に限定されるが、最新投稿本文の意味的関連性を自動判定する機能は追加していない。
+
 ## 週次PMレポート 2026-11-15｜ROOM・X・収益・同ジャンル分析
 
 - Codex automation `room-x-pm`（表示名`楽天ROOM・X 週次PMレポート`）をACTIVEで新規登録。毎週日曜21:30 JSTにローカル`rakuten-room`プロジェクトで実行し、初回は2026-11-15 21:30 JST。
