@@ -23,6 +23,7 @@ from room_engagement_worker import (
     discover_candidates,
     discover_candidates_from_api,
     extract_json_constant,
+    followed_candidate_ids,
     load_routine_sources,
     next_candidate_for_goals,
     progress_by_candidate,
@@ -574,6 +575,36 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         queue = build_daily_candidate_queue(candidates, today_progress)
 
         self.assertEqual([candidate.id for candidate in queue], ["b", "c"])
+
+    def test_daily_queue_skips_same_day_non_follow_attempt_and_historical_follow(self) -> None:
+        candidates = [
+            RoutineCandidate(id="attempted", name="Attempted", url="https://room.rakuten.co.jp/attempted/items"),
+            RoutineCandidate(id="partial", name="Partial", url="https://room.rakuten.co.jp/partial/items"),
+            RoutineCandidate(id="historical", name="Historical", url="https://room.rakuten.co.jp/historical/items"),
+            RoutineCandidate(id="fresh", name="Fresh", url="https://room.rakuten.co.jp/fresh/items"),
+        ]
+        today_progress = {
+            "attempted": {"followed": False, "liked": False},
+            "partial": {"followed": True, "liked": False},
+        }
+
+        queue = build_daily_candidate_queue(
+            candidates,
+            today_progress,
+            excluded_ids={"historical", "partial"},
+        )
+
+        self.assertEqual([candidate.id for candidate in queue], ["partial", "fresh"])
+
+    def test_followed_candidate_ids_uses_status_and_boolean_evidence(self) -> None:
+        events = [
+            {"candidate_id": "new", "followed": True, "follow_status": "followed"},
+            {"candidate_id": "existing", "followed": False, "follow_status": "already_following"},
+            {"candidate_id": "unavailable", "followed": False, "follow_status": "not_followed"},
+            {"candidate_id": "", "followed": True, "follow_status": "followed"},
+        ]
+
+        self.assertEqual(followed_candidate_ids(events), {"new", "existing"})
 
     def test_event_candidate_restores_dynamic_partial_for_same_day_resume(self) -> None:
         events = [

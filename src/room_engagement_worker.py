@@ -192,26 +192,41 @@ def progress_totals(progress: dict[str, dict[str, bool]]) -> tuple[int, int]:
     )
 
 
+def followed_candidate_ids(events: Iterable[dict[str, Any]]) -> set[str]:
+    """Return candidates already known to be followed from durable ledger evidence."""
+    followed_ids: set[str] = set()
+    for event in events:
+        candidate_id = str(event.get("candidate_id", "")).strip()
+        if not candidate_id:
+            continue
+        if bool(event.get("followed")) or str(event.get("follow_status", "")) in {
+            "followed",
+            "already_following",
+        }:
+            followed_ids.add(candidate_id)
+    return followed_ids
+
+
 def build_daily_candidate_queue(
     source_candidates: Iterable[RoutineCandidate],
     today_progress: dict[str, dict[str, bool]],
+    *,
+    excluded_ids: set[str] | None = None,
 ) -> list[RoutineCandidate]:
     candidates = list(source_candidates)
     known = {candidate.id: candidate for candidate in candidates}
+    excluded = excluded_ids or set()
     partial_ids = [
         candidate_id
         for candidate_id, item in today_progress.items()
-        if not (item["followed"] and item["liked"])
+        if item["followed"] and not item["liked"]
     ]
     queue = [known[candidate_id] for candidate_id in partial_ids if candidate_id in known]
     queue.extend(
         candidate
         for candidate in candidates
-        if candidate.id not in partial_ids
-        and not (
-            today_progress.get(candidate.id, {}).get("followed")
-            and today_progress.get(candidate.id, {}).get("liked")
-        )
+        if candidate.id not in today_progress
+        and candidate.id not in excluded
     )
     return queue
 
@@ -772,6 +787,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     )
     source_candidates, search_urls = load_routine_sources()
     events = read_ledger()
+    known_followed_ids = followed_candidate_ids(events)
     today_progress = state_progress(DATABASE_PATH, day)
     legacy_progress = progress_by_candidate(events, day=day)
     for candidate_id, item in legacy_progress.items():
@@ -839,7 +855,11 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
     known = {candidate.id: candidate for candidate in source_candidates}
     for candidate in candidates_from_events(events, day=day):
         known[candidate.id] = candidate
-    queue = build_daily_candidate_queue(known.values(), today_progress)
+    queue = build_daily_candidate_queue(
+        known.values(),
+        today_progress,
+        excluded_ids=known_followed_ids,
+    )
     driver = RoomEngagementDriver()
     failures = 0
     run_error_code = ""
@@ -893,11 +913,8 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                     goal=goal,
                 )
                 if candidate is None:
-                    completed_or_attempted_ids = {
-                        candidate_id
-                        for candidate_id, item in today_progress.items()
-                        if item.get("followed") and item.get("liked")
-                    }
+                    completed_or_attempted_ids = set(today_progress)
+                    completed_or_attempted_ids.update(known_followed_ids)
                     completed_or_attempted_ids.update(attempted)
                     discovered = discover_candidates(
                         work_page,
