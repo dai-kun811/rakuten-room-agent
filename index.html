@@ -786,12 +786,12 @@
     <section class="stats automation-stats" aria-label="自動処理実績">
       <div class="stat">
         <div class="stat-label">自動フォロー実績</div>
-        <div class="stat-value"><span id="autoFollowDone">-</span>/<span id="autoFollowGoal">50</span></div>
+        <div class="stat-value"><span id="autoFollowDone">-</span>/<span id="autoFollowGoal">15</span></div>
         <div class="stat-foot" id="autoFollowFoot">公開集計を取得中</div>
       </div>
       <div class="stat">
         <div class="stat-label">自動いいね実績</div>
-        <div class="stat-value"><span id="autoLikeDone">-</span>/<span id="autoLikeGoal">50</span></div>
+        <div class="stat-value"><span id="autoLikeDone">-</span>/<span id="autoLikeGoal">15</span></div>
         <div class="stat-foot" id="autoLikeFoot">公開集計を取得中</div>
       </div>
       <div class="stat">
@@ -809,13 +809,13 @@
     <section class="stats" aria-label="このブラウザの手動チェック">
       <div class="stat">
         <div class="stat-label">手動チェック：フォロー</div>
-        <div class="stat-value"><span id="followDone">0</span>/50</div>
-        <div class="stat-foot" id="followFoot">未処理 50</div>
+        <div class="stat-value"><span id="followDone">0</span>/15</div>
+        <div class="stat-foot" id="followFoot">未処理 15</div>
       </div>
       <div class="stat">
         <div class="stat-label">手動チェック：いいね</div>
-        <div class="stat-value"><span id="likeDone">0</span>/50</div>
-        <div class="stat-foot" id="likeFoot">未処理 50</div>
+        <div class="stat-value"><span id="likeDone">0</span>/15</div>
+        <div class="stat-foot" id="likeFoot">未処理 15</div>
       </div>
       <div class="stat">
         <div class="stat-label">今日の候補</div>
@@ -835,7 +835,7 @@
           <div>
             <h2 class="section-title">表示</h2>
             <div class="tabs" id="viewTabs">
-              <button class="tab active" data-view="today">今日の50件</button>
+              <button class="tab active" data-view="today">今日の15件</button>
               <button class="tab" data-view="all">全候補</button>
               <button class="tab" data-view="todo">未完了</button>
               <button class="tab" data-view="done">完了</button>
@@ -853,7 +853,7 @@
             <h2 class="section-title">作業ショートカット</h2>
             <div class="control-stack">
               <button class="primary" id="openNext">次の未完了ROOMを開く</button>
-              <button class="soft" id="rebuildToday">今日の50件を組み直す</button>
+              <button class="soft" id="rebuildToday">今日の15件を組み直す</button>
             </div>
           </div>
 
@@ -981,7 +981,7 @@
   <script>
     const SETTINGS = {
       resetHour: 5,
-      dailyGoal: 50,
+      dailyGoal: 15,
       storageKey: "rakutenRoomRoutine.v1",
       roomUrl: "https://room.rakuten.co.jp/tora_papa/items",
       progressApiUrl: "https://api.github.com/repos/dai-kun811/rakuten-room-agent/contents/automation-progress.json?ref=routine-state",
@@ -2575,7 +2575,7 @@
       document.getElementById("rebuildToday").addEventListener("click", () => {
         ensureTodaySelection(true);
         render();
-        showToast("今日の50件を組み直しました");
+        showToast("今日の15件を組み直しました");
       });
       document.getElementById("clearFilters").addEventListener("click", () => {
         els.search.value = "";
