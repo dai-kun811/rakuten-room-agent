@@ -378,6 +378,39 @@ class RoomEngagementWorkerTest(unittest.TestCase):
         self.assertEqual(result.follow_status, "follow_deferred")
         self.assertEqual(result.like_status, "latest_already_liked")
 
+    def test_engage_preserves_follow_for_fail_closed_resume_when_like_raises(self) -> None:
+        class PolicyDriver(RoomEngagementDriver):
+            def _prepare_page(self, _page) -> None:
+                pass
+
+            def _goto(self, _page, _url) -> None:
+                pass
+
+            def _assert_safe_page(self, _page) -> None:
+                pass
+
+            def _can_follow(self, _page):
+                return True, "follow_available"
+
+            def _can_like_latest(self, _page):
+                return True, "latest_unliked"
+
+            def _follow(self, _page):
+                return True, "followed"
+
+            def _like(self, _page):
+                raise TimeoutError("simulated detached latest-post control")
+
+        candidate = candidate_from_room_url("https://room.rakuten.co.jp/room_example/items")
+        self.assertIsNotNone(candidate)
+
+        result = PolicyDriver().engage(object(), candidate, need_follow=True, need_like=True)
+
+        self.assertTrue(result.followed)
+        self.assertFalse(result.liked)
+        self.assertEqual(result.follow_status, "followed")
+        self.assertEqual(result.like_status, "like_exception_TimeoutError")
+
     def test_discover_candidates_sets_search_navigation_timeout(self) -> None:
         class EmptyLocator:
             @property

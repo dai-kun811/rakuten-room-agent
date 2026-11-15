@@ -378,10 +378,18 @@ class RoomEngagementDriver:
                     follow_status=follow_status,
                     like_status="not_new_follow",
                 )
-            liked, like_status = self._like(page)
-            if not liked:
-                page.wait_for_timeout(1_500)
+            try:
                 liked, like_status = self._like(page)
+                if not liked:
+                    page.wait_for_timeout(1_500)
+                    liked, like_status = self._like(page)
+            except Exception as exc:
+                # The follow is already an external side effect. Preserve it
+                # as a same-day partial pair so run() records the follow and
+                # stops before another account; a later bounded resume may
+                # complete only this candidate's like.
+                liked = False
+                like_status = f"like_exception_{type(exc).__name__}"
         elif need_like:
             # A resumed same-day partial action may complete only the like that
             # belongs to a new follow already recorded for this candidate.
