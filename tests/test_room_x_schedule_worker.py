@@ -9,11 +9,18 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from room_operation_contract import JST
-from room_x_room_evidence import canonical_item_url, detail_urls_from_hrefs, href_contains_product
+from room_x_room_evidence import (
+    canonical_item_url,
+    detail_urls_from_hrefs,
+    detail_urls_from_initial_state_scripts,
+    href_contains_product,
+    prioritized_card_indexes,
+)
 from room_x_schedule_worker import (
     XScheduleError,
     build_promo_copy,
@@ -21,6 +28,7 @@ from room_x_schedule_worker import (
     posted_database_evidence,
     prepare_daily_plan,
     release_promotion_from_evidence,
+    run_once,
     validate_profit_trial_gate,
 )
 from room_x_content_planner import plan_x_content, x_weighted_length
@@ -61,6 +69,29 @@ def manifest(day: date) -> dict[str, object]:
 
 
 class RoomXScheduleWorkerTest(unittest.TestCase):
+    def test_promotion_plan_reads_current_fenced_generation_artifact(self) -> None:
+        day = date(2026, 11, 14)
+        with tempfile.TemporaryDirectory(dir=Path(".local/test-tmp")) as temporary, patch(
+            "room_x_schedule_worker.X_STATE_ROOT", Path(temporary)
+        ), patch(
+            "local_room_worker.github_token", return_value="token"
+        ), patch(
+            "local_room_worker.github_headers", return_value={"Authorization": "redacted"}
+        ), patch(
+            "room_orchestrator_worker.fetch_latest_manifest",
+            return_value=({"id": "run-1"}, manifest(day)),
+        ) as fetch_manifest:
+            result = run_once(
+                now=datetime(2026, 11, 14, 7, 10, tzinfo=JST),
+                apply=False,
+            )
+
+        self.assertEqual(result["status"], "planned")
+        fetch_manifest.assert_called_once()
+        kwargs = fetch_manifest.call_args.kwargs
+        self.assertEqual(kwargs["workflow_file"], "room-fenced-recovery.yml")
+        self.assertEqual(kwargs["artifact_name_prefix"], "room-fenced-recovery-")
+
     def test_profit_trial_gate_accepts_only_bounded_three_dollar_window(self) -> None:
         value = validate_profit_trial_gate(
             datetime(2026, 11, 20, 9, 10, tzinfo=JST),
@@ -151,6 +182,15 @@ class RoomXScheduleWorkerTest(unittest.TestCase):
         copy = build_promo_copy(candidate("https://item.rakuten.co.jp/shop/item"))
         self.assertIn("ベビー保湿剤", copy)
         self.assertIn("成分・使う部位・対象月齢", copy)
+        self.assertTrue(copy.endswith("#PR"))
+
+    def test_promo_copy_accepts_production_checkpoint_list(self) -> None:
+        value = candidate("https://item.rakuten.co.jp/shop/item", label="手押し車")
+        value["purchase_checkpoints"] = ["対象年齢", "本体サイズ", "重さ"]
+        copy = build_promo_copy(value)
+        self.assertIn("対象年齢・本体サイズ・重さ", copy)
+        self.assertNotIn("[", copy)
+        self.assertNotIn("'", copy)
         self.assertTrue(copy.endswith("#PR"))
 
     def test_promotion_window_is_only_first_fifteen_minutes_after_room_slot(self) -> None:
@@ -247,6 +287,70 @@ class RoomXScheduleWorkerTest(unittest.TestCase):
         self.assertEqual(
             canonical_item_url("https://item.rakuten.co.jp/Shop/Item/?scid=x"),
             "https://item.rakuten.co.jp/shop/item",
+        )
+
+    def test_current_room_cards_prioritize_matching_product_image(self) -> None:
+        sources = [
+            "https://shop.r10s.jp/other/cabinet/unrelated.jpg",
+            "https://shop.r10s.jp/edute/cabinet/labelwood/lbw-train_1.jpg",
+            "https://shop.r10s.jp/edute/cabinet/other-item.jpg",
+        ]
+        indexes = prioritized_card_indexes(
+            "https://item.rakuten.co.jp/edute/lbw-train",
+            sources,
+            max_details=3,
+        )
+        self.assertEqual(indexes, [1, 2, 0])
+
+    def test_authenticated_initial_state_supplies_owned_exact_detail(self) -> None:
+        payload = {
+            "loginStatus": {"is_login": True, "csrf_token": "not-read-by-test"},
+            "userData": {
+                "username": "tora_papa",
+                "recent_collects": [
+                    {
+                        "id": "1700401044971333",
+                        "item": {"url": "https://item.rakuten.co.jp/edute/lbw-train/"},
+                    }
+                ],
+            },
+        }
+        script = (
+            "window.__INITIAL_STATE__ = "
+            + json.dumps(payload, ensure_ascii=False)
+            + ';\nwindow.__REWIRED_SCHEMAS__ = ["pc"];'
+        )
+        details = detail_urls_from_initial_state_scripts(
+            [script], "https://item.rakuten.co.jp/edute/lbw-train"
+        )
+        self.assertEqual(
+            details,
+            ["https://room.rakuten.co.jp/tora_papa/1700401044971333"],
+        )
+
+    def test_initial_state_rejects_wrong_owner(self) -> None:
+        payload = {
+            "loginStatus": {"is_login": True},
+            "userData": {
+                "username": "other",
+                "recent_collects": [
+                    {
+                        "id": "1700401044971333",
+                        "item": {"url": "https://item.rakuten.co.jp/edute/lbw-train/"},
+                    }
+                ],
+            },
+        }
+        script = (
+            "window.__INITIAL_STATE__ = "
+            + json.dumps(payload)
+            + ';\nwindow.__REWIRED_SCHEMAS__ = ["pc"];'
+        )
+        self.assertEqual(
+            detail_urls_from_initial_state_scripts(
+                [script], "https://item.rakuten.co.jp/edute/lbw-train"
+            ),
+            [],
         )
 
 

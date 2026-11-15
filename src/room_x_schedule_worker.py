@@ -56,6 +56,8 @@ HELPFUL_TIMES = {
 WINDOW_MINUTES = 15
 MAX_TRIAL_DAYS = 28
 MAX_APPROVED_MONTHLY_BUDGET_USD = Decimal("3.00")
+ROOM_GENERATION_WORKFLOW = "room-fenced-recovery.yml"
+ROOM_GENERATION_ARTIFACT_PREFIX = "room-fenced-recovery-"
 
 
 class XScheduleError(RuntimeError):
@@ -128,8 +130,15 @@ def _canonical_product_url(url: str) -> str:
 
 def build_promo_copy(candidate: Mapping[str, Any]) -> str:
     label = str(candidate.get("short_product_label", "")).strip()
+    raw_checkpoints = candidate.get("purchase_checkpoints", "")
+    if isinstance(raw_checkpoints, (list, tuple)):
+        checkpoint_values = [str(item) for item in raw_checkpoints]
+    else:
+        checkpoint_values = str(raw_checkpoints).replace(",", " ").replace("・", " ").split()
     checkpoints = [
-        value for value in str(candidate.get("purchase_checkpoints", "")).split() if value
+        value.strip(" ・、,")
+        for value in checkpoint_values
+        if value.strip(" ・、,")
     ][:3]
     if not label or len(checkpoints) < 2:
         raise XScheduleError("promotion candidate lacks a product label or purchase checkpoints")
@@ -475,11 +484,14 @@ def run_once(*, now: datetime, apply: bool) -> dict[str, Any]:
                 session,
                 headers=github_headers(github_token()),
                 now=local,
+                workflow_file=ROOM_GENERATION_WORKFLOW,
+                artifact_name_prefix=ROOM_GENERATION_ARTIFACT_PREFIX,
             )
     plan = prepare_daily_plan(
         now=local,
         manifest=manifest,
         cards_payload=cards_payload,
+        state_root=X_STATE_ROOT,
     )
     if not in_publish_window(local, plan):
         return {"status": "planned", "plan_id": plan["plan_id"]}

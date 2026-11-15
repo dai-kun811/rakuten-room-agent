@@ -40,6 +40,8 @@ def fetch_latest_manifest(
     expected_run_id: str | None = None,
     expected_recovery_id: str | None = None,
     workflow_file: str = "daily.yml",
+    artifact_name: str = "room-generation-report",
+    artifact_name_prefix: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     response = session.get(
         f"{REPO_API}/actions/workflows/{workflow_file}/runs",
@@ -65,7 +67,14 @@ def fetch_latest_manifest(
             (
                 item
                 for item in artifacts.json().get("artifacts", [])
-                if item.get("name") == "room-generation-report" and not item.get("expired")
+                if (
+                    item.get("name") == artifact_name
+                    or (
+                        artifact_name_prefix
+                        and str(item.get("name", "")).startswith(artifact_name_prefix)
+                    )
+                )
+                and not item.get("expired")
             ),
             None,
         )
