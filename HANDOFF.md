@@ -8,6 +8,7 @@
 - 関連31テスト、専用一時領域で全回帰472テスト、`py_compile`、PowerShell構文、`git diff --check`、秘密情報差分scanに合格。全回帰初回は無関係なXテスト1件がWindows一時ファイルロックで失敗したが、新しい専用一時領域で同じ472件が全件合格。
 - commit `fc7df1b`（`Switch ROOM engagement to paired new follows`）を`origin/main`へ通常fast-forward push済み。push後のmain SHAは`fc7df1b4f60126d6cfd321a6460d3079adf53a4b`。
 - Windows本番タスク`RakutenROOMEngagement`だけを再登録。Enabled/Ready、次回2026-11-16 05:30 JST、75分上限、`IgnoreNew`、`StartWhenAvailable=True`、実行先repo `.venv`／`room_engagement_worker.py --apply --headful`を確認。11月15日分は旧仕様で06:30に50/50完了済みのため再実行せず、既存summaryも変更していない。
+- main pushで`Deploy ROOM routine page` run `43680479360`がstep開始前に失敗。原因はPagesがlegacy `gh-pages`配信なのに、workflowが保護環境`github-pages`へmainから直接deployしようとし、branch policyに拒否されたこと。環境保護は緩めず、既存配信元`gh-pages`へ表示差分10箇所だけをcommit `5a56790`で通常push。Pages build `1370967521`は`built`、公開URLは`今日の15件`、`dailyGoal: 15`、自動目標15の反映をHTTP 200で確認した。
 - 外部Claude独立監査は、リポジトリ内容の外部送信に対する追加承認がないため未実施。迂回せずローカルレビューと全回帰を実施した。新仕様の初回実動確認は11月16日05:30以後に、`follow_status=followed`が15、対応`like_status`が15、既フォロー加算0、別人いいね0、失敗0をDBコピー・台帳・ログで確認する。候補は育児関連検索／既存候補に限定されるが、最新投稿本文の意味的関連性を自動判定する機能は追加していない。
 
 ## 週次PMレポート 2026-11-15｜ROOM・X・収益・同ジャンル分析
