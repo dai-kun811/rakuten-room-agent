@@ -129,7 +129,7 @@ Windowsタスクスケジューラから朝・昼・晩に1回ずつ実行しま
 `src/room_engagement_worker.py`は育児関連候補を処理し、新規フォロー15人と、その同じ15人の最新投稿へのいいねを1対1で実行します。既にフォロー中の相手は新規フォロー数へ含めず、最新投稿が既にいいね済み・確認不能ならフォロー前に候補を見送ります。候補が不足した場合は画面に登録済みの公開検索から次の候補を補充します。操作結果は
 `engagement-ledger.jsonl`へ記録し、ルーティン画面の専用Chromeプロファイル内の進捗も更新します。
 
-実行後の15組を検証するときは、本番`operations.db`を停止状態で整合コピーし、コピーしたDB・同時点の台帳・サマリー・heartbeat・ログを`src/room_engagement_verifier.py`へ渡します。CLIは本番DB原本を拒否し、コピーをSQLite read-only／immutable／query-onlyで開きます。`--require-clean-log`を付けると、DB上の15組完全一致に加えて当日ERRORログ0件も必須になります。
+実行後の15組を検証するときは、worker停止とWAL不在を確認してから`src/room_engagement_snapshot.py`でDB・台帳・サマリー・heartbeat・ログの5証跡を固定し、そのコピーを`src/room_engagement_verifier.py`へ渡します。snapshotは本番DB原本をSQLiteで開かず、全原本のコピー前後とコピー本体のSHA-256一致を必須にします。verifierも本番DB原本を拒否し、コピーをSQLite read-only／immutable／query-onlyで開きます。`--require-clean-log`を付けると、DB上の15組完全一致に加えて当日ERRORログ0件も必須になります。
 ログイン画面や画像認証が表示された場合は、無理に続行せず停止します。
 完了・未完了にかかわらず、日付・件数・失敗数だけを公開用`routine-state`ブランチへ更新します。
 候補ID、ROOM URL、認証情報は公開しません。GitHub Pagesの上段「自動処理実績」はこの集計を表示し、
