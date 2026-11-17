@@ -22,6 +22,7 @@ from room_operation_contract import JST
 from room_x_api import DpapiTokenStore, XApiClient, XApiError
 from room_x_content_planner import (
     HELPFUL_PATTERN_BY_WEEKDAY,
+    HELPFUL_QUALITY_POLICY_VERSION,
     PROMO_WEEKDAYS,
     XContentPlanError,
     _require_plan_integrity,
@@ -36,6 +37,7 @@ STATE_ROOT = PROJECT_ROOT / ".local" / "room-worker"
 X_STATE_ROOT = STATE_ROOT / "x-publisher"
 DATABASE_PATH = STATE_ROOT / "operations.db"
 HELPFUL_CARDS_PATH = PROJECT_ROOT / "config" / "room-x-helpful-cards.json"
+HELPFUL_APPROVALS_PATH = PROJECT_ROOT / "config" / "room-x-helpful-approvals.json"
 TOKEN_STORE_PATH = X_STATE_ROOT / "oauth-token.dpapi"
 PROMO_SLOT_TIMES = {
     "morning": time(8, 5),
@@ -62,6 +64,43 @@ ROOM_GENERATION_ARTIFACT_PREFIX = "room-fenced-recovery-"
 
 class XScheduleError(RuntimeError):
     """A scheduling, input, or evidence gate failure."""
+
+
+def load_reviewed_helpful_cards(
+    catalog_path: Path = HELPFUL_CARDS_PATH,
+    approvals_path: Path = HELPFUL_APPROVALS_PATH,
+) -> dict[str, Any]:
+    """Load cards only with approvals issued under the current quality policy."""
+    try:
+        catalog = json.loads(Path(catalog_path).read_text(encoding="utf-8"))
+        approvals = json.loads(Path(approvals_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise XScheduleError("reviewed helpful card catalog cannot be read") from exc
+    cards = catalog.get("cards")
+    approval_cards = approvals.get("cards")
+    if catalog.get("version") != 1 or not isinstance(cards, list):
+        raise XScheduleError("helpful card catalog is invalid")
+    if (
+        approvals.get("version") != 1
+        or approvals.get("policy_version") != HELPFUL_QUALITY_POLICY_VERSION
+        or not isinstance(approval_cards, Mapping)
+    ):
+        raise XScheduleError("helpful creative approvals are missing or obsolete")
+    merged_cards: list[dict[str, Any]] = []
+    for value in cards:
+        if not isinstance(value, Mapping):
+            raise XScheduleError("helpful card catalog contains an invalid card")
+        card_id = str(value.get("card_id", ""))
+        approval = approval_cards.get(card_id)
+        if not isinstance(approval, Mapping):
+            raise XScheduleError(f"helpful card lacks quality approval: {card_id}")
+        merged = dict(value)
+        merged["quality_approval"] = dict(approval)
+        merged_cards.append(merged)
+    payload = dict(catalog)
+    payload["quality_policy_version"] = HELPFUL_QUALITY_POLICY_VERSION
+    payload["cards"] = merged_cards
+    return payload
 
 
 def validate_profit_trial_gate(
@@ -143,10 +182,30 @@ def build_promo_copy(candidate: Mapping[str, Any]) -> str:
     if not label or len(checkpoints) < 2:
         raise XScheduleError("promotion candidate lacks a product label or purchase checkpoints")
     checks = "・".join(checkpoints)
+    category = str(candidate.get("product_type", "")).strip().lower()
+    if category in {"baby_care", "baby_skincare", "baby_bath"}:
+        scene = "赤ちゃんに使うものだから"
+    elif category in {"feeding", "nursing", "baby_food"}:
+        scene = "授乳や食事で使うものだから"
+    elif category in {"sleep", "bedding", "swaddle"}:
+        scene = "毎日のねんねで使うものだから"
+    elif category in {"outing", "travel", "stroller"}:
+        scene = "子連れ外出で使うものだから"
+    else:
+        scene = "育児で繰り返し使うものだから"
+    identity = str(
+        candidate.get("normalized_url") or candidate.get("product_url") or label
+    ).encode("utf-8")
+    hooks = (
+        f"{label}選び、最初に比べたい3項目。",
+        f"{label}で迷ったら、まず確認したい3項目。",
+        f"買う前に見落としたくない、{label}の3チェック。",
+    )
+    hook = hooks[int(hashlib.sha256(identity).hexdigest()[:2], 16) % len(hooks)]
     return (
-        f"{label}を選ぶ前に確認したいポイント。\n"
-        f"{checks}を見比べると、家庭に合うか判断しやすくなります。\n"
-        "#PR"
+        f"{hook}\n"
+        f"見るのは「{checks}」。{scene}、使う場面に合うかを先に確認しました。\n"
+        "#育児グッズ #PR"
     )
 
 
@@ -447,10 +506,19 @@ def _helpful_media_path(plan: Mapping[str, Any], cards_payload: Mapping[str, Any
     card_id = str(card.get("card_id", ""))
     for item in cards_payload.get("cards", []):
         if isinstance(item, Mapping) and str(item.get("card_id", "")) == card_id:
+            approval = item.get("quality_approval")
+            if not isinstance(approval, Mapping):
+                raise XScheduleError("helpful visual lacks quality approval")
+            expected_hash = str(approval.get("visual_sha256", "")).lower()
+            if expected_hash != str(card.get("visual_sha256", "")).lower():
+                raise XScheduleError("helpful visual approval does not match the plan")
             value = Path(str(item.get("visual_path", "")))
             path = value if value.is_absolute() else PROJECT_ROOT / value
             if not path.is_file():
                 raise XScheduleError("reviewed helpful visual is missing")
+            actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual_hash != expected_hash:
+                raise XScheduleError("reviewed helpful visual hash does not match")
             return path
     raise XScheduleError("helpful plan card is missing from the reviewed catalog")
 
@@ -472,10 +540,7 @@ def run_once(*, now: datetime, apply: bool) -> dict[str, Any]:
     manifest = None
     existing_plan_path = X_STATE_ROOT / "plans" / f"{local.date().isoformat()}.json"
     if local.weekday() not in PROMO_WEEKDAYS:
-        try:
-            cards_payload = json.loads(HELPFUL_CARDS_PATH.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise XScheduleError("reviewed helpful card catalog cannot be read") from exc
+        cards_payload = load_reviewed_helpful_cards()
     elif not existing_plan_path.is_file():
         import requests
 

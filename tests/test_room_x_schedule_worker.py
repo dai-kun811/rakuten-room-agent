@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime
@@ -22,9 +23,11 @@ from room_x_room_evidence import (
     prioritized_card_indexes,
 )
 from room_x_schedule_worker import (
+    _helpful_media_path,
     XScheduleError,
     build_promo_copy,
     in_publish_window,
+    load_reviewed_helpful_cards,
     posted_database_evidence,
     prepare_daily_plan,
     release_promotion_from_evidence,
@@ -127,9 +130,7 @@ class RoomXScheduleWorkerTest(unittest.TestCase):
             )
 
     def test_reviewed_catalog_supplies_unique_visual_ready_cards_for_four_weeks(self) -> None:
-        catalog = json.loads(
-            Path("config/room-x-helpful-cards.json").read_text(encoding="utf-8")
-        )
+        catalog = load_reviewed_helpful_cards()
         for pattern in (
             "micro_hack_v1",
             "saveable_checklist_v1",
@@ -164,6 +165,26 @@ class RoomXScheduleWorkerTest(unittest.TestCase):
             self.assertTrue(Path(source["visual_path"]).is_file())
         self.assertEqual(len(planned), 16)
         self.assertEqual(len(set(planned)), 16)
+
+    def test_helpful_media_must_match_the_approved_sha256(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(".local/test-tmp")) as temporary:
+            visual = Path(temporary) / "visual.png"
+            visual.write_bytes(b"approved visual")
+            digest = hashlib.sha256(visual.read_bytes()).hexdigest()
+            plan = {"card": {"card_id": "card-1", "visual_sha256": digest}}
+            payload = {
+                "cards": [
+                    {
+                        "card_id": "card-1",
+                        "visual_path": str(visual.resolve()),
+                        "quality_approval": {"visual_sha256": digest},
+                    }
+                ]
+            }
+            self.assertEqual(_helpful_media_path(plan, payload), visual.resolve())
+            visual.write_bytes(b"changed after approval")
+            with self.assertRaisesRegex(XScheduleError, "hash does not match"):
+                _helpful_media_path(plan, payload)
 
     def test_promotion_plan_preselects_morning_before_room_publication(self) -> None:
         day = date(2026, 11, 14)

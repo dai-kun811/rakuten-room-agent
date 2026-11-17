@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "policy_version": "x-helpful-v2-20261117",
+  "reviewed_at": "2026-11-17",
+  "reviewed_by": "codex_visual_audit",
+  "cards": {
+    "micro-01-exit-basket": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "bd15be6186ba7876c186382f0501f321cdcefaa109e98334443ece095217ca77"},
+    "micro-02-cleanup-zone": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "813951f399f1cf72ce1d5bfd1044e4d61126a0e56749a629f7f2a7c53ea32930"},
+    "micro-03-change-station": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "4895ecf0475c007b26e27f08ba73f76fc758bd2c5a1fa666aa98130190b40762"},
+    "micro-04-bedtime-set": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "63d3695465f9e507cf581b1d9e2a9ac0af4515c9fd98bdfa125535cbef216628"},
+    "check-01-nursery-bag": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "51e7ae120f7f2b2d7edbc5bac79429134787e42e72ecf55b5175336703c4fc44"},
+    "check-02-outing-bag": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "e6e67965a99b1ea1ab82768685869d5fa567abbeb5097a5c474d4fdc528146df"},
+    "check-03-toy-choice": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "bb17ccea98fa882596804749654c7fa44062eb95dcef7fd823cda4de3230a01f"},
+    "check-04-rainy-day": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "a5e392931b08d38a9bd4d136f07f8579cf9c91b7bd9899fc48a11985e89710cf"},
+    "before-01-morning-zone": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "9338055917dfdfaf2ebfc5f8c39305bb3255e0f737ecf284d7c5d145335cd55d"},
+    "before-02-paper-tray": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "0c1ecabe65fe10adc554b3955178c015a7dd32f0eafc93ef890421836f12b966"},
+    "before-03-snack-reset": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "4273c38faaf6c77cdcd43546299bae0e30e997404f6328fb943b1a4a8ff54982"},
+    "before-04-bath-setup": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "4415c8a923fb1f25c395a82c41349d09d8738d8c3cdbd8a46259c81f5ee112e5"},
+    "talk-01-lost-item": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "712f6d2da22cf3ee721f4d147d221f0c3e36873e6f994a902e21e40ee8256d0e"},
+    "talk-02-cleanup-cue": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "3ad15189c3d8318ae454bbf3b55531f31415d07d6d641ca81e8a33a7d8fb2f38"},
+    "talk-03-spare-stock": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "77de8b6c4ebf8cd1fb6a6f64e9549b3e85c2c2a89d6eeba9db080a3a473ec997"},
+    "talk-04-weekend-play": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "964df45edd78133f605b8102374eb8f8b28f32568c10233f1661e6f20894f2a7"},
+    "micro-05-return-tray": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "136b6a75cf0b6af00f86befd741c5223ac569a62507cc3d5dddb3b71959049e1"},
+    "check-05-overnight": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "a203de652cf5dc54ce08e052add5cbdb719046fd2cc6b2edc8837ed01201c82e"},
+    "before-05-entry-reset": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "91e396193ab8e33cfb01b29a84abee66117555f657b48db29779e389ae26b8fa"},
+    "talk-05-family-label": {"policy_version": "x-helpful-v2-20261117", "status": "approved", "reviewed_at": "2026-11-17", "visual_sha256": "1f5408a154a270a1acb6c57ac7cbb746507ff3f7b2c7da3f856ea8a58f9fee7a"}
+  }
+}

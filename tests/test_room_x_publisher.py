@@ -90,6 +90,12 @@ def helpful_document(day: date) -> dict[str, object]:
                     "source_urls": ["https://example.org/source"],
                     "claims_reviewed": True,
                     "original_visual_ready": True,
+                    "quality_approval": {
+                        "policy_version": "x-helpful-v2-20261117",
+                        "status": "approved",
+                        "reviewed_at": "2026-11-17",
+                        "visual_sha256": "a" * 64,
+                    },
                 }
             ],
         }

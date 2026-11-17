@@ -30,6 +30,7 @@ HELPFUL_PATTERN_BY_WEEKDAY = {
     4: "before_after_setup_v1",    # Friday
     6: "conversation_prompt_v1",   # Sunday
 }
+HELPFUL_QUALITY_POLICY_VERSION = "x-helpful-v2-20261117"
 MIN_PROMO_QUALITY = 85
 MAX_X_TEXT_LENGTH = 280
 FORBIDDEN_CLAIMS = (
@@ -79,6 +80,10 @@ class HelpfulCard:
     source_urls: tuple[str, ...]
     claims_reviewed: bool
     original_visual_ready: bool
+    creative_policy_version: str
+    creative_review_status: str
+    creative_reviewed_at: str
+    visual_sha256: str
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -160,6 +165,31 @@ def _helpful_card(value: Mapping[str, Any]) -> HelpfulCard:
     if not isinstance(source_urls, list) or not source_urls:
         raise XContentPlanError("helpful source_urls must not be empty")
     sources = tuple(_https_url(item, "helpful source URL") for item in source_urls)
+    approval = value.get("quality_approval")
+    if not isinstance(approval, Mapping):
+        raise XContentPlanError("helpful card lacks a versioned quality approval")
+    creative_policy_version = _text(
+        approval.get("policy_version"), "creative policy version"
+    )
+    creative_review_status = _text(
+        approval.get("status"), "creative review status"
+    )
+    creative_reviewed_at = _text(
+        approval.get("reviewed_at"), "creative reviewed_at"
+    )
+    visual_sha256 = _text(approval.get("visual_sha256"), "visual_sha256").lower()
+    if creative_policy_version != HELPFUL_QUALITY_POLICY_VERSION:
+        raise XContentPlanError("helpful card quality approval uses an obsolete policy")
+    if creative_review_status != "approved":
+        raise XContentPlanError("helpful card has not passed creative review")
+    try:
+        reviewed_on = date.fromisoformat(creative_reviewed_at)
+    except ValueError as exc:
+        raise XContentPlanError("creative reviewed_at must be an ISO date") from exc
+    if reviewed_on < date(2026, 11, 17):
+        raise XContentPlanError("helpful card creative review predates the current policy")
+    if not re.fullmatch(r"[0-9a-f]{64}", visual_sha256):
+        raise XContentPlanError("visual_sha256 must be a SHA-256 digest")
     card = HelpfulCard(
         card_id=_text(value.get("card_id"), "card_id"),
         pattern_id=pattern_id,
@@ -170,6 +200,10 @@ def _helpful_card(value: Mapping[str, Any]) -> HelpfulCard:
         source_urls=sources,
         claims_reviewed=value.get("claims_reviewed") is True,
         original_visual_ready=value.get("original_visual_ready") is True,
+        creative_policy_version=creative_policy_version,
+        creative_review_status=creative_review_status,
+        creative_reviewed_at=creative_reviewed_at,
+        visual_sha256=visual_sha256,
     )
     if not card.claims_reviewed:
         raise XContentPlanError("helpful claims must be reviewed")
@@ -188,8 +222,11 @@ def _helpful_card(value: Mapping[str, Any]) -> HelpfulCard:
 
 
 def render_helpful_copy(card: HelpfulCard) -> str:
-    numbered = "\n".join(f"{index}. {point}" for index, point in enumerate(card.points, 1))
-    text = f"{card.hook}\n\n{numbered}\n\n{card.caution}\n\n{card.question}"
+    bullets = "\n".join(f"・{point}" for point in card.points)
+    text = (
+        f"{card.hook}\n\n{bullets}\n\n"
+        f"{card.caution}\n\n{card.question}\n#育児の工夫"
+    )
     if x_weighted_length(text) > MAX_X_TEXT_LENGTH:
         raise XContentPlanError("helpful copy exceeds the X text limit")
     return text

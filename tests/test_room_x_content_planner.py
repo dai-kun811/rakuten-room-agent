@@ -37,6 +37,12 @@ def helpful_card(pattern_id: str, card_id: str = "card-1") -> dict:
         "source_urls": ["https://example.org/parenting-source"],
         "claims_reviewed": True,
         "original_visual_ready": True,
+        "quality_approval": {
+            "policy_version": "x-helpful-v2-20261117",
+            "status": "approved",
+            "reviewed_at": "2026-11-17",
+            "visual_sha256": "a" * 64,
+        },
     }
 
 
@@ -337,6 +343,45 @@ class RoomXContentPlannerTest(unittest.TestCase):
             broken = dict(card)
             broken["hook"] = bad_hook
             with self.assertRaisesRegex(XContentPlanError, "promotion or links"):
+                plan_x_content(
+                    {
+                        "version": 1,
+                        "plan_date": plan_day.isoformat(),
+                        "recent_promoted_product_ids": [],
+                        "recent_helpful_content_hashes": [],
+                        "helpful_cards": [broken],
+                    }
+                )
+
+    def test_helpful_card_requires_current_versioned_creative_approval(self) -> None:
+        plan_day = date(2026, 11, 11)
+        expected = HELPFUL_PATTERN_BY_WEEKDAY[plan_day.weekday()]
+        base = helpful_card(expected)
+        cases = (
+            ({key: value for key, value in base.items() if key != "quality_approval"}, "lacks a versioned"),
+            (
+                {
+                    **base,
+                    "quality_approval": {
+                        **base["quality_approval"],
+                        "policy_version": "x-helpful-v1",
+                    },
+                },
+                "obsolete policy",
+            ),
+            (
+                {
+                    **base,
+                    "quality_approval": {
+                        **base["quality_approval"],
+                        "visual_sha256": "not-a-digest",
+                    },
+                },
+                "SHA-256",
+            ),
+        )
+        for broken, message in cases:
+            with self.assertRaisesRegex(XContentPlanError, message):
                 plan_x_content(
                     {
                         "version": 1,
