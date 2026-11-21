@@ -119,6 +119,23 @@ UNSUPPORTED_BABY_CARRIER_TERMS = [
 NON_WEARABLE_SWADDLE_TERMS = ["ブランケット", "マルチクロス"]
 WEARABLE_SWADDLE_TERMS = ["ファスナー", "スリーパー", "モロー反射", "手が出せる", "足が出せる", "ねくるみ"]
 
+# Generic skin-care terms such as "保湿" and "ローション" also appear in
+# adult cosmetics.  Search/category context and brand names are not enough to
+# claim that the sold item is for a baby, so require that audience to be
+# explicit in the listing name before using baby-care copy.
+GENERIC_SKINCARE_TERMS = ["保湿", "ローション", "クリーム", "ワセリン", "化粧水", "美容液"]
+EXPLICIT_BABY_SKINCARE_TERMS = [
+    "ベビー",
+    "baby",
+    "赤ちゃん用",
+    "あかちゃん用",
+    "新生児用",
+    "乳児用",
+    "0ヶ月",
+    "0ヵ月",
+]
+STRONG_SWADDLE_IDENTITY_TERMS = ["モロー反射", "ねくるみ", "手が出せる", "足が出せる", "ファスナー"]
+
 BABY_BEDDING_BASE_PATTERN = r"(?:抱っこ布団|ねんねクッション|ベビー布団)"
 BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
     rf"(?:"
@@ -245,9 +262,18 @@ def classify_room_product_type(product: Product) -> str:
         text, ROOM_PRODUCT_TYPE_KEYWORDS["soothing_plush"]
     ):
         return "sleep_light"
-    # A listing can mention both "sleeper" and generic okurumi wording. Keep
-    # explicitly named swaddles first, then treat a named sleeper as sleepwear
-    # instead of letting cross-sell care terms change its identity.
+    # A sleeper listing can append "swaddle" as an SEO term even when the sold
+    # item is plainly sleepwear. Without a swaddle-specific construction/use
+    # signal the title is ambiguous, so keep it in review instead of choosing
+    # a potentially misleading automatic label.
+    if (
+        "スリーパー" in name_text
+        and "スワドル" in name_text
+        and not contains_any(name_text, STRONG_SWADDLE_IDENTITY_TERMS)
+    ):
+        return "unknown"
+    # Keep a genuinely explicit swaddle first when the title includes its
+    # swaddle-specific identity, then handle ordinary sleeper sleepwear.
     if contains_any(name_text, ["スワドル", "モロー反射", "ねくるみ"]):
         return "swaddle"
     if contains_any(name_text, ROOM_PRODUCT_TYPE_KEYWORDS["baby_sleep"]):
@@ -274,6 +300,12 @@ def classify_room_product_type(product: Product) -> str:
         return "diaper"
     for product_type in ROOM_PRODUCT_TYPE_PRIORITY:
         if contains_any(text, ROOM_PRODUCT_TYPE_KEYWORDS[product_type]):
+            if (
+                product_type == "baby_care"
+                and contains_any(name_text, GENERIC_SKINCARE_TERMS)
+                and not contains_any(name_text, EXPLICIT_BABY_SKINCARE_TERMS)
+            ):
+                return "unknown"
             return product_type
     return "unknown"
 

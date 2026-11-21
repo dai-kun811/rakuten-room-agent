@@ -187,6 +187,40 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
             self.assertEqual(classify_product_type(product), expected, name)
 
+    def test_adult_skincare_brand_is_not_treated_as_baby_moisturizer(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name=(
+                "【公式】 あかちゃんのほっぺ PureMoist 20ml 化粧水 美容液 "
+                "保湿 乾燥肌 敏感肌 美白 エイジングケア 30代 40代 50代"
+            ),
+            caption="洗顔後に顔全体と首・デコルテへ使う高保湿化粧水",
+            catchcopy="美容液処方の高保湿化粧水 赤ちゃんのほっぺ",
+            shop_name="化粧水専門店",
+        )
+
+        self.assertEqual(classify_product_type(product), "unknown")
+
+    def test_explicit_baby_skincare_name_remains_supported(self) -> None:
+        product = replace(
+            product_for("baby_care"),
+            name="ベビーローション 0ヵ月から 顔・全身用 保湿",
+            caption="入浴後の赤ちゃんの保湿ケアに使うローション",
+            catchcopy="新生児用のベビー保湿剤",
+        )
+
+        self.assertEqual(classify_product_type(product), "baby_care")
+
+    def test_skincare_guard_does_not_reject_cream_colored_swaddle(self) -> None:
+        product = replace(
+            product_for("swaddle"),
+            name="おくるみ スワドル クリーム色 新生児用",
+            caption="コットン素材のおくるみ",
+            catchcopy="夜の着替えに使うスワドル",
+        )
+
+        self.assertEqual(classify_product_type(product), "swaddle")
+
     def test_magnetic_learning_poster_is_not_classified_as_blocks(self) -> None:
         name = "あいうえお表 ひらがな お風呂ポスター マグネットポスター"
         product = replace(product_for("wipes"), name=name, caption=name, catchcopy=name)
@@ -440,6 +474,20 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             context=GenerationContext(),
         )
         self.assertEqual(generated.status, "ready", generated.quality_errors)
+
+    def test_named_sleeper_with_trailing_swaddle_seo_term_requires_review(self) -> None:
+        name = (
+            "厚手タイプ 本物の綿毛布スリーパー 袖なし nuQun ベビー毛布 冬 "
+            "キッズ 着る毛布 スリーパー 赤ちゃん パジャマ 新生児 スワドル ベスト"
+        )
+        product = replace(
+            product_for("baby_sleep"),
+            name=name,
+            caption="綿100%の袖なしスリーパー。サイズ表と洗濯表示あり。",
+            catchcopy="日本製の綿毛布スリーパー",
+        )
+
+        self.assertEqual(classify_product_type(product), "unknown")
 
     def test_requested_non_diaper_products_do_not_become_diaper(self) -> None:
         cases = [
