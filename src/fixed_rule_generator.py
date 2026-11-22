@@ -1530,7 +1530,7 @@ def hashtags_for(
         "nursing_support": ["#授乳準備", "#育児クッション", "#ミルク育児"],
         "baby_bedding": ["#ベビー寝具", "#寝かしつけ準備"],
         "baby_care": ["#ベビーケア", "#毎日の育児", "#赤ちゃんケア", "#育児ケア"],
-        "baby_sleep": ["#夜の育児", "#ベビー寝具", "#スリーパー"],
+        "baby_sleep": ["#夜の育児", "#ベビー寝具", "#スリーパー", "#寝る前準備"],
         "diaper": ["#おむつ替え", "#サイズ選び"],
         "formula": ["#授乳準備", "#ミルク育児"],
         "sound_blocks": ["#手先遊び", "#おうち遊び"],
@@ -3130,11 +3130,18 @@ def finalize_grounded_body_length(
         return body
     joined = "・".join(checkpoints[:3])
     label = attributes.short_product_label
-    additions = [
-        f"{joined}を基準にすると、家庭で使う場所や手入れの流れに合う{label}か整理できます。",
-        f"{label}を選ぶ時は、{joined}を家庭の使い方と照らし合わせることが大切です。",
-        f"家庭で扱う場面を考えながら、{joined}を{label}選びの基準にできます。",
-    ]
+    if body.count(label) >= 2:
+        additions = [
+            f"{joined}を基準にすると、家庭で使う場所や手入れの流れに合うか整理できます。",
+            f"購入前に、{joined}を家庭の使い方と照らし合わせることが大切です。",
+            f"家庭で扱う場面を考えながら、{joined}を選ぶ基準にできます。",
+        ]
+    else:
+        additions = [
+            f"{joined}を基準にすると、家庭で使う場所や手入れの流れに合う{label}か整理できます。",
+            f"{label}を選ぶ時は、{joined}を家庭の使い方と照らし合わせることが大切です。",
+            f"家庭で扱う場面を考えながら、{joined}を{label}選びの基準にできます。",
+        ]
     sentences = split_sentences(body)
     for offset in range(len(additions)):
         addition = additions[(variant + offset) % len(additions)]

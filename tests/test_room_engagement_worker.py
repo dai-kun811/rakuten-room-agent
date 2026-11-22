@@ -534,11 +534,38 @@ class RoomEngagementWorkerTest(unittest.TestCase):
 
         self.assertEqual([candidate.id for candidate in candidates], ["room_new"])
 
+    def test_discover_candidates_stops_after_enough_fresh_api_candidates(self) -> None:
+        class FakeDiscoveryPage:
+            def set_default_timeout(self, _timeout: int) -> None:
+                pass
+
+            def set_default_navigation_timeout(self, _timeout: int) -> None:
+                pass
+
+        first = [
+            candidate_from_room_url(f"https://room.rakuten.co.jp/room_new_{index}/items")
+            for index in range(3)
+        ]
+        page = FakeDiscoveryPage()
+        with patch(
+            "room_engagement_worker.discover_candidates_from_api",
+            return_value=[candidate for candidate in first if candidate is not None],
+        ) as api:
+            candidates = discover_candidates(
+                page,
+                ["https://room.rakuten.co.jp/search/user?keyword=one", "https://room.rakuten.co.jp/search/user?keyword=two"],
+                max_candidates=2,
+            )
+
+        self.assertEqual(len(candidates), 3)
+        api.assert_called_once()
+
     def test_loads_current_routine_candidates_and_search_links(self) -> None:
         candidates, search_urls = load_routine_sources()
         self.assertGreaterEqual(len(candidates), 50)
         self.assertGreaterEqual(len(search_urls), 30)
         self.assertEqual(len({item.id for item in candidates}), len(candidates))
+        self.assertIn("keyword=%E3%83%99%E3%83%93%E3%83%BC%E3%82%AB%E3%83%BC", search_urls[0])
         self.assertTrue(any("keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99" in url for url in search_urls))
 
     def test_extract_json_constant_rejects_missing_data(self) -> None:

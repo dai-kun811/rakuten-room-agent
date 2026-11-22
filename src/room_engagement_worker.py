@@ -47,6 +47,12 @@ API_SEARCH_TIMEOUT_SECONDS = 20
 MAX_API_SEARCH_PAGES = 2
 BROWSER_SEARCH_TIMEOUT_MS = 8_000
 MAX_DISCOVERY_SEARCH_URLS = 20
+PRIORITY_SEARCH_URLS = [
+    "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E3%82%AB%E3%83%BC",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%85%A5%E5%9C%92%E6%BA%96%E5%82%99",
+    "https://room.rakuten.co.jp/search/user?keyword=%E6%8A%B1%E3%81%A3%E3%81%93%E7%B4%90",
+    "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E7%A5%9D%E3%81%84",
+]
 SUPPLEMENTAL_SEARCH_URLS = [
     "https://room.rakuten.co.jp/search/user?keyword=%E5%87%BA%E7%94%A3%E6%BA%96%E5%82%99&rank=6%2C5%2C4%2C3",
     "https://room.rakuten.co.jp/search/user?keyword=%E3%83%99%E3%83%93%E3%83%BC%E7%94%A8%E5%93%81&rank=6%2C5%2C4%2C3",
@@ -132,7 +138,7 @@ def load_routine_sources(path: Path = ROUTINE_SOURCE) -> tuple[list[RoutineCandi
         if item.get("id") and item.get("url")
     ]
     search_urls = re.findall(r'url:\s*"(https://room\.rakuten\.co\.jp/search/user[^"]+)"', search_block.group(1))
-    search_urls = list(dict.fromkeys([*search_urls, *SUPPLEMENTAL_SEARCH_URLS]))
+    search_urls = list(dict.fromkeys([*PRIORITY_SEARCH_URLS, *search_urls, *SUPPLEMENTAL_SEARCH_URLS]))
     return candidates, search_urls
 
 
@@ -569,6 +575,7 @@ def discover_candidates(
     search_urls: Iterable[str],
     *,
     exclude_ids: Iterable[str] = (),
+    max_candidates: int | None = None,
 ) -> list[RoutineCandidate]:
     logger = logging.getLogger("room-engagement-worker")
     found: dict[str, RoutineCandidate] = {}
@@ -586,6 +593,8 @@ def discover_candidates(
         fresh_api_candidates = [candidate for candidate in api_candidates if candidate.id not in excluded]
         for candidate in fresh_api_candidates:
             found[candidate.id] = candidate
+        if max_candidates is not None and len(found) >= max_candidates:
+            break
         if fresh_api_candidates:
             continue
 
@@ -633,6 +642,8 @@ def discover_candidates(
                     found[candidate.id] = candidate
         except Exception as exc:
             logger.warning("Candidate browser discovery skipped index=%s error=%s", index, type(exc).__name__)
+        if max_candidates is not None and len(found) >= max_candidates:
+            break
     return list(found.values())
 
 
@@ -920,6 +931,7 @@ def run(*, apply: bool, goal: int, min_delay: float, max_delay: float, headless:
                         work_page,
                         search_urls,
                         exclude_ids=completed_or_attempted_ids,
+                        max_candidates=max(goal - followed, goal - liked),
                     )
                     for item in discovered:
                         known[item.id] = item

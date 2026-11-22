@@ -1643,6 +1643,38 @@ class FixedRuleGeneratorTest(unittest.TestCase):
             short_body,
         )
 
+    def test_final_length_repair_does_not_create_third_product_label(self) -> None:
+        attributes = extract_attributes(product_for("baby_sleep"))
+        label = attributes.short_product_label
+        short_body = (
+            f"【{label}｜夜の着替え準備】夜に使う布ものはサイズが気になりますよね。"
+            f"{label}なら商品ページの素材を確認できます。"
+            "サイズ表と洗濯表示を読み、今の体格と家庭の手入れに合うか判断できます。"
+            "寝る前に着せる物で迷う時間を減らせる一枚です。"
+        )
+
+        repaired = finalize_grounded_body_length(short_body, attributes, variant=1)
+
+        self.assertGreaterEqual(len(repaired), 150)
+        self.assertLessEqual(repaired.count(label), 2)
+
+    def test_baby_sleep_hashtag_fallback_still_produces_five_tags(self) -> None:
+        product = replace(
+            product_for("baby_sleep"),
+            name="ベビー スリーパー",
+            caption="ベビー スリーパー 夜",
+            catchcopy="ベビー スリーパー 夜",
+        )
+        attributes = extract_attributes(product)
+
+        tags = hashtags_for(
+            attributes,
+            body="【スリーパー｜夜の準備】夜に着せる一枚を選びます。",
+            title="スリーパー｜夜の準備",
+        )
+
+        self.assertEqual(tags, ["#スリーパー", "#夜の育児", "#ベビー寝具", "#寝る前準備", "#とらパパ厳選"])
+
     def test_identical_variant_cycle_stops_before_the_64_attempt_ceiling(self) -> None:
         product = product_for("wipes")
         scored = score_product(product, date(2026, 10, 26))
