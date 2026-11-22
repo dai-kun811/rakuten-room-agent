@@ -145,6 +145,19 @@ BABY_BEDDING_COVER_ONLY_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+# A stroller cover can contain broad search terms such as "storage", "bag",
+# and "carry" even though it wraps the stroller itself rather than storing
+# diapers or drinks. The stroller-storage copy assumes an organizer attached
+# to the stroller, so explicit cover identities must remain review-only until
+# they have dedicated attributes and copy rules.
+STROLLER_COVER_IDENTITY_TERMS = [
+    "ベビーカーカバー",
+    "ベビーカー用カバー",
+    "ベビーカー保護カバー",
+    "ベビーカー収納カバー",
+    "ベビーカーレインカバー",
+]
+
 ROOM_PRODUCT_TYPE_PRIORITY = [
     "swaddle",
     "nursing_support",
@@ -245,6 +258,8 @@ def classify_room_product_type(product: Product) -> str:
     # the automatic copy.  Keep an actual futon/cushion sold with a cover
     # eligible, but reject listings whose named product is the cover itself.
     if BABY_BEDDING_COVER_ONLY_PATTERN.search(name_text) and "カバー付き" not in name_text:
+        return "unknown"
+    if contains_any(name_text, STROLLER_COVER_IDENTITY_TERMS):
         return "unknown"
     # The listed product is formula even when a bonus pack of wipes is named
     # in the same title.  Prefer the core product named explicitly over the

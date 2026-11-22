@@ -201,6 +201,19 @@ class MainSelectionTest(unittest.TestCase):
         self.assertEqual(classify_product_type(cover.product), "unknown")
         self.assertFalse(is_supported_room_product(cover.product))
 
+    def test_stroller_cover_is_unsupported_before_generation(self) -> None:
+        cover = scored(
+            (
+                "ベビーカーカバー 収納 A型 B型 保管 軽量 汚れ防止 "
+                "持ち運び ハンドル付き ベビーカー カバー バッグ"
+            ),
+            "https://example.com/stroller-cover",
+            100,
+        )
+
+        self.assertEqual(classify_product_type(cover.product), "unknown")
+        self.assertFalse(is_supported_room_product(cover.product))
+
     def test_diversify_products_mixes_daily_pain_and_discovery_axes(self) -> None:
         candidates = [
             scored("おしりふき 厚手 80枚", "https://example.com/wipes", 100),
