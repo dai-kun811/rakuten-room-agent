@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "routine_date": "2026-11-22",
-  "followed": 15,
-  "liked": 15,
+  "routine_date": "2026-11-23",
+  "followed": 2,
+  "liked": 2,
   "goal": 15,
-  "attempted": 16,
+  "attempted": 2,
   "failures": 0,
-  "completed": true,
-  "updated_at": "2026-11-22T06:01:26.477883+09:00"
+  "completed": false,
+  "updated_at": "2026-11-23T05:39:51.849200+09:00"
 }
