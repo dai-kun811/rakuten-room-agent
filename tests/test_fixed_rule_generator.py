@@ -310,6 +310,31 @@ class FixedRuleGeneratorTest(unittest.TestCase):
 
         self.assertEqual(classify_product_type(product), "unknown")
 
+    def test_nursing_cushion_seo_body_pillow_term_does_not_invent_long_pillow(self) -> None:
+        product = replace(
+            product_for("nursing_support"),
+            name=(
+                "エルゴ 授乳クッション ナチュラルカーブ ナーシングピロー "
+                "新生児 授乳枕 クッション 抱き枕 硬め カバー付き"
+            ),
+            caption=(
+                "授乳専用設計のウレタンフォームで、赤ちゃんの頭を支える高さと硬さを保つ。"
+                "カバーは取り外して洗濯可能。"
+            ),
+            catchcopy="親子の授乳を支える専用設計の授乳クッション",
+            url="https://example.com/nursing/seo-body-pillow-term",
+        )
+
+        generated = FixedRulePostGenerator().generate(
+            score_product(product, date(2026, 11, 28)),
+            context=GenerationContext(),
+        )
+
+        self.assertEqual(generated.status, "ready", generated.quality_errors)
+        self.assertNotIn("ロング抱き枕", generated.body)
+        self.assertNotIn("授乳にも使える抱き枕", generated.body)
+        self.assertIn("授乳クッション", generated.title + generated.body)
+
     def test_breast_pump_is_not_treated_as_bottle_holder_support(self) -> None:
         product = replace(
             product_for("nursing_support"),

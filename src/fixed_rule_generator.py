@@ -1101,9 +1101,6 @@ def confirmed_feature_phrase(attributes: ProductAttributes) -> str:
             return f"{'・'.join(parts)}{attributes.short_product_label}"
         return attributes.short_product_label
     if attributes.product_type == "nursing_support":
-        if any(term in source for term in ["妊娠枕", "抱き枕", "抱きまくら"]):
-            shape = "C字型" if any(term in source for term in ["c型", "c字"]) else ""
-            return f"授乳にも使える{shape}ロング抱き枕"
         details = [
             label
             for key, label in [
